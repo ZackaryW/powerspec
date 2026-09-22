@@ -1,0 +1,9 @@
+traits = ["@builtin/python-simple-cli"]
+skills = ["@builtin/pspec-tdd"]
+
+[vars]
+language = "python"
+cli_framework = "typer"
+build_tool = "uv"
+test_runner = "pytest"
+test_command = "uv run pytest"

@@ -1,0 +1,2 @@
+global = true
+skills = ["@builtin/pspec-skill-bootstrap"]

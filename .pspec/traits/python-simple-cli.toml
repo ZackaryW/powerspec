@@ -1,0 +1,54 @@
+# Compile-time configuration is non-interactive.
+# Precedence: consumer config.toml, selected profile, global profile, trait default.
+# current.toml supplies runtime choices only; it does not affect compilation.
+# Missing or invalid required values produce configuration diagnostics, not prompts.
+[[compiletime]]
+id = "cli_framework"
+type = "string"
+choices = ["typer", "click"]
+default = "typer"
+
+[[compiletime]]
+id = "build_tool"
+type = "string"
+default = "uv"
+
+[[compiletime]]
+id = "test_runner"
+type = "string"
+choices = ["pytest", "unittest"]
+default = "pytest"
+
+[[compiletime]]
+id = "test_command"
+type = "string"
+default = "uv run pytest"
+
+[[compiletime]]
+id = "utility_path"
+type = "string"
+
+[[attach.context]]
+body = """
+This project is a small Python CLI using <cli_framework>, with <build_tool> as its build tool and <test_runner> tests run through `<test_command>`. Follow the existing package layout, dependency management, and framework conventions. Configuration describes the intended setup; verify available tooling before running it. Preserve established tooling rather than migrating it to satisfy a profile default; reconcile configuration with the project's actual choice.
+"""
+
+[[attach.context]]
+body = """
+Keep argument and option naming consistent across commands. Send successful results to stdout and diagnostics to stderr; preserve documented exit codes. Define each file-writing command's behavior for existing destinations and repeated invocations. Do not assume overwrite or transactional behavior unless the command's contract promises it.
+"""
+
+[[attach.context]]
+body = """
+Keep command handlers focused on parsing inputs, invoking implementation code, and presenting results. Place reusable operations under `<utility_path>`, organized into modules by responsibility. Keep utilities independent of CLI parsing and console output, and keep feature-specific logic with its feature. Create utility modules when current work needs them; this guidance does not require an empty scaffold or speculative abstractions.
+"""
+
+[[attach.rules.tasks]]
+body = """
+Plan verification at the changed boundary: focused tests for utilities; actual CLI-entrypoint tests for argument parsing, output, and exit codes; isolated filesystem tests for persistent effects; installation or executable checks when packaging changes. Scale the test selection to the affected behavior and shared dependencies. Complete required project checks without scheduling the full suite after every small increment.
+"""
+
+[[attach.operations.apply.guidance]]
+body = """
+When implementing or changing software behavior, use <skill:pspec-tdd> for the accepted implementation segment. For environment-only work, documentation, investigation, or configuration edits without behavioral effects, use appropriate validation without activating TDD. For mixed work, apply TDD to the behavioral portion. Use `<test_command>` with the runner's appropriate selectors for focused checks, broadening when dependencies, failures, or unresolved concerns warrant it.
+"""

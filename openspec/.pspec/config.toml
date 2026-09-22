@@ -1,0 +1,5 @@
+profile = "@builtin/python-simple-cli"
+
+[vars]
+utility_path = "src/powerspec/utils"
+# Override profile defaults here to match established project tooling.
