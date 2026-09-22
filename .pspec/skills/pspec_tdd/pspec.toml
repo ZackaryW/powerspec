@@ -1,0 +1,28 @@
+version = 1
+entry = "SKILL.md"
+
+# SKILL.md owns the shared flow; only dynamic additions are declared here.
+# The consuming profile or project can supply language; otherwise ask.
+[[input]]
+id = "language"
+type = "string"
+
+[[input.parser]]
+type = "prompt"
+prompt = "Which language applies to this TDD segment?"
+
+# Insert after the named section's body, before the next peer section.
+[[dynamic]]
+after = "Scope and expected behavior"
+path = "languages/<language>.md"
+section = "scope"
+
+[[dynamic]]
+after = "Red: observe the missing behavior"
+path = "languages/<language>.md"
+section = "red"
+
+[[dynamic]]
+after = "Green: implement the increment"
+path = "languages/<language>.md"
+section = "green"
