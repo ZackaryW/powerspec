@@ -1,0 +1,34 @@
+"""Compose the command surface without performing domain operations."""
+
+import typer
+
+from .flush import flush
+from .hook import hook
+from .init import init
+from .skill import skill
+from .sync import sync
+
+app = typer.Typer(
+    help="Powerspec command scaffold. Operations are not implemented yet.",
+    add_completion=False,
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+
+
+@app.callback()
+def root(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+
+
+app.command()(init)
+app.command()(skill)
+app.command()(hook)
+app.command()(sync)
+app.command()(flush)
+
+
+def main() -> None:
+    """Run the same application for either installed console script."""
+    app()
