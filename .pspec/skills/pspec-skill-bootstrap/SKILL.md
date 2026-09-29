@@ -1,6 +1,6 @@
 ---
 name: pspec-skill-bootstrap
-description: Resolve an intended skill through Powerspec before following its procedure. Use before other skills in a Powerspec-enabled workflow to receive applicable content or normal unsupported-skill fallback.
+description: Resolve an intended skill through Powerspec using its owning OpenSpec consumer configuration. Use before other skills in a Powerspec-enabled workflow to receive applicable content or normal unsupported-skill fallback.
 ---
 
 # Resolve a skill before using it
@@ -15,7 +15,7 @@ From the current task's working directory, run:
 pspec skill <name> --agent <current-agent>
 ```
 
-When the calling workflow has an active change, append `--change <name>` and retain it on reruns. Otherwise omit it; do not infer an active change from available variable tables.
+When the calling workflow has an active OpenSpec change, append `--change <name>` and retain it on reruns. Otherwise omit it; do not infer an active change from available variable tables.
 
 Use the intended installed skill's name and the actual invoking agent's identifier. Establish an unknown agent identity from the host context or ask; do not infer it from the shell or search all agents. Keep the task's working directory so lookup uses its owning project configuration rather than the installed skill's directory.
 
@@ -34,7 +34,7 @@ Perform lookup before loading the skill's full procedure. The command retrieves 
 
 For pending choices, reuse explicit answers already supplied for this task. Otherwise ask the user, presenting any suggested default as a suggestion. Silence and elapsed time are not answers. A value already resolved from configuration or defaults needs no confirmation.
 
-Follow the result's answer-location instructions. For temporal answers in the owning gitignored `openspec/.pspec/current.toml`, use direct `[_change.<name>]` keys for choices exclusive to the active change, or `[vars]` for shared choices. Preserve other values and change tables. Persistent preferences belong in the same table structure in tracked `config.toml` only when that persistence is intended. Do not invent a configuration location when lookup cannot identify one. Compile-time configuration errors require a configuration correction, not a runtime prompt.
+Follow the result's answer-location instructions. For temporal answers in the owning gitignored `openspec/.pspec/current.toml`, use direct `[_change.<name>]` keys for choices exclusive to the active change, or `[vars]` for shared choices. Preserve other values and change tables. Persistent preferences belong in the same table structure in tracked `openspec/.pspec/config.toml` only when that persistence is intended. Use the owning consumer identified by resolution; do not invent a configuration location when lookup cannot identify one. Compile-time configuration errors require a configuration correction, not a runtime prompt.
 
 Rerun after relevant inputs change. Retry a failed lookup after correcting its cause; if it remains unavailable, report the affected skill step as unresolved and continue independent work where possible. Skill installation and repair are separate from lookup and remain managed through ZuAT.
 

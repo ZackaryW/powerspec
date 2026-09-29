@@ -49,4 +49,4 @@ Report the implemented behavior, checks actually run, observed results, and unre
 
 For a utility-only segment, identify the utility behavior verified and leave application wiring and integration verification explicitly pending. Passing utility tests does not establish completion of the entire feature. Reuse earlier evidence only while it still covers the current implementation and conditions.
 
-Return control to the user or calling workflow. This skill does not automatically start another skill, advance an OpenSpec stage, commit, or release.
+Return the evidence and remaining work to the user or caller. Completing this segment does not initiate another development or release step.

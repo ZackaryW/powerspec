@@ -1,58 +1,54 @@
 ---
 name: pspec-bdd
-description: Shape and verify selected behavior through BDD features rooted in OpenSpec scenarios. Use when the user or calling workflow selects a bounded acceptance-testing segment, including reconciling existing features with their behavioral source.
+description: Shape and verify selected behavior through executable BDD examples rooted in OpenSpec-owned scenarios. Use for a bounded behavior-testing segment or to reconcile existing features with their authoritative scenarios.
 ---
 
 # Behavior-driven development from OpenSpec scenarios
 
-OpenSpec requirements and their behavioral scenarios define the intended behavior. BDD features make selected scenarios executable; step implementations and test runs provide evidence. Adding an executable feature does not transfer ownership of the behavior out of OpenSpec.
+OpenSpec owns all behavioral scenarios. BDD features are executable examples of those scenarios; step implementations and test runs provide evidence. Features, issues, conversations, and design notes do not form alternative scenario authorities. Record accepted behavioral decisions in the owning OpenSpec scenarios before treating them as the contract for executable coverage.
 
-Use this skill for the accepted segment of work. It does not automatically activate a repository-wide BDD policy, select a framework, advance an OpenSpec operation, archive, or commit. When bootstrap supplies resolved skill content, follow that content and its handling of pending choices or errors.
+When bootstrap supplies resolved skill content, follow that content and its handling of pending choices or errors. Otherwise use this procedure directly within the requested scope.
 
-## Establish the behavioral source
+## Establish the intended behavior
 
-Identify the owning OpenSpec root, capability, requirement, and relevant scenarios. Use the current canonical spec together with the selected change's accepted delta. Treat proposed or unresolved behavior as a decision to settle, not an established requirement. An active delta changes only its stated scope; unrelated canonical behavior remains applicable.
+Identify the owning OpenSpec root, capability, requirement, and scenarios. Read the canonical specification together with the selected change's accepted delta, relevant user decisions, existing examples, and affected implementation. An accepted delta changes only its stated scope; unrelated canonical behavior remains applicable.
 
-Read the actual scenario conditions and outcomes. A reference-only placeholder pointing to a feature is a trace link, not a behavioral scenario. If that is all that exists, identify the gap and use the requirement, existing feature, and available decisions to propose the missing scenario. Confirm material ambiguity before dependent implementation; passing existing tests alone does not authorize their behavior.
+Distinguish settled behavior from assumptions and unresolved product decisions. Use available evidence and prior answers before asking about material ambiguity. Passing existing tests alone does not make their behavior an accepted requirement.
 
-Keep behavioral scenarios in OpenSpec when adding BDD coverage. Do not delete them or replace them with proof-only placeholders to avoid repeated wording. Features may concretize examples, fixtures, and interactions, but may not independently add, weaken, or redefine the intended outcome. If execution reveals a missing product decision, settle it in the owning specification before treating it as required behavior.
-
-When a repository explicitly uses a different ownership policy, identify that conflict and obtain direction before migrating its artifacts. Creating or installing this skill does not silently rewrite repository governance.
+Keep behavioral scenarios in OpenSpec when adding executable coverage. Do not delete them or replace them with reference-only placeholders pointing to features. Features may concretize data and interactions but may not independently add, weaken, or redefine intended outcomes. If an existing feature has no owning OpenSpec scenario, identify that gap and establish the accepted scenario in OpenSpec within the authorized scope; otherwise report the missing source as pending. Preserve useful tests while reconciling their ownership.
 
 ## Select the verification boundary
 
-Choose the smallest meaningful boundary that proves the scenario's observable outcome. Keep pure transformations and exhaustive data matrices in focused tests when those tests suffice. Use BDD where a composed interaction or acceptance example benefits from executable representation. An OpenSpec scenario does not require a feature file merely because it exists.
+Choose the smallest meaningful boundary that proves the observable outcome. Keep pure transformations and exhaustive data matrices in focused tests when those suffice. Use BDD where a composed interaction or acceptance example benefits from executable representation; not every requirement needs a feature file.
 
-For mixed work, distinguish utility contracts from the composed outcome. Utility tests support the journey but do not establish integration behavior they never exercise. Reuse useful existing tests and harnesses; avoid adding duplicate tests solely to assign each workflow its own proof.
+For mixed work, distinguish utility contracts from the composed outcome. Utility tests support a journey but do not establish integration behavior they never exercise. Reuse useful tests and harnesses instead of duplicating them to assign each process its own proof.
 
-Environment-only maintenance, documentation, and configuration work without behavioral effects need appropriate validation, not a manufactured BDD journey. Planning a feature or mapping existing evidence does not by itself authorize implementation.
+Environment-only maintenance, documentation, and configuration edits without behavioral effects need appropriate validation rather than a manufactured BDD journey. Planning examples or mapping evidence does not by itself authorize implementation.
 
 ## Shape executable examples
 
-Use the project's selected framework, test layout, and runner. Establish missing choices from configuration or the accepted scope before asking. Keep language and framework mechanics in their own resources when such branches are added; this shared procedure does not prescribe Flutter, Behave, pytest-bdd, or Cucumber.
+Use the project's selected framework, test layout, and runner. Establish choices from configuration and accepted scope before asking. The shared procedure does not prescribe a language or framework.
 
-Translate the source conditions and expected outcome into concrete examples. Make initial state and triggering action discoverable, whether in explicit Given/When steps or an existing readable harness. Assert public outputs, visible state, or externally observable effects through the relevant production path. Fixtures can control external dependencies without substituting the behavior being verified.
+Translate conditions and expected outcomes into concrete examples. Make initial state and triggering action clear through Given/When/Then or the existing readable harness. Assert public outputs, visible state, or externally observable effects through the relevant production path. Fixtures may control external dependencies without replacing the behavior being verified.
 
-Retain a direct trace from each executable scenario to its OpenSpec root, capability, requirement, and source scenario. Reuse existing stable identifiers or binding conventions. Where no convention exists, a nearby source path plus exact requirement/scenario headings is sufficient; do not introduce a registry or permanent checker just for this mapping.
+Retain a direct trace from each executable scenario to its OpenSpec root, capability, requirement, and source scenario. Reuse stable identifiers or binding conventions when present; otherwise a source path plus exact requirement and scenario headings is sufficient. A feature is never its own authoritative behavioral source.
 
-One source scenario may have several executable examples or verification layers. A shared journey may cover several source scenarios when the mapping states which assertions establish each outcome. Do not force a one-to-one file layout or duplicate a journey under multiple names for coverage counts. A requirement-level link alone is insufficient to claim every scenario is covered.
+One accepted scenario may need several examples or verification layers. A shared journey may cover several outcomes when its assertions clearly establish each. Avoid forcing a one-to-one file layout or duplicating journeys for coverage counts. A broad requirement link alone does not prove every outcome is covered.
 
-For an example of the boundary and mapping, read [Scenario to executable feature](references/scenario-to-feature.md).
+For an illustrative mapping, read [Scenario to executable feature](references/scenario-to-feature.md).
 
 ## Verify the selected behavior
 
-For a new or changed behavior under implementation, make the intended acceptance example fail for the missing behavior before implementing that increment where feasible. Undefined steps, failed generation, missing tools, and broken fixtures are setup failures, not evidence of the intended failure. Do not remove working implementation to reconstruct a historical fail-first sequence.
+For new or changed behavior under implementation, make the intended acceptance example fail for the missing behavior before implementing that increment where feasible. Undefined steps, failed generation, missing tools, and broken fixtures are setup failures. Do not remove working implementation to reconstruct a historical fail-first sequence.
 
-Implement or adapt the steps and accepted behavior, then run the affected executable scenarios through the established runner. Inspect what the assertions actually prove. A feature binding, generated test file, successful generator, or count of passing scenarios is not evidence by itself that the intended behavior was exercised.
+Implement or adapt the steps and authorized behavior, then run the affected scenarios through the established runner. Inspect what the assertions prove. A binding, generated test file, successful generator, or count of passing scenarios is not by itself evidence that the intended behavior was exercised.
 
-Start with the affected features and dependencies. Broaden verification when shared changes, failures, required project checks, or unresolved concerns justify it; do not run the full suite after every small edit by default. Follow the repository's generation rules when applicable rather than assuming generation can safely be narrowed in the same way as test execution.
+Start with affected features and dependencies. Broaden verification when shared changes, failures, required project checks, or unresolved concerns justify it. Follow the project's generation rules; generation may not be safely narrowed in the same way as test execution.
 
-## Reconcile source, examples, and evidence
+## Reconcile examples and evidence
 
-Keep the distinction clear: OpenSpec describes intended behavior, features encode executable examples, and recorded runs establish what was actually verified. Similar wording across these layers is acceptable when it preserves a single direction of authority.
+Compare the owning OpenSpec scenarios, executable examples, and observed results. Correct stale examples to match accepted scenarios. Resolve genuine behavior changes with the task's owner and record them in OpenSpec before updating dependent coverage. Do not automatically overwrite a source based on timestamps or whichever test currently passes.
 
-When they disagree, identify the discrepancy and its owning source. Correct a stale feature to match accepted behavior; route a genuine behavior change through its OpenSpec scenario. Do not automatically overwrite either side based on timestamps or whichever test currently passes. Preserve useful unbound tests while reporting their missing or unresolved source rather than inventing authority.
+Preserve useful existing tests while reporting missing or unclear OpenSpec scenario mappings. Keep references accurate when their source moves or is renamed, including when accepted change scenarios become canonical. This skill does not initiate archival or another workflow stage.
 
-When a change is merged or archived by its calling workflow, keep source references usable against the resulting canonical scenario. Update affected paths or renamed headings as part of that lifecycle; do not retain an active-change path as the only trace after it moves. This skill reports needed reconciliation and does not initiate archive itself.
-
-Return the source scenarios, their executable examples or other selected checks, commands actually run, observed results, and remaining gaps. Distinguish planned, implemented, passed, failed, and not-run evidence. A passing example establishes only the behavior its assertions cover; it does not automatically complete its whole requirement or change.
+Return the behaviors covered, their examples or other selected checks, commands actually run, observed results, and remaining gaps. Distinguish planned, implemented, passed, failed, and not-run evidence. A passing example establishes only the behavior its assertions cover. Return control to the user or caller when the selected segment is complete.

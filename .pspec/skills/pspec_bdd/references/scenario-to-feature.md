@@ -1,6 +1,6 @@
 # Scenario to executable feature
 
-This illustrative example shows ownership and traceability, not a new binding syntax or a migration of any existing repository.
+This example shows an OpenSpec-owned behavioral scenario and its executable coverage. The reference comments are illustrative; reuse an existing binding format when available.
 
 ## Behavioral source in OpenSpec
 
@@ -15,7 +15,7 @@ The client SHALL hide history and avoid history reads when the selected study di
 - **THEN** history is unavailable and no history read is started
 ```
 
-This scenario remains in the spec after executable coverage is added.
+This scenario remains authoritative in OpenSpec after executable coverage is added. The feature does not take over ownership or replace the scenario with a link.
 
 ## Executable example
 
@@ -33,18 +33,14 @@ Feature: Study-controlled history
     And no history read is started
 ```
 
-Use the repository's binding format instead of these illustrative comments when one exists. A binding must identify the source scenario, not merely a similarly named requirement.
+Use the project's existing reference convention to identify the owning OpenSpec scenario, not merely a similarly named feature area.
 
-The runner supplies concrete study data, navigation, controlled dependencies, and assertions. For a UI client, exercise the route and observe the rendered outcome and absence of outgoing history reads. A test of a boolean policy helper alone does not prove the route applies that policy.
+The runner supplies concrete study data, navigation, controlled dependencies, and assertions. For a UI client, exercise the route and observe both the rendered outcome and absence of outgoing history reads. A test of a boolean policy helper alone does not prove the route applies that policy.
 
-Several fixture cases can exercise the same source scenario. Additional cases that change the product contract need their own accepted source wording; they are not automatically authorized by being convenient to test.
+Several fixture cases can exercise this behavior. Cases that change the product contract need an accepted decision recorded in OpenSpec; convenience of testing does not authorize new behavior.
 
-## Existing reference-only specifications
+## Existing examples with unclear intent
 
-If the spec instead contains only `Scenario: Bound widget acceptance` followed by a feature path, it provides a link but leaves the behavioral example in the test layer. To adopt this model:
+Read the available requirement, feature, actual assertions, and user decisions together. A link alone does not explain intended behavior, and a passing test does not settle an undocumented product decision.
 
-1. Read the requirement, linked feature, actual assertions, and available decisions.
-2. Recover the intended scenario and resolve any differences with the owner.
-3. Keep that behavioral scenario in OpenSpec and trace the existing executable example to it.
-
-Do not rewrite or regenerate passing tests merely to rename their owner. Do not treat a passing test as approval for undocumented behavior. Existing repository ownership rules must be explicitly revised before such a migration.
+Clarify material differences with the owner and record the accepted behavioral scenario in OpenSpec. If the only existing source is a feature or a reference-only specification placeholder, establish the missing OpenSpec scenario and trace the executable example to it. Preserve useful tests; passing them does not substitute for establishing their authoritative scenario.
