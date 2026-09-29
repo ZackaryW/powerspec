@@ -1,0 +1,11 @@
+mode = "config"
+
+[[attach.rules.design]]
+body = """
+When the accepted change designs or changes reusable implementation logic, use <skill:pspec-plan-utilities>. Incorporate its reuse assessment, necessary utility contracts, ownership, and focused verification into the design. Keep application wiring and integration verification separately visible. Do not invent utilities when existing APIs or feature-owned logic suffice. Skip environment-only work, documentation, and configuration edits without behavioral effects; for mixed work assess only the relevant portion. Planning does not authorize implementation.
+"""
+
+[[attach.rules.tasks]]
+body = """
+Reflect the design's utility contracts in separate implementation and verification tasks, ordered before application wiring that depends on them. Keep integration checks after that wiring. Reuse already implemented and verified utilities where their contracts still fit; do not manufacture new utility tasks merely to satisfy this ordering.
+"""

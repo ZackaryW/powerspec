@@ -1,0 +1,6 @@
+mode = "config"
+
+[[attach.operations.apply.guidance]]
+body = """
+For planned utility behavior, use <skill:pspec-tdd> to implement and verify the accepted utility contracts before implementing application wiring that depends on them. Reuse existing utility implementations and evidence when they still cover the accepted contracts; preserve work already present. Resolve missing or materially changed contracts before dependent implementation. Then wire the verified utilities into their callers and verify the integrated behavior. Passing utility tests does not establish integration or whole-change completion. This ordering applies only where utility work is needed; environment-only work, documentation, and configuration edits without behavioral effects do not activate it.
+"""
