@@ -1,3 +1,4 @@
+scope = "user"
 traits = ["@builtin/python-simple-cli"]
 skills = ["@builtin/pspec-tdd"]
 

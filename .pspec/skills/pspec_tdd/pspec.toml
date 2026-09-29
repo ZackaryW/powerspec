@@ -11,18 +11,50 @@ type = "string"
 type = "prompt"
 prompt = "Which language applies to this TDD segment?"
 
+# Tooling is needed only by the Python additions. Configured values skip prompts.
+# Defaults belong to the consuming profile; this skill does not assume a toolchain.
+[[input]]
+id = "build_tool"
+type = "string"
+when = { language = "python" }
+
+[[input.parser]]
+type = "prompt"
+prompt = "Which build/environment tool does this Python project use?"
+
+[[input]]
+id = "test_runner"
+type = "string"
+when = { language = "python" }
+
+[[input.parser]]
+type = "prompt"
+prompt = "Which test runner does this Python project use?"
+
+[[input]]
+id = "test_command"
+type = "string"
+when = { language = "python" }
+
+[[input.parser]]
+type = "prompt"
+prompt = "What command runs tests in this Python project's environment?"
+
 # Insert after the named section's body, before the next peer section.
 [[dynamic]]
-after = "Scope and expected behavior"
+section = "Scope and expected behavior"
+pos = "after"
 path = "languages/<language>.md"
-section = "scope"
+source_section = "scope"
 
 [[dynamic]]
-after = "Red: observe the missing behavior"
+section = "Red: observe the missing behavior"
+pos = "after"
 path = "languages/<language>.md"
-section = "red"
+source_section = "red"
 
 [[dynamic]]
-after = "Green: implement the increment"
+section = "Green: implement the increment"
+pos = "after"
 path = "languages/<language>.md"
-section = "green"
+source_section = "green"

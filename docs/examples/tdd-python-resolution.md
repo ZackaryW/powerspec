@@ -1,8 +1,39 @@
----
-name: pspec-tdd
-description: Develop selected software behavior through observed red, green, and refactor cycles. Use when the user or calling workflow selects a bounded TDD segment.
----
+# Python TDD resolution review
 
+This is a source-based simulation, not output from an implemented or installed
+Powerspec command. No skill was installed or executed, and no tests were run by
+this procedure. The HTML source labels below illustrate provenance formatting.
+
+## Invocation and inputs
+
+Intended invocation: `pspec skill pspec-tdd --agent codex`, from this repository.
+
+- Consumer: `openspec/.pspec/config.toml` selects `@builtin/python-simple-cli`.
+- Selected profile: `.pspec/profiles/python-simple-cli.toml` supplies `language = "python"`, `build_tool = "uv"`, `test_runner = "pytest"`, and `test_command = "uv run pytest"`.
+- The consumer does not override these inputs, and no current.toml exists for this snapshot.
+- The global builtin profile makes bootstrap available; the selected profile makes TDD available. Neither executes a workflow.
+- Skill source: `.pspec/skills/pspec_tdd`; a real lookup would inspect the target agent's installed copy through ZuAT.
+- Expected outcome: resolved Markdown on stdout by default; `--json` would return status resolved with the same Markdown in content. Expected pending questions: none. The configured language and Python tooling values bypass their prompts.
+
+## Dynamic additions
+
+| Destination `section` | `pos` | `path` | `source_section` |
+| --- | --- | --- | --- |
+| Scope and expected behavior | `after` | `languages/python.md` | `scope` |
+| Red: observe the missing behavior | `after` | `languages/python.md` | `red` |
+| Green: implement the increment | `after` | `languages/python.md` | `green` |
+
+The shared body stays in its authored order. Refactor and handoff need no manifest
+entries and remain unchanged. The source section headings are included literally;
+this example does not invent heading rewriting or recursively process additions.
+
+## Assembled content
+
+The following is the combined text of the intended default Markdown result.
+The outer code fence is only for this review document; the command would not emit it.
+Relative links retain the installed skill's resource-root meaning.
+
+```markdown
 # Test-driven development
 
 Use the project's established test tools for one selected development segment.
@@ -21,6 +52,13 @@ During planning, describe the behavior, expected failure, and verification appro
 
 Preserve existing implementation and user-authored work. Keep the segment within its authorized scope. When delegated only utility implementation, leave application wiring and integration work with the caller.
 
+<!-- Source: languages/python.md, section: scope -->
+## scope
+
+The configured build/environment tool is `uv` and the test runner is `pytest`. Inspect the project's Python version, environment setup, test configuration, and existing tests. Reconcile discrepancies with the configured choices before running tests; configured values do not prove that tools are installed. Preserve established fixture conventions.
+
+For a public Python API, assert returned values, documented exceptions, or observable state through that API. For CLI behavior affected by argument parsing or process execution, exercise the actual entrypoint and check exit status, stdout, stderr, and relevant file effects. Keep pure transformations in focused unit tests.
+
 ## Red: observe the missing behavior
 
 Write a focused test expressing the intended outcome and run it before changing production behavior. Confirm it fails because the required behavior is missing. Syntax errors, missing dependencies, and broken test setup do not establish the intended red result.
@@ -29,6 +67,11 @@ If the test already passes, determine whether the behavior exists or the test fa
 
 When joining work in progress, preserve existing implementation and distinguish tests added afterward from an observed test-first cycle. Begin TDD with the next appropriate behavior increment rather than deleting work to recreate an earlier stage.
 
+<!-- Source: languages/python.md, section: red -->
+## red
+
+Run the focused test using `uv run pytest` with the appropriate test selector in the intended Python environment. Import failures caused by an incorrect environment are setup failures, not evidence of missing application behavior. Isolate mutable resources using the project's fixture conventions.
+
 ## Green: implement the increment
 
 Implement enough behavior to satisfy the failing test within the accepted scope. The test establishes evidence for this increment; it does not replace other accepted requirements.
@@ -36,6 +79,11 @@ Implement enough behavior to satisfy the failing test within the accepted scope.
 Run the focused test and checks directly affected by the change. Broaden verification when dependencies, failures, or unresolved concerns warrant it. Do not run the full suite after every small increment solely because another TDD cycle occurred; still complete checks required by the project or calling workflow.
 
 Observe actual outcomes at the affected public boundary. For persistent effects, use isolated fixtures and verify the resulting state. Internal mock-call counts alone do not establish externally observable behavior.
+
+<!-- Source: languages/python.md, section: green -->
+## green
+
+Rerun the focused test in the same environment after implementation. If the change affects packaging or entrypoint installation, verify the installed package or command as well as source imports. Report which boundary each check actually exercised.
 
 ## Refactor and repeat
 
@@ -50,3 +98,17 @@ Report the implemented behavior, checks actually run, observed results, and unre
 For a utility-only segment, identify the utility behavior verified and leave application wiring and integration verification explicitly pending. Passing utility tests does not establish completion of the entire feature. Reuse earlier evidence only while it still covers the current implementation and conditions.
 
 Return control to the user or calling workflow. This skill does not automatically start another skill, advance an OpenSpec stage, commit, or release.
+```
+
+## Review observations
+
+The shared entrypoint still contains bootstrap and direct-use instructions; they
+are preserved because the current design retains the shared body. In resolved
+use, its conditional direct-use paragraph does not require a second lookup.
+
+The skill explicitly consumes the profile's `build_tool = "uv"`,
+`test_runner = "pytest"`, and `test_command = "uv run pytest"` in its Python
+additions. These inputs are guarded by `language = "python"`; other language
+branches do not request them. The rendered command is available even when the
+agent has not read OpenSpec context. Values are substituted as text; this
+simulation does not execute the command or verify that tooling is installed.
