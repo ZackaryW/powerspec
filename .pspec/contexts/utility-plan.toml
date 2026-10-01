@@ -1,5 +1,3 @@
-mode = "config"
-
 [[attach.rules.design]]
 body = """
 When the accepted change needs generic helpers that could be reused in other projects, use <skill:pspec-plan-utilities>. Record portable contracts, existing-library fit, a concrete use outside this project, and focused verification. Keep application models, configuration conventions, and workflow policy in application code. Describe how that code supplies inputs and consumes the helpers separately. Do not invent utilities when existing APIs or feature-owned logic suffice. Skip environment-only work, documentation, and configuration edits without behavioral effects; for mixed work assess only the relevant portion. Planning does not authorize implementation.

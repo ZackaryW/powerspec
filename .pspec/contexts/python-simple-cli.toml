@@ -1,5 +1,5 @@
 # Compile-time configuration is non-interactive.
-# Precedence: consumer config.toml, selected profile, global profile, trait default.
+# Precedence: consumer config.toml, selected profile, global profile, context default.
 # current.toml supplies runtime choices only; it does not affect compilation.
 # Missing or invalid required values produce configuration diagnostics, not prompts.
 [[compiletime]]

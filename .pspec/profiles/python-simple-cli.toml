@@ -1,6 +1,6 @@
 scope = "user"
 profiles = ["@builtin/utils-planning-aware"]
-traits = ["@builtin/python-simple-cli"]
+contexts = ["@builtin/python-simple-cli"]
 skills = ["@builtin/pspec-tdd"]
 
 [vars]
