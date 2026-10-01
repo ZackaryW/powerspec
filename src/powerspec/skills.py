@@ -149,6 +149,15 @@ class InputResult:
 
 
 @dataclass(frozen=True)
+class SkillResolution:
+    status: Literal["pending", "resolved"]
+    content: str | None
+    questions: tuple[Question, ...]
+    values: dict[str, Any]
+    origins: dict[str, str]
+
+
+@dataclass(frozen=True)
 class MarkdownSection:
     title: str
     level: int
@@ -438,3 +447,73 @@ def compose_document(root: Path, entry: str, dynamics: list[Dynamic] | tuple[Dyn
             cursor = position
     output.append(document[cursor:])
     return _replace_once("".join(output), values).rstrip() + "\n"
+
+
+def _active(item: Dynamic, result: InputResult) -> bool | None:
+    """Return None while a guard is pending, otherwise its equality result."""
+    for key, expected in item.when.items():
+        if key not in result.values:
+            return None
+        if result.values[key] != expected:
+            return False
+    return True
+
+
+def _source_text(root: Path, item: Dynamic, values: dict[str, Any]) -> str:
+    missing = [key for key in VARIABLE.findall(item.path) if key not in values]
+    if missing:
+        raise ConfigurationError(f"dynamic {item.section}: unresolved path variables {missing}")
+    relative = _relative_pattern(_replace_once(item.path, values), allow_glob=False)
+    source = read_document(relative, root=root)
+    if item.source_section is not None:
+        source = section(source, item.source_section, location=root / relative).text
+    return source
+
+
+def resolve_skill(root: Path, bundle, consumer, *, change: str | None = None) -> SkillResolution:
+    """Resolve one located skill without writing answers or other state."""
+    root = Path(root).resolve(strict=True)
+    manifest_path = root / "pspec.toml"
+    manifest = load_manifest(manifest_path)
+    declarations = set(manifest.inputs)
+    entry = read_document(manifest.entry, root=root, entrypoint=True)
+    needed = set(VARIABLE.findall(entry)) & declarations
+
+    # Resolve guard keys in authored order. A known mismatch prevents later
+    # guard/path/content inputs in that branch from becoming reachable.
+    for item in manifest.dynamic:
+        branch_possible = True
+        for key, expected in item.when.items():
+            needed.add(key)
+            current = resolve_inputs(manifest, bundle, consumer, needed=needed, change=change)
+            if key not in current.values:
+                branch_possible = False
+                break
+            if current.values[key] != expected:
+                branch_possible = False
+                break
+        if branch_possible:
+            needed.update(set(VARIABLE.findall(item.path)) & declarations)
+
+    first = resolve_inputs(manifest, bundle, consumer, needed=needed, change=change)
+    active = [item for item in manifest.dynamic if _active(item, first) is True]
+
+    # Source contents can declare additional inputs, but absent/inactive source
+    # branches are never read. Path inputs must be answered before inspection.
+    for item in active:
+        path_keys = set(VARIABLE.findall(item.path)) & declarations
+        if not path_keys.issubset(first.values):
+            continue
+        needed.update(set(VARIABLE.findall(_source_text(root, item, first.values))) & declarations)
+
+    result = resolve_inputs(manifest, bundle, consumer, needed=needed, change=change)
+    if result.questions:
+        return SkillResolution("pending", None, result.questions, result.values, result.origins)
+    required_inactive = needed & result.inactive
+    if required_inactive:
+        raise ConfigurationError(
+            f"active skill content requires inactive inputs: {sorted(required_inactive)}"
+        )
+    active = [item for item in manifest.dynamic if _active(item, result) is True]
+    content = compose_document(root, manifest.entry, active, result.values)
+    return SkillResolution("resolved", content, (), result.values, result.origins)

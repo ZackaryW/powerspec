@@ -1,8 +1,9 @@
 # Python TDD resolution review
 
-This is a source-based simulation, not output from an implemented or installed
-Powerspec command. No skill was installed or executed, and no tests were run by
-this procedure. The HTML source labels below illustrate provenance formatting.
+This records the Markdown returned by the implemented command against a
+disposable Codex user installation of the authored skill. Resolution is read
+only. It assembles instructions but does not execute the TDD procedure or run
+the test command contained in the result.
 
 ## Invocation and inputs
 
@@ -12,7 +13,7 @@ Intended invocation: `pspec skill pspec-tdd --agent codex`, from this repository
 - Selected profile: `.pspec/profiles/python-simple-cli.toml` supplies `language = "python"`, `build_tool = "uv"`, `test_runner = "pytest"`, and `test_command = "uv run pytest"`.
 - The consumer does not override these inputs, and no current.toml exists for this snapshot.
 - The global builtin profile makes bootstrap available; the selected profile makes TDD available. Neither executes a workflow.
-- Skill source: `.pspec/skills/pspec_tdd`; a real lookup would inspect the target agent's installed copy through ZuAT.
+- Skill source: `.pspec/skills/pspec_tdd`, copied to the disposable agent's native user skill directory and located through ZuAT.
 - Expected outcome: resolved Markdown on stdout by default; `--json` would return status resolved with the same Markdown in content. Expected pending questions: none. The configured language and Python tooling values bypass their prompts.
 
 ## Dynamic additions
@@ -29,8 +30,8 @@ this example does not invent heading rewriting or recursively process additions.
 
 ## Assembled content
 
-The following is the combined text of the intended default Markdown result.
-The outer code fence is only for this review document; the command would not emit it.
+The following is the combined text of the actual default Markdown result.
+The outer code fence is only for this review document; the command does not emit it.
 Relative links retain the installed skill's resource-root meaning.
 
 ```markdown
@@ -100,15 +101,23 @@ For a utility-only segment, identify the utility behavior verified and leave app
 Return the evidence and remaining work to the user or caller. Completing this segment does not initiate another development or release step.
 ```
 
-## Review observations
+## Reviewed outcomes
 
 The shared entrypoint still contains bootstrap and direct-use instructions; they
 are preserved because the current design retains the shared body. In resolved
 use, its conditional direct-use paragraph does not require a second lookup.
 
-The skill explicitly consumes the profile's `build_tool = "uv"`,
+The resolved result explicitly consumes the profile's `build_tool = "uv"`,
 `test_runner = "pytest"`, and `test_command = "uv run pytest"` in its Python
 additions. These inputs are guarded by `language = "python"`; other language
 branches do not request them. The rendered command is available even when the
-agent has not read OpenSpec context. Values are substituted as text; this
-simulation does not execute the command or verify that tooling is installed.
+agent has not read OpenSpec context. Values are substituted as text; resolution
+does not execute the command or verify that tooling is installed.
+
+The same executable fixture covers the structured resolved response, whose
+`content` equals the Markdown above. Separate command fixtures cover an
+installed skill without a manifest (`null`), a pending choice, an answer scoped
+to one change without leaking into another, and a malformed manifest error.
+Environment-only work does not call this command merely because TDD is
+installed; skill invocation remains an explicit agent decision or workflow
+instruction.

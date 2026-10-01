@@ -38,3 +38,14 @@ Dynamic entries select an exact, unique Markdown heading from the shared entrypo
 All destinations use the original entrypoint's section coordinates. Inserted content is never searched for new anchors. Duplicate selected sources are removed only when their canonical destination, position, file, and optional source section are equal, so one source can still appear at distinct destinations. Source labels identify the selected relative file and section.
 
 Declared `<name>` values are substituted once after assembly. Values introduced by substitution are not interpreted again, and undeclared angle-bracket prose remains literal. Dynamic path selection must resolve inside the skill root; missing files, ambiguous sections, path escapes, and symlink escapes fail the entire resolution without partial output. The manifest does not need a static sequence, inline markers, the old `after` field, or numbered insertion positions.
+
+## Command outcomes
+
+Run `pspec skill <name> --agent <agent>` or its `powerspec` alias. Add `--change <name>` only when resolving an explicit OpenSpec change, `--selected <installed-path>` when the host reports which native copy it loaded, and `--json` for structured output.
+
+- `null` means ZuAT located the skill selected by that agent and the installed copy has no `pspec.toml`. The agent follows the ordinary installed skill.
+- A pending result contains typed questions, allowed choices, unpersisted suggestions, and the exact shared or change-scoped `current.toml` answer location. It withholds procedural content. Record only a confirmed answer, then rerun the same agent/change/selected-path command.
+- A resolved result is assembled Markdown by default. JSON returns `status = resolved` and the identical Markdown in `content`.
+- Lookup ambiguity, unsupported agents, invalid selected evidence, malformed manifests, invalid configured values, missing active resources, and ambiguous sections are errors on stderr with a nonzero exit. They never fall back to normal skill handling and never emit a success payload.
+
+Installed lookup is a read-only call to ZuAT for one explicit agent. Powerspec does not observe, register, install, enable, disable, or choose between coexisting native copies. If the `pspec` executable itself is unavailable, the bootstrap skill tells the agent to report that limitation and use the installed skill normally; a malformed manifest is a different case and remains an error.

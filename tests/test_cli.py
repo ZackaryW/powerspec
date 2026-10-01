@@ -11,11 +11,10 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
+PLACEHOLDER_COMMANDS = ("init", "hook", "sync", "flush", "upgrade")
 VALID_INVOCATIONS = [
     ["init"],
     ["init", "--agent", "codex"],
-    ["skill", "pspec-tdd", "--agent", "codex"],
-    ["skill", "pspec-tdd", "--agent", "codex", "--change", "example", "--json"],
     ["hook", "sessionStart"],
     ["sync"],
     ["upgrade"],
@@ -66,10 +65,13 @@ def test_installed_aliases_show_help(name, args, tmp_path):
 def test_command_help_does_not_require_arguments(command):
     result = invoke([command, "--help"])
     assert result.exit_code == 0
-    assert "placeholder" in result.stdout.lower()
+    if command in PLACEHOLDER_COMMANDS:
+        assert "placeholder" in result.stdout.lower()
+    else:
+        assert "placeholder" not in result.stdout.lower()
     assert result.stderr == ""
     if command == "skill":
-        assert all(option in result.stdout for option in ("NAME", "--agent", "--change", "--json"))
+        assert all(option in result.stdout for option in ("NAME", "--agent", "--change", "--selected", "--json"))
 
 
 def snapshot(root):
@@ -127,7 +129,6 @@ def test_invalid_syntax_is_a_usage_error(args):
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
 @pytest.mark.parametrize("args", [
-    ["skill", "pspec-tdd", "--agent", "codex", "--json"],
     ["upgrade"],
 ])
 def test_installed_aliases_fail_honestly(name, args, tmp_path):
@@ -138,6 +139,17 @@ def test_installed_aliases_fail_honestly(name, args, tmp_path):
     assert result.stdout == ""
     assert args[0] in result.stderr
     assert "not implemented" in result.stderr.lower()
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", ["pspec", "powerspec"])
+def test_installed_aliases_report_missing_skill(name, tmp_path):
+    result = run_process(
+        [console(name), "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "missing" in result.stderr.lower() and "pspec-tdd" in result.stderr
     assert list(tmp_path.iterdir()) == []
 
 

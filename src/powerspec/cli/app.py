@@ -1,4 +1,4 @@
-"""Compose the command surface without performing domain operations."""
+"""Compose the Powerspec command surface."""
 
 import typer
 
@@ -10,7 +10,7 @@ from .sync import sync
 from .upgrade import upgrade
 
 app = typer.Typer(
-    help="Powerspec command scaffold. Operations are not implemented yet.",
+    help="Profile-driven project guidance and skill resolution.",
     add_completion=False,
     invoke_without_command=True,
     no_args_is_help=False,
