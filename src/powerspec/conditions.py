@@ -1,5 +1,6 @@
 """Evaluate trusted guidance conditions; this is not an execution sandbox."""
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -74,6 +75,24 @@ class Contribution:
     body: str
     values: Mapping
     origins: Mapping
+    identifier: str | None = None
+
+
+PLACEHOLDER = re.compile(r"<skill:([a-z0-9][a-z0-9-]*)>|<([A-Za-z_][A-Za-z0-9_]*)>")
+ATTACHMENT_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
+
+
+def _compile_body(body, resource, values, bundle):
+    declared = {item['id'] for item in resource.data.get('compiletime', [])}
+    skills = {target.resource.name for target in bundle.skills}
+    def replace(match):
+        skill, variable = match.groups()
+        if skill is not None:
+            if skill not in skills:
+                raise ConfigurationError(f"{resource.path}: unknown selected skill reference {skill}")
+            return skill
+        return str(values[variable]) if variable in declared else match.group(0)
+    return PLACEHOLDER.sub(replace, body).strip()
 
 
 def context_contributions(bundle, consumer, invocation):
@@ -84,8 +103,19 @@ def context_contributions(bundle, consumer, invocation):
         for destination, index, entry in attachments(resource.data):
             location = f"{resource.path}#attach.{destination}/{index}"
             if evaluate(entry.get('when'), values=values, bundle=bundle, invocation=invocation, location=location):
-                result.append(Contribution(resource, destination, entry['body'],
-                                           MappingProxyType(values), MappingProxyType(origins)))
+                identity = entry.get('id') or str(index)
+                if entry.get('id') is not None and not ATTACHMENT_ID.fullmatch(identity):
+                    raise ConfigurationError(f"{location}: invalid attachment id {identity!r}")
+                marker = f"{resource.ref}/{destination}/{identity}"
+                if marker == 'pspec' or any(character.isspace() for character in marker):
+                    raise ConfigurationError(f"{location}: invalid generated identifier")
+                result.append(Contribution(
+                    resource, destination, _compile_body(entry['body'], resource, values, bundle),
+                    MappingProxyType(values), MappingProxyType(origins), marker,
+                ))
+    identifiers = [item.identifier for item in result]
+    if len(set(identifiers)) != len(identifiers):
+        raise ConfigurationError("duplicate generated context contribution identifier")
     return tuple(result)
 
 

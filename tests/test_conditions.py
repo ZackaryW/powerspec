@@ -158,3 +158,28 @@ def test_package_inspection_trait_follows_utility_bundle():
     assert len(result) == 1 and 'reusable helpers' in result[0].body
     without = compose(catalog, '@builtin/python-simple-cli', agent='codex', exclude_profiles=[*excluded, '@builtin/utils-planning-aware'])
     assert trait_contributions(without, None, Invocation(root), matching_refs=[ref]) == ()
+
+
+def test_context_compiles_declared_values_skills_and_distinct_ids_once(tmp_path):
+    put(tmp_path, 'profiles/main.toml', 'contexts=["@builtin/example"]\nskills=["@builtin/helper"]\n[vars]\nvalue="<skill:missing>"')
+    put(tmp_path, 'contexts/example.toml', '''
+[[compiletime]]
+id="value"
+type="string"
+[[attach.context]]
+id="first"
+body="Value <value>; skill <skill:helper>; literal <other>."
+[[attach.context]]
+body="Second."
+''')
+    put(tmp_path, 'skills/helper/SKILL.md', '---\nname: helper\n---\n')
+    bundle = compose(Catalog(builtin=tmp_path), '@builtin/main', agent='codex')
+    result = context_contributions(bundle, None, Invocation(tmp_path))
+    assert [item.identifier for item in result] == [
+        '@builtin/example/context/first', '@builtin/example/context/2'
+    ]
+    assert result[0].body == 'Value <skill:missing>; skill helper; literal <other>.'
+    assert all(item.identifier != 'pspec' for item in result)
+    bundle.contexts[0].data['attach']['context'][0]['body'] = '<skill:missing>'
+    with pytest.raises(ConfigurationError, match='missing'):
+        context_contributions(bundle, None, Invocation(tmp_path))

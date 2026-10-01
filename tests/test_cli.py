@@ -11,12 +11,11 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
-PLACEHOLDER_COMMANDS = ("init", "hook", "sync", "flush", "upgrade")
+PLACEHOLDER_COMMANDS = ("init", "hook", "flush", "upgrade")
 VALID_INVOCATIONS = [
     ["init"],
     ["init", "--agent", "codex"],
     ["hook", "sessionStart"],
-    ["sync"],
     ["upgrade"],
     ["flush"],
     ["flush", "--change", "example"],
@@ -110,6 +109,14 @@ def test_init_does_not_create_a_project(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = invoke(["init"])
     assert result.exit_code == 1
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = invoke(["sync"])
+    assert result.exit_code == 1 and result.stdout == ""
+    assert "no owning" in result.stderr.lower()
     assert list(tmp_path.iterdir()) == []
 
 
