@@ -1,0 +1,9 @@
+scope = "user"
+global = true
+traits = ["@builtin/adhd-friendly"]
+skills = ["@gitsource/i-have-adhd/skills/i-have-adhd"]
+
+# The Git source identity must already be registered through Saucepan.
+# Consumers opt into automatic activation through their variables.
+[vars]
+adhd_friendly = false

@@ -2,4 +2,5 @@ profile = "@builtin/python-simple-cli"
 
 [vars]
 utility_path = "src/powerspec/utils"
+adhd_friendly = true
 # Override profile defaults here to match established project tooling.
