@@ -1,3 +1,4 @@
 scope = "user"
 contexts = ["@builtin/utility-plan", "@builtin/utility-apply"]
+traits = ["@builtin/mature-package-inspection"]
 skills = ["@builtin/pspec-plan-utilities", "@builtin/pspec-tdd"]

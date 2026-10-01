@@ -28,6 +28,10 @@ A single current caller can justify a portable helper. Multiple internal callers
 
 Inspect current project and dependency APIs before proposing custom code. Record their actual fit using signatures and behavior. Prefer a direct call when a library already supplies the needed contract. An adapter is useful when it supplies missing behavior, such as bounded discovery or error handling; a wrapper that only renames a function adds no reusable capability.
 
+Start with existing helpers, the standard library, and installed dependencies. For substantial mechanics such as validation, parsing, or graph processing, also inspect relevant mature third-party packages before designing a replacement. Verify public APIs against the required behavior and supported version. Assess maintenance, compatibility, dependency cost, and licensing where they affect adoption; popularity alone does not establish fit. Keep the investigation proportional to the helper and avoid repeating settled research without new evidence.
+
+Record the choice and the evidence that matters: direct reuse, a small adapter for a specific gap, or custom implementation because the alternatives do not fit. Package inspection does not authorize installation, dependency migration, or speculative abstractions. Keep application-specific models and policy in application code even when a package implements their validation or execution mechanics.
+
 Explain a concrete gap before replacing a dependency's mechanics. Preserve native ownership of acquisition, installation, storage, and routing. Reuse suitable helpers already present, and do not invent utility work for environment, documentation, or configuration changes without behavioral effects.
 
 ## Describe each helper

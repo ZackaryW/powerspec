@@ -1,0 +1,6 @@
+hooks = ["sessionStart", "afterCompaction"]
+when = "armed('skill', '@builtin/pspec-plan-utilities')"
+
+body = """
+When planning reusable helpers, use <skill:pspec-plan-utilities> to inspect existing implementations and relevant mature third-party packages before choosing custom mechanics. Check actual public APIs and contract fit, then explain whether to reuse directly, adapt a concrete gap, or implement a small helper. This reminder applies when utility planning is needed; it does not initiate planning or install dependencies.
+"""
