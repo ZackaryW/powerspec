@@ -1,3 +1,4 @@
 scope = "user"
 global = true
+traits = ["@builtin/skill-bootstrap"]
 skills = ["@builtin/pspec-skill-bootstrap"]
