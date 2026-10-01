@@ -148,6 +148,15 @@ class InputResult:
     inactive: frozenset[str]
 
 
+@dataclass(frozen=True)
+class MarkdownSection:
+    title: str
+    level: int
+    start: int
+    end: int
+    text: str
+
+
 def _relative_pattern(value: str, *, allow_glob=True) -> Path:
     path = Path(value)
     if path.anchor or path == Path(".") or ".." in path.parts or "\x00" in value:
@@ -251,3 +260,181 @@ def resolve_inputs(manifest: SkillManifest, bundle, consumer, *, needed, change=
     for key in ordered:
         resolve(key)
     return InputResult(values, origins, tuple(questions.values()), frozenset(inactive))
+
+
+def _strip_frontmatter(text: str, location: Path) -> str:
+    lines = text.splitlines(keepends=True)
+    if not lines or lines[0].strip() != "---":
+        return text
+    for index, line in enumerate(lines[1:], 1):
+        if line.strip() == "---":
+            return "".join(lines[index + 1:]).lstrip("\r\n")
+    raise ConfigurationError(f"{location}: unterminated frontmatter")
+
+
+def read_document(path: Path | str, *, root: Path, entrypoint=False) -> str:
+    root = Path(root).resolve(strict=True)
+    requested = Path(path)
+    if requested.anchor or ".." in requested.parts:
+        raise ConfigurationError(f"{path}: expected a contained relative file")
+    try:
+        selected = (root / requested).resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise ConfigurationError(f"{root / requested}: selected resource is unavailable: {error}") from error
+    if not selected.is_relative_to(root):
+        raise ConfigurationError(f"{selected}: selected resource escapes skill root {root}")
+    if not selected.is_file():
+        raise ConfigurationError(f"{selected}: selected resource is not a file")
+    try:
+        text = selected.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError) as error:
+        raise ConfigurationError(f"{selected}: {error}") from error
+    return _strip_frontmatter(text, selected) if entrypoint else text
+
+
+def _headings(document: str) -> tuple[MarkdownSection, ...]:
+    records: list[tuple[str, int, int]] = []
+    offset = 0
+    fence: tuple[str, int] | None = None
+    for line in document.splitlines(keepends=True):
+        stripped = line.lstrip()
+        marker = re.match(r"(`{3,}|~{3,})", stripped)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = (token[0], len(token))
+            elif token[0] == fence[0] and len(token) >= fence[1]:
+                fence = None
+            offset += len(line)
+            continue
+        if fence is None:
+            found = re.match(r"^(#{1,6})[ \t]+(.+?)[ \t]*\r?\n?$", line)
+            if found:
+                title = re.sub(r"[ \t]+#+[ \t]*$", "", found.group(2)).strip()
+                records.append((title, len(found.group(1)), offset))
+        offset += len(line)
+    sections: list[MarkdownSection] = []
+    for index, (title, level, start) in enumerate(records):
+        end = len(document)
+        for _, following_level, following_start in records[index + 1:]:
+            if following_level <= level:
+                end = following_start
+                break
+        sections.append(MarkdownSection(title, level, start, end, document[start:end]))
+    return tuple(sections)
+
+
+def section(document: str, title: str, *, location: Path | str) -> MarkdownSection:
+    matches = [item for item in _headings(document) if item.title == title]
+    if not matches:
+        raise ConfigurationError(f"{location}: missing Markdown section {title!r}")
+    if len(matches) != 1:
+        raise ConfigurationError(f"{location}: ambiguous Markdown section {title!r}")
+    return matches[0]
+
+
+def _replace_once(text: str, values: dict[str, Any]) -> str:
+    return VARIABLE.sub(lambda match: str(values[match.group(1)])
+                        if match.group(1) in values else match.group(0), text)
+
+
+@dataclass(frozen=True)
+class _Material:
+    order: int
+    dynamic: Dynamic
+    target: MarkdownSection
+    identity: tuple[Path, str | None]
+    content: str
+
+
+def _materialize(root: Path, item: Dynamic, order: int, target: MarkdownSection,
+                 values: dict[str, Any]) -> _Material:
+    variables = VARIABLE.findall(item.path)
+    missing = [key for key in variables if key not in values]
+    if missing:
+        raise ConfigurationError(f"dynamic {item.section}: unresolved path variables {missing}")
+    relative_text = _replace_once(item.path, values)
+    relative = _relative_pattern(relative_text, allow_glob=False)
+    try:
+        canonical = (root / relative).resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise ConfigurationError(f"{root / relative}: selected resource is unavailable: {error}") from error
+    source = read_document(relative, root=root)
+    if item.source_section is not None:
+        source = section(source, item.source_section, location=canonical).text
+    source = source.strip()
+    label = f"<!-- Source: {relative.as_posix()}"
+    if item.source_section is not None:
+        label += f", section: {item.source_section}"
+    content = f"{label} -->\n{source}\n\n"
+    return _Material(order, item, target, (canonical, item.source_section), content)
+
+
+def compose_document(root: Path, entry: str, dynamics: list[Dynamic] | tuple[Dynamic, ...],
+                     values: dict[str, Any]) -> str:
+    """Assemble active dynamic entries against stable original coordinates."""
+    root = Path(root).resolve(strict=True)
+    document = read_document(entry, root=root, entrypoint=True)
+    materials: list[_Material] = []
+    for order, item in enumerate(dynamics):
+        target = section(document, item.section, location=root / entry)
+        materials.append(_materialize(root, item, order, target, values))
+
+    replacement_targets = {
+        (item.target.start, item.target.end): item.target
+        for item in materials if item.dynamic.pos in {"replace", "combine"}
+    }
+
+    def suppressed(item: _Material) -> bool:
+        for ancestor in replacement_targets.values():
+            if ancestor.start < item.target.start < ancestor.end:
+                return True
+        return False
+
+    eligible = [item for item in materials if not suppressed(item)]
+    replacements: dict[int, tuple[int, str]] = {}
+    for start, target in sorted((value.start, value) for value in replacement_targets.values()):
+        group = [item for item in eligible if item.target.start == start
+                 and item.dynamic.pos in {"replace", "combine"}]
+        if not group:
+            continue
+        retained: list[tuple[tuple[Path, str | None], str]] = []
+        for item in sorted(group, key=lambda value: value.order):
+            if item.dynamic.pos == "replace":
+                retained = [(item.identity, item.content)]
+            elif item.identity not in {identity for identity, _ in retained}:
+                retained.append((item.identity, item.content))
+        replacements[start] = (target.end, "".join(content for _, content in retained))
+
+    insertions: dict[int, list[tuple[int, int, int, str]]] = {}
+    seen: set[tuple[int, str, tuple[Path, str | None]]] = set()
+    for item in eligible:
+        if item.dynamic.pos not in {"before", "after"}:
+            continue
+        key = item.target.start, item.dynamic.pos, item.identity
+        if key in seen:
+            continue
+        seen.add(key)
+        position = item.target.start if item.dynamic.pos == "before" else item.target.end
+        # Ending child sections precede ending ancestors; after precedes before at a shared endpoint.
+        phase = 0 if item.dynamic.pos == "after" else 1
+        depth = -item.target.start if item.dynamic.pos == "after" else item.target.start
+        insertions.setdefault(position, []).append((phase, depth, item.order, item.content))
+
+    output: list[str] = []
+    cursor = 0
+    positions = sorted(set(insertions) | set(replacements))
+    for position in positions:
+        if position < cursor:
+            continue
+        output.append(document[cursor:position])
+        for _, _, _, content in sorted(insertions.get(position, [])):
+            output.append(content)
+        if position in replacements:
+            end, content = replacements[position]
+            output.append(content)
+            cursor = end
+        else:
+            cursor = position
+    output.append(document[cursor:])
+    return _replace_once("".join(output), values).rstrip() + "\n"
