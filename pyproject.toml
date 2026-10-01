@@ -11,6 +11,7 @@ dependencies = [
     "pydantic>=2.12,<3",
     "pyyaml==6.0.3",
     "typer>=0.27.2",
+    "zuat",
     "zuu",
 ]
 
@@ -29,3 +30,4 @@ dev = [
 
 [tool.uv.sources]
 zuu = { git = "https://github.com/ZackaryW/zuu", rev = "731be142933d05fe06697c17c1083c4ea2fb5f12" }
+zuat = { git = "https://github.com/ZackaryW/zuat", rev = "e42dbfe64f071da145dc33d728f92ef6edd1195b" }
