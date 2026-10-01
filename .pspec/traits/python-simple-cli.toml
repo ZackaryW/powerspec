@@ -40,7 +40,7 @@ Keep argument and option naming consistent across commands. Send successful resu
 
 [[attach.context]]
 body = """
-Keep command handlers focused on parsing inputs, invoking implementation code, and presenting results. Place reusable operations under `<utility_path>`, organized into modules by responsibility. Keep utilities independent of CLI parsing and console output, and keep feature-specific logic with its feature. Create utility modules when current work needs them; this guidance does not require an empty scaffold or speculative abstractions.
+Keep command handlers focused on parsing inputs, invoking implementation code, and presenting results. Place generic helpers that other projects could reuse under `<utility_path>`, organized by operation. Give them portable inputs and results. Keep application models, profile/configuration policy, CLI parsing, and presentation with their application owners. Create utility modules when current work needs them; this guidance does not require an empty scaffold or speculative abstractions.
 """
 
 [[attach.rules.tasks]]

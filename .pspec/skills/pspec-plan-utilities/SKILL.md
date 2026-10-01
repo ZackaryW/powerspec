@@ -1,54 +1,59 @@
 ---
 name: pspec-plan-utilities
-description: Plan utility responsibilities, reuse decisions, public contracts, and focused verification for an accepted software change. Use when designing or revising reusable implementation boundaries; this segment plans work without implementing it.
+description: Identify and plan generic helpers that an accepted change needs and other projects could reuse. Assess existing libraries, define portable contracts, and plan focused verification before application integration.
 ---
 
-# Plan utilities
+# Plan reusable helpers
 
-Produce the utility portion of an accepted design. Keep application decisions and wiring with their owning feature. When bootstrap supplies resolved skill content, follow that content and its handling of pending choices or errors.
+Produce the generic helper portion of an accepted design. A utility must be usable in another project without carrying this application's models, configuration layout, or workflow rules with it. When bootstrap supplies resolved content, follow that content and its handling of pending choices or errors.
 
-## Establish the scope
+## Find the reusable mechanics
 
-Use the behavior and constraints already agreed with the user or calling workflow. Read the relevant specifications, implementation, tests, dependency declarations, and existing design before proposing boundaries. Reuse a current plan where its contracts still fit; revise only responsibilities affected by the change.
+Read the accepted requirements, relevant code, dependencies, tests, and current design. Identify the underlying operations needed by the change, then separate their mechanics from the application's decisions.
 
-Use the project, output destination, and edit scope supplied by the task. Return the plan directly when no document is requested; no particular planning system or artifact layout is required.
+For example, finding the nearest matching file within a supplied directory boundary can be a utility. Deciding which project configuration owns a session belongs to the application. Traversing a dependency graph can be a utility; composing the application's profiles remains application logic.
 
-First determine whether reusable implementation work is needed. Environment setup, documentation, or configuration edits without behavioral effects do not need a utility plan. For mixed work, assess only the relevant implementation portion. If existing behavior or declarative configuration already satisfies the request, explain that briefly when an assessment was requested; do not manufacture utilities, prompts, tests, or a separate not-applicable artifact.
+For each candidate, check:
 
-## Assess reuse before custom mechanics
+- Can another project call it with ordinary values, paths, mappings, or a small explicit interface?
+- Can its tests describe its behavior without importing application models or reproducing the application's folder conventions?
+- Can you name a concrete use outside this project that fits the same contract?
+- Does it solve a present requirement without adding speculative modes or a general framework?
 
-Derive responsibilities from the required behavior, then inspect existing project and dependency APIs that might fulfill them. Record concrete fit or mismatch using current signatures, constraints, and relevant implementation or documentation. An API name or an old governance example is not evidence that the required capability exists in the current version.
+Inputs should supply the paths, names, ordering, timeouts, and callbacks that genuinely vary between callers. Keep application policy in the caller. Do not turn every constant into an option or rename application concepts to make them appear generic.
 
-Choose among direct reuse, extending an existing owner, or introducing a focused utility. Prefer direct calls where an existing API already provides the contract. A wrapper should add a meaningful boundary, adaptation, or policy; merely renaming a dependency call is not a new responsibility. Do not recreate a dependency's ownership, rollback, storage, or routing machinery without a demonstrated gap.
+A single current caller can justify a portable helper. Multiple internal callers alone do not make a domain service a utility. Keep domain parsing, application workflows, and feature-specific decisions in their own modules.
 
-Keep feature-specific decisions with the feature. A single current caller can justify a utility when it isolates a meaningful responsibility, but hypothetical future reuse does not justify a general framework. State the remaining application work even when no new utility is needed.
+## Assess existing implementations
 
-## Define the necessary contracts
+Inspect current project and dependency APIs before proposing custom code. Record their actual fit using signatures and behavior. Prefer a direct call when a library already supplies the needed contract. An adapter is useful when it supplies missing behavior, such as bounded discovery or error handling; a wrapper that only renames a function adds no reusable capability.
 
-For each utility that the accepted behavior needs, record:
+Explain a concrete gap before replacing a dependency's mechanics. Preserve native ownership of acquisition, installation, storage, and routing. Reuse suitable helpers already present, and do not invent utility work for environment, documentation, or configuration changes without behavioral effects.
 
-- **Responsibility and owner:** what it does, who calls it, and its proposed module or existing home.
-- **Public contract:** signature or equivalent interface, inputs, outputs, and relevant validation rules.
-- **Effects and failures:** reads or writes, resource lifetime, error outcomes, and repeated-invocation behavior where relevant. Do not promise atomicity or rollback without support.
-- **Reuse decision:** the existing API being used or extended, or the concrete reason custom work is needed.
-- **Verification boundary:** the smallest meaningful check of its observable contract, plus integration work it cannot establish alone.
+## Describe each helper
 
-Use the configured utility location when supplied; otherwise follow the project's existing structure. Organize modules by responsibility. Keep utility behavior independent of CLI parsing and presentation where those are caller concerns. Do not create empty utility folders, scaffold code, or move unrelated implementation merely to conform to the plan.
+Use a short entry for each necessary helper, with enough detail to review it independently:
 
-Resolve material uncertainty from available evidence or the user's decision before planning dependent implementation as settled. Preserve decisions already made, identify remaining assumptions, and continue independent planning where possible. A plan consistent with the user's authorized scope does not need a new approval ceremony solely because this skill was used.
+- **Purpose and portability:** the generic operation, the current caller's need, and an example from another project.
+- **Contract:** proposed signature, inputs, output, ordering, and validation. Avoid application-specific argument or result types.
+- **Effects and failures:** reads/writes, resource lifetime, errors, and relevant repeat-call behavior. State only supported atomicity or rollback guarantees.
+- **Reuse:** the existing implementation to call or extend, or the concrete gap that requires a new helper.
+- **Verification:** focused examples and failure cases that exercise the portable contract.
 
-## Plan verification at the real boundary
+Use the configured utility location or the project's established equivalent. Helpers may remain local while being designed for reuse; do not create a new package or publish a library unless requested. Do not create empty folders or scaffold implementations during planning.
 
-Use focused cases for pure transformations and data matrices. For filesystem, process, packaging, installation, or external-service behavior, identify the integration boundary that must actually be exercised and the isolated fixtures it needs. Mock-call counts alone cannot prove persistent effects or restoration behavior.
+After the helper entries, briefly describe how application code will supply policy and consume their results. Keep that integration work explicit instead of placing it in the utility list.
 
-Reuse existing tests and harnesses when they cover the intended contract. Separate utility evidence from application wiring and composed behavior: a passing parser test does not prove the CLI uses that parser correctly. Plan affected checks first, broadening for shared dependencies, unresolved risks, and required project checks rather than scheduling the full suite after every increment.
+## Order implementation and verification
 
-Describe expected outcomes and relevant failure cases; do not run a fabricated red/green cycle to populate a planning record. Read-only investigation can establish API fit, but mark proposed verification as planned until it has actually run.
+Plan each helper with its relevant tests as a coherent slice. Implement and verify the required helpers before application code that depends on them. Use domain-neutral fixtures for helper tests, then separately verify application behavior through real callers.
 
-## Return the plan to its caller
+Filesystem and process helpers need isolated integration fixtures that observe actual results and failures. Internal mock-call counts alone do not prove persistent effects. Start with affected checks and broaden when dependencies or unresolved risks justify it.
 
-Put the assessment and necessary contracts in the caller's existing design or requested artifact. Use a separate utility-plan file only when the caller requests one or the detail warrants it, and link it from the owning design. Otherwise return the assessment directly. Avoid parallel copies of the same contract.
+Planning does not activate implementation or a testing workflow. Describe proposed evidence as planned; do not claim a red/green cycle or create implementation just to complete the plan.
 
-Summarize reuse decisions, planned utility slices, unresolved choices, and remaining application/integration work. Keep implementation tasks pending and return the plan to the user or caller.
+## Return the plan
 
-When implementation is authorized later, the caller can hand the selected contracts to pspec-tdd or another chosen development process. Planning utilities does not require that skill to be installed and does not activate TDD or BDD itself.
+Use the caller's existing design or requested destination. Otherwise return the plan directly. Avoid a parallel document unless requested or justified by the detail.
+
+Summarize helpers to reuse or build, application work that consumes them, and unresolved decisions. If no generic helper is needed, say so and leave the implementation with its application owner. Keep implementation tasks pending. The caller may later hand accepted helper contracts to TDD or another selected process.
