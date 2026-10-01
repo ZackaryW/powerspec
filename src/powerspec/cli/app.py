@@ -7,6 +7,7 @@ from .hook import hook
 from .init import init
 from .skill import skill
 from .sync import sync
+from .upgrade import upgrade
 
 app = typer.Typer(
     help="Powerspec command scaffold. Operations are not implemented yet.",
@@ -27,6 +28,7 @@ app.command()(skill)
 app.command()(hook)
 app.command()(sync)
 app.command()(flush)
+app.command()(upgrade)
 
 
 def main() -> None:

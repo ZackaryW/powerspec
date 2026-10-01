@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 
-COMMANDS = ("init", "skill", "hook", "sync", "flush")
+COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
 VALID_INVOCATIONS = [
     ["init"],
     ["init", "--agent", "codex"],
@@ -18,6 +18,7 @@ VALID_INVOCATIONS = [
     ["skill", "pspec-tdd", "--agent", "codex", "--change", "example", "--json"],
     ["hook", "sessionStart"],
     ["sync"],
+    ["upgrade"],
     ["flush"],
     ["flush", "--change", "example"],
 ]
@@ -114,6 +115,7 @@ def test_init_does_not_create_a_project(tmp_path, monkeypatch):
     ["unknown"], ["--unknown"], ["skill"],
     ["skill", "pspec-tdd"], ["skill", "--agent", "codex"],
     ["skill", "pspec-tdd", "--agent"], ["hook"], ["sync", "--unknown"],
+    ["upgrade", "--unknown"],
 ])
 def test_invalid_syntax_is_a_usage_error(args):
     result = invoke(args)
@@ -124,13 +126,17 @@ def test_invalid_syntax_is_a_usage_error(args):
 
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
-def test_installed_aliases_fail_honestly_for_json(name, tmp_path):
+@pytest.mark.parametrize("args", [
+    ["skill", "pspec-tdd", "--agent", "codex", "--json"],
+    ["upgrade"],
+])
+def test_installed_aliases_fail_honestly(name, args, tmp_path):
     result = run_process(
-        [console(name), "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
+        [console(name), *args], tmp_path,
     )
     assert result.returncode == 1
     assert result.stdout == ""
-    assert "skill" in result.stderr
+    assert args[0] in result.stderr
     assert "not implemented" in result.stderr.lower()
     assert list(tmp_path.iterdir()) == []
 
