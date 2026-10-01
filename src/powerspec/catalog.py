@@ -2,10 +2,11 @@
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Mapping
-import ast
 import re
 import tomllib
 import yaml
+from pydantic import ValidationError
+from .models import Profile, Context, Trait
 
 
 class ConfigurationError(ValueError):
@@ -25,7 +26,7 @@ def reference(value: str, *, wildcard: bool = False) -> str:
     if not NAME.fullmatch(parts[0]) or any(any(c.isspace() for c in p) for p in parts):
         raise ConfigurationError(f"malformed resource reference: {value!r}")
     if parts[0] == "gitsource":
-        if len(parts) < 3 or parts[1] == "builtin":
+        if len(parts) < 3 or not NAME.fullmatch(parts[1]) or parts[1] == "builtin":
             raise ConfigurationError(f"invalid or reserved Git source: {value}")
     elif len(parts) != 2 or not NAME.fullmatch(parts[1]):
         raise ConfigurationError(f"invalid resource name: {value}")
@@ -45,89 +46,33 @@ def read_toml(path: Path) -> dict:
         raise ConfigurationError(f"{path}: {error}") from error
 
 
-def expression(value: object, location: str) -> None:
-    if not isinstance(value, str) or not value.strip():
-        raise ConfigurationError(f"{location}: when must be a Python expression string; migrate check maps")
-    try:
-        ast.parse(value, filename=location, mode="eval")
-    except SyntaxError as error:
-        raise ConfigurationError(f"{location}: invalid condition: {error.msg}") from error
-
-
-def _strings(data, key, *, qualified=False):
-    value = data.get(key, [])
-    if not isinstance(value, list) or any(not isinstance(x, str) for x in value):
-        raise ConfigurationError(f"{key} must be a list of strings")
-    if qualified:
-        for item in value:
-            reference(item, wildcard=key == "skills")
-    return value
-
-
 def attachments(data: Mapping):
-    """Yield destination, ordinal, entry without executing conditions."""
-    def walk(node, path):
-        if isinstance(node, list):
-            destination = ".".join(path)
-            valid = (path == ("context",) or len(path) == 2 and path[0] == "rules"
-                     or len(path) == 3 and path[0] == "operations" and path[2] == "guidance")
-            if not valid:
-                raise ConfigurationError(f"unsupported attachment destination: {destination}")
-            for index, item in enumerate(node, 1):
-                if not isinstance(item, dict) or not isinstance(item.get("body"), str):
-                    raise ConfigurationError(f"{destination}/{index}: expected body string")
-                if set(item) - {"body", "when", "id"}:
-                    raise ConfigurationError(f"{destination}/{index}: unknown attachment fields")
-                if "when" in item:
-                    expression(item["when"], f"{destination}/{index}")
-                yield destination, index, item
-        elif isinstance(node, Mapping):
-            for key, value in node.items():
-                yield from walk(value, path + (key,))
-        else:
-            raise ConfigurationError("attach must contain destination tables and entry arrays")
-    yield from walk(data.get("attach", {}), ())
+    """Yield destination, ordinal, entry from an already validated context."""
+    attach = data.get("attach", {})
+    for index, item in enumerate(attach.get("context", []), 1):
+        yield "context", index, item
+    for name, entries in attach.get("rules", {}).items():
+        for index, item in enumerate(entries, 1):
+            yield f"rules.{name}", index, item
+    for name, operation in attach.get("operations", {}).items():
+        for index, item in enumerate(operation.get("guidance", []), 1):
+            yield f"operations.{name}.guidance", index, item
 
 
 def validate(kind: str, data: dict) -> None:
     if "mode" in data or "check" in data:
         raise ConfigurationError("migrate legacy mode/check fields: contexts use attach; traits use hooks/body and Python when")
-    if kind == "profile":
-        allowed = {"scope", "global", "profiles", "contexts", "traits", "skills", "vars", "exclude-profiles"}
-        if set(data) - allowed:
-            raise ConfigurationError("profiles own references/defaults, not destinations or selectors")
-        if data.get("scope", "user") not in {"user", "project"}:
-            raise ConfigurationError("scope must be user or project")
-        if type(data.get("global", False)) is not bool or not isinstance(data.get("vars", {}), dict):
-            raise ConfigurationError("global must be Boolean and vars a table")
-        for field in ("profiles", "contexts", "traits", "skills", "exclude-profiles"):
-            _strings(data, field, qualified=True)
-    elif kind == "trait":
-        if set(data) - {"hooks", "body", "when"}:
-            raise ConfigurationError("runtime traits use hooks/body; move compile-time guidance to contexts")
-        if not _strings(data, "hooks") or not isinstance(data.get("body"), str):
-            raise ConfigurationError("trait requires hooks and body")
-        if "when" in data:
-            expression(data["when"], "when")
-    elif kind == "context":
-        if set(data) - {"attach", "compiletime"}:
-            raise ConfigurationError("contexts use attach/compiletime, not runtime hooks/body/when")
-        list(attachments(data))
-        declarations = data.get("compiletime", [])
-        if not isinstance(declarations, list):
-            raise ConfigurationError("compiletime must be an array of declarations")
-        seen = set()
-        for item in declarations:
-            if not isinstance(item, dict) or set(item) - {"id", "type", "default", "choices"}:
-                raise ConfigurationError("compiletime declarations support id/type/choices/default, never prompt parsers")
-            key = item.get("id")
-            if not isinstance(key, str) or not key or key in seen:
-                raise ConfigurationError("compiletime ids must be unique nonempty strings")
-            seen.add(key)
-            if item.get("type") not in {"string", "boolean", "integer", "float"}:
-                raise ConfigurationError(f"{key}: unsupported compiletime type")
-            if "choices" in item and (not isinstance(item["choices"], list) or not item["choices"]):
-                raise ConfigurationError(f"{key}: choices must be a nonempty list")
+    model = {"profile": Profile, "context": Context, "trait": Trait}.get(kind)
+    if model is None:
+        raise ConfigurationError(f"unsupported configuration kind: {kind}")
+    try:
+        parsed = model.model_validate(data)
+    except ValidationError as error:
+        raise ConfigurationError(str(error)) from error
+    if isinstance(parsed, Profile):
+        for field in ("profiles", "contexts", "traits", "skills", "exclude_profiles"):
+            for item in getattr(parsed, field):
+                reference(item, wildcard=field == "skills")
 
 
 @dataclass(frozen=True)

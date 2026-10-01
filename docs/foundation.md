@@ -8,6 +8,8 @@ Profiles reference `contexts`, `traits`, `skills`, and subprofiles through quali
 
 Catalog parsing checks condition syntax only. It does not execute callbacks. Skill manifests keep their independent dynamic guard contract. Remote skill selectors select materialized immediate child roots with `*` or descendants with `**`; returned resources retain exact source-relative identities.
 
+TOML decoding uses `tomllib`; authored profile, context, trait, and consumer shapes use strict Pydantic v2 models with unknown fields rejected. Compile-time defaults and choices must match their declared type. Variable tables remain open mappings of native values. Graph composition, identity checks, precedence, and Zuu expression evaluation remain separate application rules. These models do not implement the later skill-manifest resolver.
+
 Utilities in `powerspec.utils` take ordinary caller-owned data: bounded paths, ordered dependency mappings, named value layers, or literal command arguments. They contain no Git, OpenSpec, or profile policy. Filesystem/process effects and errors are documented in each helper.
 
 ## Compose an effective bundle
