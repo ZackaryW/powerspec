@@ -28,3 +28,21 @@ The excluded examples require external materializations; omission here is explic
 Only consumer and explicitly selected root `exclude-profiles` prune the graph. A shared descendant still reached elsewhere survives. Globals and subprofiles mount once. Profiles reached from the selected root supply selected-tier defaults; globals-only reachability supplies the global tier. Unequal same-tier defaults fail rather than acquiring precedence from graph depth. Excluding a profile changes selection only; no installed files are removed.
 
 Each declaring profile retains its user/project skill scope. `project_root` is mandatory for a project-scoped skill. Targets with different scopes coexist; different resources competing for the same agent/name/scope/root fail. The native agent still owns which installed copy it invokes.
+
+## Consumer variables
+
+`discover_consumer(cwd)` selects the nearest owning `openspec/.pspec/config.toml` inside the enclosing Git boundary, including worktree `.git` files and calls inside OpenSpec. A malformed nearest file fails. No consumer returns `None`, without parent-repository, sibling, home-directory, or authoring-source fallback.
+
+Persistent `config.toml` and temporary, gitignored `current.toml` use the same variable structure:
+
+```toml
+[vars]
+language = "python"
+
+[_change.fix-output]
+test_command = "uv run pytest tests/test_output.py"
+```
+
+`runtime_values(consumer, bundle, change="fix-output", defaults={})` returns values and their winning origins. From low to high precedence: caller skill defaults, global profiles, selected profiles, config shared, config matching change, current shared, current matching change. Omitting `change` uses shared layers only. No change is inferred and no other change table contributes.
+
+For compilation use `discover_consumer(cwd, runtime=False)` and `context_values(resource, consumer, bundle)`. This ignores even a malformed `current.toml`; only declaration defaults, global/selected defaults, and persistent shared values participate. Invalid supplied values fail instead of falling back; required missing values never prompt. These functions create no state files, write no configuration, and perform no archive cleanup.
