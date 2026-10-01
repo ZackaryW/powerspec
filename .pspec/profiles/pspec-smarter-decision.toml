@@ -1,0 +1,7 @@
+scope = "user"
+global = true
+traits = ["@builtin/smarter-decision"]
+skills = ["@builtin/pspec-smarter-decision"]
+
+[vars]
+decision_level = "balanced"

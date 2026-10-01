@@ -1,0 +1,15 @@
+version = 1
+entry = "SKILL.md"
+
+# Valid configured values skip input prompting. Standalone use is balanced too.
+[[input]]
+id = "decision_level"
+type = "string"
+choices = ["autonomous", "balanced", "exhaustive"]
+default = "balanced"
+
+# Keep the shared procedure in SKILL.md; select only its variable policy.
+[[dynamic]]
+section = "Decision policy"
+pos = "replace"
+path = "modes/<decision_level>.md"
