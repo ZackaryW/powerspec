@@ -26,11 +26,9 @@ def run_json_object(argv: Sequence[str], *, cwd: Path, env: Mapping[str, str], t
         raise ProcessJSONError("arguments", "timeout must be a finite positive number")
     try:
         process = subprocess.run(list(argv), cwd=cwd, env=dict(env), timeout=timeout,
-                                 shell=False, capture_output=True, text=True, encoding="utf-8")
+                                 shell=False, capture_output=True)
     except subprocess.TimeoutExpired as error:
         raise ProcessJSONError("timeout", f"command timed out after {timeout}s: {argv[0]}") from error
-    except UnicodeError as error:
-        raise ProcessJSONError("json", f"command output is not UTF-8: {argv[0]}") from error
     except (OSError, ValueError) as error:
         raise ProcessJSONError("launch", f"cannot launch command {argv[0]}: {error}") from error
     if process.returncode:
