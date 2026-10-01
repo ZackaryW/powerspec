@@ -1,0 +1,11 @@
+[[attach.rules.tasks]]
+body = """
+Organize authorized implementation into meaningful, dependency-ordered checkpoints. Each checkpoint should deliver a coherent, independently reviewable slice with its relevant verification, before work proceeds to the next slice. Do not split implementation from verification into knowingly broken intermediate states or require a checkpoint for every edit.
+"""
+
+[[attach.operations.apply.guidance]]
+body = """
+Checkpoint incrementally after a coherent slice is implemented and its relevant checks pass, rather than waiting for the entire change. Use boundaries such as a verified utility contract, an integrated behavior, or a complete resource bundle; do not manufacture checkpoints for trivial edits or run the full test suite at every checkpoint without a reason.
+
+When committing is authorized, inspect the diff, stage only the checkpoint's explicit paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Follow the applicable commit-authoring guidance supplied for the session. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
+"""
