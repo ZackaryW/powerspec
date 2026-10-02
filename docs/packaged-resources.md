@@ -5,6 +5,12 @@ builds, installations, `pspec init`, `pspec sync`, and `pspec skill` resolution
 read that snapshot locally. They do not fetch OpenSpec skills or generate missing
 resources.
 
+ZuAT and Zuu are pinned Git dependencies in the distribution metadata as well as
+the uv lockfile. A wheel installer therefore resolves the same revisions without
+depending on a checkout's uv source configuration. Installing dependencies may
+access their Git sources; provisioning the packaged OpenSpec skills uses the
+local catalog.
+
 The vendored OpenSpec skill snapshot is recorded in
 `.pspec/skills/UPSTREAM_PROVENANCE.md`; its license is retained in
 `.pspec/skills/UPSTREAM_LICENSE.txt`. Refreshing it is a maintainer operation:

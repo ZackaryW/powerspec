@@ -12,8 +12,8 @@ dependencies = [
     "pyyaml==6.0.3",
     "ruamel-yaml>=0.18,<0.19",
     "typer>=0.27.2",
-    "zuat",
-    "zuu",
+    "zuat @ git+https://github.com/ZackaryW/zuat@e42dbfe64f071da145dc33d728f92ef6edd1195b",
+    "zuu @ git+https://github.com/ZackaryW/zuu@731be142933d05fe06697c17c1083c4ea2fb5f12",
 ]
 
 [project.scripts]
@@ -23,6 +23,9 @@ powerspec = "powerspec.cli:main"
 [build-system]
 requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/powerspec"]
@@ -47,7 +50,3 @@ include = [
 dev = [
     "pytest>=9.1.1",
 ]
-
-[tool.uv.sources]
-zuu = { git = "https://github.com/ZackaryW/zuu", rev = "731be142933d05fe06697c17c1083c4ea2fb5f12" }
-zuat = { git = "https://github.com/ZackaryW/zuat", rev = "e42dbfe64f071da145dc33d728f92ef6edd1195b" }
