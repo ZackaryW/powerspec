@@ -7,6 +7,7 @@ from ..catalog import Catalog, ConfigurationError
 from ..conditions import Invocation, context_contributions
 from ..consumer import discover_consumer
 from ..profiles import compose
+from ..resources import builtin_catalog_root
 from ..syncing import publish
 
 
@@ -19,16 +20,16 @@ def sync() -> None:
             raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
         if consumer.config.profile is None:
             raise ConfigurationError(f"{consumer.config_path}: profile is required for sync")
-        root = Path(__file__).resolve().parents[3] / ".pspec"
-        catalog = Catalog(builtin=root)
-        bundle = compose(
-            catalog,
-            consumer.config.profile,
-            agent="powerspec-sync",
-            project_root=consumer.git_root,
-            exclude_profiles=consumer.config.exclude_profiles,
-        )
-        contributions = context_contributions(bundle, consumer, Invocation(cwd))
+        with builtin_catalog_root() as root:
+            catalog = Catalog(builtin=root)
+            bundle = compose(
+                catalog,
+                consumer.config.profile,
+                agent="powerspec-sync",
+                project_root=consumer.git_root,
+                exclude_profiles=consumer.config.exclude_profiles,
+            )
+            contributions = context_contributions(bundle, consumer, Invocation(cwd))
         target = consumer.config_path.parent.parent / "config.yaml"
         if not target.is_file():
             raise ConfigurationError(f"{target}: existing OpenSpec config.yaml is required; run init first")

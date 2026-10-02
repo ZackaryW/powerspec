@@ -21,8 +21,27 @@ pspec = "powerspec.cli:main"
 powerspec = "powerspec.cli:main"
 
 [build-system]
-requires = ["uv_build>=0.12.0,<0.13.0"]
-build-backend = "uv_build"
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/powerspec"]
+
+[tool.hatch.build.targets.wheel.force-include]
+".pspec" = "powerspec/_resources/catalog"
+"LICENSE" = "powerspec/_resources/LICENSE"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/powerspec",
+    "/.pspec",
+    "/tests",
+    "/docs",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+    "/uv.lock",
+]
 
 [dependency-groups]
 dev = [

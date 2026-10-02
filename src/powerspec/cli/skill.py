@@ -12,17 +12,14 @@ from ..catalog import Catalog, ConfigurationError
 from ..consumer import discover_consumer
 from ..installed import installed_skill
 from ..profiles import compose
+from ..resources import builtin_catalog_root
 from ..skills import Question, resolve_skill
 
 
-def _builtin_root() -> Path:
-    return Path(__file__).resolve().parents[3] / ".pspec"
-
-
-def _bundle(cwd: Path, agent: str, consumer):
+def _bundle(cwd: Path, agent: str, consumer, root: Path):
     if consumer is None or consumer.config.profile is None:
         return SimpleNamespace(selected_defaults={}, global_defaults={})
-    catalog = Catalog(builtin=_builtin_root())
+    catalog = Catalog(builtin=root)
     return compose(
         catalog,
         consumer.config.profile,
@@ -96,12 +93,13 @@ def skill(
             typer.echo("null")
             return
         consumer = discover_consumer(cwd)
-        result = resolve_skill(
-            located.root,
-            _bundle(cwd, agent, consumer),
-            consumer,
-            change=change,
-        )
+        with builtin_catalog_root() as root:
+            result = resolve_skill(
+                located.root,
+                _bundle(cwd, agent, consumer, root),
+                consumer,
+                change=change,
+            )
         if result.status == "resolved":
             if json_output:
                 typer.echo(json.dumps({

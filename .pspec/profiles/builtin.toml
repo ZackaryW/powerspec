@@ -1,4 +1,18 @@
 scope = "user"
 global = true
 traits = ["@builtin/skill-bootstrap"]
-skills = ["@builtin/pspec-skill-bootstrap"]
+skills = [
+  "@builtin/pspec-skill-bootstrap",
+  "@builtin/openspec-apply-change",
+  "@builtin/openspec-archive-change",
+  "@builtin/openspec-bulk-archive-change",
+  "@builtin/openspec-continue-change",
+  "@builtin/openspec-explore",
+  "@builtin/openspec-ff-change",
+  "@builtin/openspec-new-change",
+  "@builtin/openspec-onboard",
+  "@builtin/openspec-propose",
+  "@builtin/openspec-sync-specs",
+  "@builtin/openspec-update-change",
+  "@builtin/openspec-verify-change",
+]
