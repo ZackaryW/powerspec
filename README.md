@@ -1,7 +1,8 @@
 # Powerspec
 
-Profile-driven project guidance and skill resolution. The current executable is
-a Typer CLI scaffold; domain operations are not implemented yet.
+Profile-driven project guidance and skill resolution. Powerspec composes profile
+bundles, provisions skills through ZuAT, resolves dynamic skill content, and
+publishes compile-time contexts into OpenSpec.
 
 ## Development
 
@@ -16,19 +17,21 @@ uv run pytest
 `powerspec` is an alias for `pspec`. Either name without arguments shows help.
 Each command also supports `--help`.
 
-| Command | Intended operation |
+| Command | Current behavior |
 | --- | --- |
-| `pspec init [--agent AGENT]` | Initialize project configuration and provision selected resources |
+| `pspec init --agent AGENT [--profile PROFILE]` | Initialize Git-root configuration and provision selected skills |
 | `pspec skill NAME --agent AGENT [--change CHANGE] [--json]` | Resolve an installed skill's selected content |
-| `pspec hook EVENT` | Resolve guidance for a hook event |
+| `pspec hook EVENT` | Placeholder for runtime hook guidance |
 | `pspec sync` | Reconcile OpenSpec configuration |
-| `pspec flush [--change CHANGE]` | Clear temporary runtime variables |
+| `pspec flush [--change CHANGE]` | Placeholder for clearing temporary variables |
+| `pspec upgrade` | Placeholder for explicit remote resource upgrades |
 
-These commands currently emit a **not implemented** diagnostic to stderr and
-exit **1**. They produce no stdout result and do not read configuration, install
-resources, or change files. In particular, `skill --json` does not return `null`
-or a success payload. Help exits **0**; invalid syntax exits **2**.
+Implemented commands report configuration and operation failures with exit **1**.
+Help exits **0**; invalid syntax exits **2**. Placeholder commands emit an explicit
+not-implemented diagnostic and perform no domain work. Skill lookup returns
+`null` only for an installed skill without a Powerspec manifest.
 
-Command modules live in `src/powerspec/cli/`. Each handler can be implemented
-independently. The next skill-bootstrap change will implement skill resolution,
-initialization, and hooks; `sync` and `flush` require separate implementation.
+See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),
+and [context sync](docs/context-sync.md). Remote source integration, hook delivery,
+and temporary-state cleanup remain active implementation work. In particular,
+missing selected remote resources are diagnosed until source integration lands.

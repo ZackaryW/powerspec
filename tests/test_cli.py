@@ -11,10 +11,8 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
-PLACEHOLDER_COMMANDS = ("init", "hook", "flush", "upgrade")
+PLACEHOLDER_COMMANDS = ("hook", "flush", "upgrade")
 VALID_INVOCATIONS = [
-    ["init"],
-    ["init", "--agent", "codex"],
     ["hook", "sessionStart"],
     ["upgrade"],
     ["flush"],
