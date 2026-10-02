@@ -68,6 +68,23 @@ def console(name):
     return str(Path(sysconfig.get_path("scripts")) / (name + suffix))
 
 
+def test_empty_consumer_profile_resolves_global_defaults(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    home, project = environment(tmp_path, monkeypatch)
+    installed(home, default="fallback")
+    (project / ".git").mkdir()
+    put(project / "openspec/.pspec/config.toml", 'profile=""\n')
+    catalog = tmp_path / "catalog"
+    put(catalog / "profiles/global.toml", 'global=true\n[vars]\nlanguage="python"\n')
+    @contextmanager
+    def resources():
+        yield catalog
+    monkeypatch.setattr(importlib.import_module("powerspec.cli.skill"), "builtin_catalog_root", resources)
+    result = invoke(["skill", "example", "--agent", "codex"])
+    assert result.exit_code == 0 and "Use python." in result.stdout, result.output
+
+
 def test_located_skill_without_manifest_returns_literal_null(tmp_path, monkeypatch):
     home, _ = environment(tmp_path, monkeypatch)
     installed(home, manifest=None)
@@ -133,7 +150,7 @@ prompt = "Which language?"
 default = "python"
 """)
     (project / ".git").mkdir()
-    put(project / "openspec/.pspec/config.toml", "")
+    put(project / "openspec/.pspec/config.toml", 'exclude-profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]\n')
     result = invoke(["skill", "example", "--agent", "codex", "--change", "work"])
     assert result.exit_code == 0 and "resolution pending" in result.stdout
     assert "Use <language>" not in result.stdout
@@ -161,7 +178,7 @@ type = "prompt"
 prompt = "Which language?"
 """)
     (project / ".git").mkdir()
-    put(project / "openspec/.pspec/config.toml", "")
+    put(project / "openspec/.pspec/config.toml", 'exclude-profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]\n')
     put(project / "openspec/.pspec/current.toml", "[_change.one]\nlanguage=\"python\"\n")
     resolved = invoke(["skill", "example", "--agent", "codex", "--change", "one"])
     pending = invoke(["skill", "example", "--agent", "codex", "--change", "two"])

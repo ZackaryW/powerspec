@@ -18,8 +18,6 @@ def sync() -> None:
         consumer = discover_consumer(cwd, runtime=False)
         if consumer is None:
             raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
-        if consumer.config.profile is None:
-            raise ConfigurationError(f"{consumer.config_path}: profile is required for sync")
         with builtin_catalog_root() as root:
             catalog = Catalog(builtin=root)
             bundle = compose(

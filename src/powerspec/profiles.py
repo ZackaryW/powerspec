@@ -32,7 +32,7 @@ class Bundle:
         return (kind, reference(ref)) in self.selection
 
 
-def compose(catalog: Catalog, selected: str, *, agent: str, project_root: Path | None = None,
+def compose(catalog: Catalog, selected: str | None = None, *, agent: str, project_root: Path | None = None,
             exclude_profiles=()) -> Bundle:
     """Compose the selected root and globals after explicit exclusions.
 
@@ -43,13 +43,14 @@ def compose(catalog: Catalog, selected: str, *, agent: str, project_root: Path |
         raise ConfigurationError("an explicit target agent is required")
     if isinstance(exclude_profiles, (str, bytes)):
         raise ConfigurationError("exclude_profiles must be a sequence of qualified references")
-    root = catalog.get("profile", selected)
-    excluded = {reference(x) for x in exclude_profiles} | set(root.data.get("exclude-profiles", []))
+    selected = selected or None
+    root = catalog.get("profile", selected) if selected is not None else None
+    excluded = {reference(x) for x in exclude_profiles} | set(root.data.get("exclude-profiles", []) if root else [])
     if selected in excluded:
         raise ConfigurationError(f"explicitly selected profile is excluded: {selected}")
     globals_ = [r.ref for (kind, _), r in catalog.resources.items()
                 if kind == "profile" and r.data.get("global", False) and r.ref not in excluded]
-    roots = list(dict.fromkeys([*globals_, selected]))
+    roots = list(dict.fromkeys([*globals_, *([selected] if selected else [])]))
     graph, resources = {}, {}
     pending = [(name, (name,)) for name in reversed(roots)]
     while pending:
@@ -66,7 +67,7 @@ def compose(catalog: Catalog, selected: str, *, agent: str, project_root: Path |
         pending.extend((child, (*chain, child)) for child in reversed(children))
     try:
         order = dependency_order(roots, graph)
-        selected_reachable = set(dependency_order([selected], graph))
+        selected_reachable = set(dependency_order([selected], graph)) if selected else set()
     except ValueError as error:
         raise ConfigurationError(str(error)) from error
     defaults = {"selected": {}, "global": {}}

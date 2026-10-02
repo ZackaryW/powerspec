@@ -17,7 +17,7 @@ from ..skills import Question, resolve_skill
 
 
 def _bundle(cwd: Path, agent: str, consumer, root: Path):
-    if consumer is None or consumer.config.profile is None:
+    if consumer is None:
         return SimpleNamespace(selected_defaults={}, global_defaults={})
     catalog = Catalog(builtin=root)
     return compose(

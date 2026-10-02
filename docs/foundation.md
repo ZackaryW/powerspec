@@ -1,6 +1,8 @@
 # Resolution foundation
 
-The catalog library reads authored resources without installing, executing, or publishing them. CLI domain commands remain placeholders until their respective changes land.
+The catalog library reads authored resources without installing, executing, or publishing them. Installation, skill resolution, and context publication use that shared foundation through their own commands.
+
+Omitting the selected profile, or declaring `profile = ""`, composes the global profiles after consumer exclusions. The selected-profile default tier stays empty. Init, sync, and runtime resolution use this same global-only bundle.
 
 `Catalog(builtin=...)` explicitly injects the Powerspec catalog. `sources={"local": consumer_path}` registers private consumer resources; other keys register already-materialized reusable catalogs. External registration cannot use `builtin`. `gitsources` accepts already-materialized source roots for downstream adapters; it does not fetch or register a Saucepan source.
 

@@ -1,7 +1,7 @@
 """Strict authored configuration shapes; resolution policy lives in callers."""
 import ast
 from typing import Annotated, Any, Literal
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, model_validator, field_validator
 
 
 def _expression(value: str) -> str:
@@ -98,3 +98,8 @@ class Variables(ConfigurationModel):
 class ConsumerConfig(Variables):
     profile: str | None = None
     exclude_profiles: list[str] = Field(default_factory=list, alias="exclude-profiles")
+
+    @field_validator("profile", mode="before")
+    @classmethod
+    def empty_selection(cls, value):
+        return None if value == "" else value

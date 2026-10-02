@@ -92,3 +92,17 @@ def test_reviewed_python_bundle(tmp_path):
     assert "pspec-plan-utilities" in names and "pspec-skill-bootstrap" in names
     assert bundle.selected_defaults["test_command"] == "uv run pytest"
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("selected", [None, ""])
+def test_empty_selection_composes_globals_and_exclusions(tmp_path, selected):
+    skill(tmp_path, "shared", "shared")
+    profile(tmp_path, "always", **{"global": True}, skills=["@builtin/shared"], vars={"mode": "global"})
+    profile(tmp_path, "unused", skills=["@builtin/missing"], vars={"mode": "selected"})
+    catalog = Catalog(builtin=tmp_path)
+    bundle = compose(catalog, selected, agent="codex")
+    assert [p.ref for p in bundle.profiles] == ["@builtin/always"]
+    assert bundle.selected_defaults == {} and bundle.global_defaults == {"mode": "global"}
+    assert [s.resource.name for s in bundle.skills] == ["shared"]
+    empty = compose(catalog, selected, agent="codex", exclude_profiles=["@builtin/always"])
+    assert empty.profiles == empty.skills == ()

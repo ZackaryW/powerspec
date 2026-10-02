@@ -32,6 +32,27 @@ def console(name):
     return str(Path(sysconfig.get_path("scripts")) / (name + suffix))
 
 
+def test_global_contexts_sync_without_a_selected_profile(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".git").mkdir()
+    put(project / "openspec/.pspec/config.toml", '[vars]\n')
+    target = put(project / "openspec/config.yaml", 'schema: spec-driven\n')
+    catalog = tmp_path / "catalog"
+    put(catalog / "profiles/global.toml", 'global=true\ncontexts=["@builtin/global"]\n')
+    put(catalog / "contexts/global.toml", '[[attach.context]]\nbody="Global guidance"\n')
+    @contextmanager
+    def resources():
+        yield catalog
+    monkeypatch.setattr(importlib.import_module("powerspec.cli.sync"), "builtin_catalog_root", resources)
+    monkeypatch.chdir(project)
+    result = invoke(["sync"])
+    assert result.exit_code == 0, result.output
+    assert "Global guidance" in target.read_text()
+
+
 def test_reconcile_preserves_user_content_and_replaces_managed_entries():
     original = b"""# keep comment
 schema: spec-driven
