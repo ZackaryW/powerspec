@@ -109,6 +109,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
+    { name = "saucepan-sdk" },
     { name = "typer" },
     { name = "zuat" },
     { name = "zuu" },
@@ -124,6 +125,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12,<3" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "ruamel-yaml", specifier = ">=0.18,<0.19" },
+    { name = "saucepan-sdk", git = "https://github.com/ZackaryW/saucepan?subdirectory=sdk%2Fpython&rev=4e22ad00722b7d6511f83d8b89bbbd9aa3f3caff" },
     { name = "typer", specifier = ">=0.27.2" },
     { name = "zuat", git = "https://github.com/ZackaryW/zuat?rev=e42dbfe64f071da145dc33d728f92ef6edd1195b" },
     { name = "zuu", git = "https://github.com/ZackaryW/zuu?rev=731be142933d05fe06697c17c1083c4ea2fb5f12" },
@@ -355,6 +357,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9f/17/7999399081d39ebb79e807314de6b611e1d1374458924eb2a489c01fc5ad/ruamel_yaml_clib-0.2.15-cp314-cp314-win32.whl", hash = "sha256:424ead8cef3939d690c4b5c85ef5b52155a231ff8b252961b6516ed7cf05f6aa", size = 102567, upload-time = "2025-11-16T16:13:50.78Z" },
     { url = "https://files.pythonhosted.org/packages/d2/67/be582a7370fdc9e6846c5be4888a530dcadd055eef5b932e0e85c33c7d73/ruamel_yaml_clib-0.2.15-cp314-cp314-win_amd64.whl", hash = "sha256:ac9b8d5fa4bb7fd2917ab5027f60d4234345fd366fe39aa711d5dca090aa1467", size = 122847, upload-time = "2025-11-16T16:13:51.807Z" },
 ]
+
+[[package]]
+name = "saucepan-sdk"
+version = "0.5.0"
+source = { git = "https://github.com/ZackaryW/saucepan?subdirectory=sdk%2Fpython&rev=4e22ad00722b7d6511f83d8b89bbbd9aa3f3caff#4e22ad00722b7d6511f83d8b89bbbd9aa3f3caff" }
 
 [[package]]
 name = "shellingham"
