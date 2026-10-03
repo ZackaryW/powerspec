@@ -9,7 +9,7 @@
 ## 2. OpenSpec workset adapter and source registration
 
 - [ ] 2.1 Add a feature-owned adapter for OpenSpec JSON listing and creation using existing process/presentation mechanics where suitable; verify malformed output, missing prerequisites, Windows executable invocation, preserved member order/tool, duplicate-name races, and isolated registry creation.
-- [ ] 2.2 Implement source repository validation, new-workset creation, repeated-add no-op behavior, and the unsupported-append diagnostic; document current compatibility requirements and verify invalid inputs and unsupported versions leave source worksets untouched.
+- [x] 2.2 Implement source repository validation, new-workset creation, repeated-add no-op behavior, and the unsupported-append diagnostic; document current compatibility requirements and verify invalid inputs and unsupported versions leave source worksets untouched.
 - [ ] 2.3 Integrate a supported upstream OpenSpec member-update operation once available; verify locked append preserves existing members/order/tool and handles concurrent updates and duplicate labels. Record the required supported interface/version and evidence in command documentation. Keep this task incomplete until the upstream prerequisite and its integration checks are satisfied; do not edit OpenSpec's registry or use delete-and-recreate as a substitute.
 - [ ] 2.4 Extend the adapter to discover represented stores, register spawned roots through OpenSpec, and inspect effective change/root resolution; verify metadata-ID mismatches, repeated same-root registration, conflicting IDs, and exclusion of unrelated global defaults using an isolated OpenSpec registry.
 
@@ -17,7 +17,7 @@
 
 - [ ] 3.1 Implement feature models and strict indexed override parsing, including separated/equals forms and arbitrarily large positive indices; verify default/override precedence, gaps, missing selectors, duplicate fields, unknown flags, and alias conflicts through focused parser and CLI-entrypoint tests.
 - [ ] 3.2 Build ordered launch plans from all source members with canonical repository deduplication, branch/base selection, matching-worktree reuse, destination/name validation, and output-workset compatibility; verify aggregate preflight errors cause zero effects, including missing main/remote refs, unsafe paths, occupied branches, and normalization collisions.
-- [ ] 3.3 Document launch examples, exact naming/default rules, no implicit fetch, and existing-branch/remote-override behavior alongside the planner; verify examples against fixtures with a dirty advisory checkout and a repository shared by multiple source member paths.
+- [x] 3.3 Document launch examples, exact naming/default rules, no implicit fetch, and existing-branch/remote-override behavior alongside the planner; verify examples against fixtures with a dirty advisory checkout and a repository shared by multiple source member paths.
 - [ ] 3.4 Plan every represented store's original-ID to effective-branch-ID/root mapping and resolve optional change ownership; verify per-repository overrides, custom workset names, duplicate owner aliases, ambiguous names, `--store` selection, absent/archived changes, and out-of-workset owners before any effects.
 
 ## 4. Worktree execution and store routing
