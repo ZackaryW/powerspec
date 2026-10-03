@@ -175,7 +175,7 @@ def test_native_documents_use_verified_context_delivery_callback():
     assert [entry["matcher"] for entry in codex] == ["startup|resume|clear", "compact"]
     assert [entry["matcher"] for entry in claude] == ["startup|resume|clear|fork", "compact"]
     assert "PostCompact" not in json.dumps({"codex": codex, "claude": claude})
-    assert all("pspec hook" in entry["hooks"][0]["command"] for entry in (*codex, *claude))
+    assert all("pspec resolve hook" in entry["hooks"][0]["command"] for entry in (*codex, *claude))
 
 
 @pytest.mark.parametrize(("agent", "settings"), [
@@ -226,7 +226,7 @@ def test_hook_cli_reads_native_payload_and_emits_only_structured_guidance(tmp_pa
     monkeypatch.setattr(cli, "builtin_catalog_root", resources)
     monkeypatch.chdir(project)
     result = CliRunner().invoke(
-        app, ["hook", "sessionStart", "--agent", "codex"],
+        app, ["resolve", "hook", "sessionStart", "--agent", "codex"],
         input=json.dumps(payload(project)),
     )
     assert result.exit_code == 0, result.output

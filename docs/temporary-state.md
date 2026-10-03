@@ -9,7 +9,7 @@ After successfully archiving one OpenSpec change, clear only that change's
 temporal layer:
 
 ```console
-pspec flush --change archived-change-name
+pspec state clear --change archived-change-name
 ```
 
 The command resolves the nearest owning consumer inside the current Git or
@@ -22,7 +22,7 @@ reported separately and does not reverse or misreport the archive.
 To clear every temporal answer for the consumer:
 
 ```console
-pspec flush
+pspec state clear
 ```
 
 When state exists, the full form leaves the canonical empty surface:

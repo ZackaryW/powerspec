@@ -169,7 +169,7 @@ def native_document(agent: str) -> dict:
         raise ConfigurationError(f"{agent!r} has no verified Powerspec hook registrations")
     entries = []
     for callback in callbacks:
-        command = f"pspec hook {callback.logical_event} --agent {agent}"
+        command = f"pspec resolve hook {callback.logical_event} --agent {agent}"
         handler = {"type": "command", "command": command}
         if agent == "codex":
             handler["additionalContextLimit"] = 5000

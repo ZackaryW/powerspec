@@ -7,7 +7,7 @@ the test command contained in the result.
 
 ## Invocation and inputs
 
-Intended invocation: `pspec skill pspec-tdd --agent codex`, from this repository.
+Intended invocation: `pspec resolve skill pspec-tdd --agent codex`, from this repository.
 
 - Consumer: `openspec/.pspec/config.toml` selects `@builtin/python-simple-cli`.
 - Selected profile: `.pspec/profiles/python-simple-cli.toml` supplies `language = "python"`, `build_tool = "uv"`, `test_runner = "pytest"`, and `test_command = "uv run pytest"`.

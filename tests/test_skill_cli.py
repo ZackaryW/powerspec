@@ -117,8 +117,8 @@ def test_resolved_markdown_and_json_have_identical_content(tmp_path, monkeypatch
     home, _ = environment(tmp_path, monkeypatch)
     installed(home, default="python")
     before = snapshot(tmp_path)
-    markdown = invoke(["skill", "example", "--agent", "codex"])
-    structured = invoke(["skill", "example", "--agent", "codex", "--json"])
+    markdown = invoke(["resolve", "skill", "example", "--agent", "codex"])
+    structured = invoke(["resolve", "skill", "example", "--agent", "codex", "--json"])
     assert markdown.exit_code == structured.exit_code == 0
     payload = json.loads(structured.stdout)
     assert payload["status"] == "resolved" and payload["content"] == markdown.stdout
@@ -198,8 +198,8 @@ prompt = "Which language?"
     (project / ".git").mkdir()
     put(project / "openspec/.pspec/config.toml", 'exclude-profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]\n')
     put(project / "openspec/.pspec/current.toml", "[_change.one]\nlanguage=\"python\"\n")
-    resolved = invoke(["skill", "example", "--agent", "codex", "--change", "one"])
-    pending = invoke(["skill", "example", "--agent", "codex", "--change", "two"])
+    resolved = invoke(["resolve", "skill", "example", "--agent", "codex", "--change", "one"])
+    pending = invoke(["resolve", "skill", "example", "--agent", "codex", "--change", "two"])
     assert resolved.exit_code == pending.exit_code == 0
     assert "Use python" in resolved.stdout and "resolution pending" in pending.stdout
 

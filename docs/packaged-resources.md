@@ -1,7 +1,7 @@
 # Packaged resources
 
 Powerspec distributions contain the complete builtin `.pspec` catalog. Normal
-builds, installations, `pspec init`, `pspec sync`, and `pspec skill` resolution
+builds, installations, `pspec init`, `pspec sync`, and `pspec resolve skill` resolution
 read that snapshot locally. They do not fetch OpenSpec skills or generate missing
 resources.
 

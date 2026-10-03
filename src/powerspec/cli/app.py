@@ -3,10 +3,14 @@
 import typer
 
 from .flush import flush
+from .config import edit as edit_config, profile as config_profile, show as show_config
+from .doctor import doctor
 from .hook import hook
 from .init import init
 from .install import install
 from .skill import skill
+from .state import show as show_state
+from .status import status
 from .sync import sync
 from .upgrade import upgrade
 
@@ -17,6 +21,13 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 
+resolve_app = typer.Typer(help="Resolve agent-facing Powerspec protocols.")
+state_app = typer.Typer(help="Inspect and clear temporary consumer state.")
+config_app = typer.Typer(
+    help="Inspect and update persistent consumer configuration.",
+    invoke_without_command=True,
+)
+
 
 @app.callback()
 def root(ctx: typer.Context) -> None:
@@ -24,13 +35,34 @@ def root(ctx: typer.Context) -> None:
         typer.echo(ctx.get_help())
 
 
+@config_app.callback()
+def config_root(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+
+
 app.command()(init)
 app.command()(install)
-app.command()(skill)
-app.command()(hook)
+app.command()(status)
 app.command()(sync)
-app.command()(flush)
 app.command()(upgrade)
+app.command()(doctor)
+app.add_typer(config_app, name="config")
+app.add_typer(state_app, name="state")
+app.add_typer(resolve_app, name="resolve")
+
+resolve_app.command(name="skill")(skill)
+resolve_app.command(name="hook")(hook)
+state_app.command(name="clear")(flush)
+state_app.command(name="show")(show_state)
+config_app.command(name="show")(show_config)
+config_app.command(name="profile")(config_profile)
+config_app.command(name="edit")(edit_config)
+
+# Compatibility protocol aliases stay callable while remaining out of root help.
+app.command(name="skill", hidden=True)(skill)
+app.command(name="hook", hidden=True)(hook)
+app.command(name="flush", hidden=True)(flush)
 
 
 def main() -> None:

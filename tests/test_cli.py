@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 
-COMMANDS = ("init", "install", "skill", "hook", "sync", "flush", "upgrade")
+COMMANDS = ("init", "status", "sync", "install", "upgrade", "doctor", "config", "state", "resolve")
 
 
 def invoke(args):
@@ -60,8 +60,6 @@ def test_command_help_does_not_require_arguments(command):
     assert result.exit_code == 0
     assert "placeholder" not in result.stdout.lower()
     assert result.stderr == ""
-    if command == "skill":
-        assert all(option in result.stdout for option in ("NAME", "--agent", "--change", "--selected", "--json"))
 
 
 def test_init_does_not_create_a_project(tmp_path, monkeypatch):
@@ -84,6 +82,7 @@ def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch
     ["skill", "pspec-tdd"], ["skill", "--agent", "codex"],
     ["skill", "pspec-tdd", "--agent"], ["hook"], ["hook", "sessionStart"],
     ["flush", "--change"],
+    ["resolve", "skill"], ["resolve", "hook"], ["state", "clear", "--change"],
     ["sync", "--unknown"],
     ["install"], ["install", "--unknown"],
     ["upgrade"], ["upgrade", "--unknown"],

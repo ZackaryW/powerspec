@@ -45,7 +45,7 @@ def _question_data(question: Question) -> dict[str, Any]:
 
 def _pending_markdown(name: str, agent: str, change: str | None, selected: Path | None,
                       questions: tuple[Question, ...]) -> str:
-    command = f"pspec skill {name} --agent {agent}"
+    command = f"pspec resolve skill {name} --agent {agent}"
     if change is not None:
         command += f" --change {change}"
     if selected is not None:
