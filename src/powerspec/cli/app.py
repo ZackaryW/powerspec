@@ -5,6 +5,7 @@ import typer
 from .flush import flush
 from .hook import hook
 from .init import init
+from .install import install
 from .skill import skill
 from .sync import sync
 from .upgrade import upgrade
@@ -24,6 +25,7 @@ def root(ctx: typer.Context) -> None:
 
 
 app.command()(init)
+app.command()(install)
 app.command()(skill)
 app.command()(hook)
 app.command()(sync)

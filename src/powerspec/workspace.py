@@ -45,9 +45,11 @@ def open_workspace(
     if consumer is None:
         raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
     store = source_store or SaucepanSources()
-    try:
-        resolver = {"lookup": store.lookup, "ensure": store.ensure}[source_mode]
-    except KeyError:
+    if source_mode == "lookup":
+        resolver = store.lookup
+    elif source_mode == "ensure":
+        resolver = store.ensure
+    else:
         raise ValueError(f"unsupported source mode: {source_mode}") from None
     local = consumer.config_path.parent
     sources = {"local": local} if local.is_dir() else {}

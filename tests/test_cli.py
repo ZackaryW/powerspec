@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 
-COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
+COMMANDS = ("init", "install", "skill", "hook", "sync", "flush", "upgrade")
 
 
 def invoke(args):
@@ -85,6 +85,7 @@ def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch
     ["skill", "pspec-tdd", "--agent"], ["hook"], ["hook", "sessionStart"],
     ["flush", "--change"],
     ["sync", "--unknown"],
+    ["install"], ["install", "--unknown"],
     ["upgrade"], ["upgrade", "--unknown"],
 ])
 def test_invalid_syntax_is_a_usage_error(args):

@@ -19,7 +19,8 @@ Each command also supports `--help`.
 
 | Command | Current behavior |
 | --- | --- |
-| `pspec init --agent AGENT [--profile PROFILE]` | Initialize Git-root configuration and provision selected skills and supported user hooks |
+| `pspec init [--profile PROFILE]` | Establish the Git-root OpenSpec consumer and Powerspec configuration without agent installation |
+| `pspec install --agent AGENT` | Acquire missing selected sources and reconcile skills and the user-level hook dispatcher |
 | `pspec skill NAME --agent AGENT [--change CHANGE] [--json]` | Resolve an installed skill's selected content |
 | `pspec hook EVENT --agent AGENT [--change CHANGE]` | Resolve runtime traits from a native hook payload on stdin |
 | `pspec sync` | Reconcile OpenSpec configuration |
@@ -27,8 +28,7 @@ Each command also supports `--help`.
 | `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
 
 Implemented commands report configuration and operation failures with exit **1**.
-Help exits **0**; invalid syntax exits **2**. Placeholder commands emit an explicit
-not-implemented diagnostic and perform no domain work. Skill lookup returns
+Help exits **0**; invalid syntax exits **2**. Skill lookup returns
 `null` only for an installed skill without a Powerspec manifest.
 
 See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),

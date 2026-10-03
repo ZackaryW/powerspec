@@ -38,10 +38,9 @@ def test_init_uses_git_root_and_preserves_persistent_and_temporal_files(tmp_path
     native.parent.mkdir(parents=True)
     native.write_text("preserved")
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    plan = m.plan_initialization(nested, agent="codex", catalog=catalog)
+    plan = m.plan_initialization(nested)
     assert plan.root == project.resolve()
-    result = m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry")
-    assert result.provisioning.ok
+    result = m.initialize(plan)
     assert (state / "config.toml").read_bytes() == config_before
     assert (state / "current.toml").read_bytes() == current_before
     assert native.read_text() == "preserved"
@@ -50,18 +49,16 @@ def test_init_uses_git_root_and_preserves_persistent_and_temporal_files(tmp_path
     assert subprocess.run(["git", "check-ignore", "openspec/.pspec/config.toml"], cwd=project).returncode == 1
     first_yaml = (project / "openspec/config.yaml").read_bytes()
     monkeypatch.setattr(m, "bootstrap_openspec", lambda _: pytest.fail("already bootstrapped"))
-    assert m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry").provisioning.ok
+    assert m.initialize(plan).root == project.resolve()
     assert (project / "openspec/config.yaml").read_bytes() == first_yaml
 
 
-def test_invalid_agent_never_writes_and_missing_selection_uses_globals(tmp_path):
+def test_missing_selection_uses_globals_without_requiring_agent_or_catalog(tmp_path):
     from powerspec.initialization import plan_initialization
     project, catalog = setup_repo(tmp_path)
-    with pytest.raises(ConfigurationError, match="agent"):
-        plan_initialization(project, agent=None, catalog=catalog)
     (project / "openspec/.pspec/config.toml").unlink()
-    plan = plan_initialization(project, agent="codex", catalog=catalog)
-    assert plan.profile is None and plan.skills == ()
+    plan = plan_initialization(project)
+    assert plan.profile is None
     assert not (project / "openspec/config.yaml").exists()
 
 
@@ -72,8 +69,7 @@ def test_tracked_current_is_reported_without_untracking(tmp_path, monkeypatch):
     current.write_text("[vars]\n")
     subprocess.run(["git", "add", "openspec/.pspec/current.toml"], cwd=project, check=True)
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    result = m.initialize(m.plan_initialization(project, agent="codex", catalog=catalog),
-                          home=tmp_path / "home", registry=tmp_path / "registry")
+    result = m.initialize(m.plan_initialization(project))
     assert any("tracked" in warning for warning in result.warnings)
     assert subprocess.run(["git", "ls-files", "--error-unmatch", "openspec/.pspec/current.toml"], cwd=project).returncode == 0
 
@@ -89,9 +85,9 @@ def test_worktree_git_file_is_boundary(tmp_path, monkeypatch):
     state.mkdir(parents=True)
     (state / "config.toml").write_text('profile="@builtin/base"\n')
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    plan = m.plan_initialization(state, agent="codex", catalog=catalog)
+    plan = m.plan_initialization(state)
     assert plan.root == worktree.resolve()
-    m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry")
+    m.initialize(plan)
     assert (worktree / "openspec/config.yaml").is_file()
     assert not (project / "openspec/config.yaml").exists()
 
@@ -104,7 +100,7 @@ def test_bootstrap_failure_keeps_consumer_values(tmp_path, monkeypatch):
         raise ConfigurationError("OpenSpec failed")
     monkeypatch.setattr(m, "bootstrap_openspec", fail)
     with pytest.raises(ConfigurationError, match="OpenSpec failed"):
-        m.initialize(m.plan_initialization(project, agent="codex", catalog=catalog))
+        m.initialize(m.plan_initialization(project))
     assert (project / "openspec/.pspec/config.toml").read_bytes() == before
 
 
@@ -114,17 +110,17 @@ def test_new_profile_selector_is_persisted_without_overwriting_existing_selectio
     path = project / "openspec/.pspec/config.toml"
     path.unlink()
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    plan = m.plan_initialization(project, agent="codex", catalog=catalog, profile="@builtin/base")
-    m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry")
+    plan = m.plan_initialization(project, profile="@builtin/base")
+    m.initialize(plan)
     assert 'profile = "@builtin/base"' in path.read_text()
     with pytest.raises(ConfigurationError, match="already selects"):
-        m.plan_initialization(project, agent="codex", catalog=catalog, profile="@builtin/other")
+        m.plan_initialization(project, profile="@builtin/other")
 
 
 def test_changed_configuration_aborts_before_bootstrap(tmp_path, monkeypatch):
     import powerspec.initialization as m
     project, catalog = setup_repo(tmp_path)
-    plan = m.plan_initialization(project, agent="codex", catalog=catalog)
+    plan = m.plan_initialization(project)
     plan.config_path.write_text('profile="@builtin/base"\n[vars]\nnew=true\n')
     monkeypatch.setattr(m, "bootstrap_openspec", lambda _: pytest.fail("must preserve edit"))
     with pytest.raises(ConfigurationError, match="changed after"):
@@ -148,23 +144,17 @@ def test_bootstrap_invokes_upstream_with_no_local_tools(tmp_path, monkeypatch):
 
 
 def test_init_cli_reports_availability_and_reuses_configuration(tmp_path, monkeypatch):
-    import importlib
-    from contextlib import contextmanager
     from typer.testing import CliRunner
     from powerspec.cli import app
     import powerspec.initialization as m
-    cli = importlib.import_module("powerspec.cli.init")
     project, _ = setup_repo(tmp_path)
-    @contextmanager
-    def resources():
-        yield tmp_path / "catalog"
-    monkeypatch.setattr(cli, "builtin_catalog_root", resources)
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
     monkeypatch.chdir(project)
-    result = CliRunner().invoke(app, ["init", "--agent", "codex"])
+    result = CliRunner().invoke(app, ["init"])
     assert result.exit_code == 0, result.output
-    assert "selected skills are available" in result.stdout
+    assert "initialized:" in result.stdout
     assert "Run pspec sync" in result.stdout
+    assert "pspec install --agent" in result.stdout
     assert not (project / ".agents").exists()
 
 
@@ -180,14 +170,13 @@ def test_empty_profile_initializes_global_bundle(tmp_path, monkeypatch, content)
     else:
         config.write_text(content)
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    plan = m.plan_initialization(project, agent="codex", catalog=Catalog(builtin=catalog_root))
+    plan = m.plan_initialization(project)
     assert plan.profile is None
-    result = m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry")
-    assert result.provisioning.ok
+    result = m.initialize(plan)
     assert config.read_text() == (content if content is not None else "[vars]\n")
 
 
-def test_init_provisions_global_user_and_selected_project_scopes(tmp_path, monkeypatch):
+def test_init_does_not_provision_global_or_selected_skill_scopes(tmp_path, monkeypatch):
     import powerspec.initialization as m
     from test_provisioning import bundle
     bundle(tmp_path)
@@ -196,13 +185,11 @@ def test_init_provisions_global_user_and_selected_project_scopes(tmp_path, monke
     global_profile = tmp_path / "catalog/profiles/shared.toml"
     global_profile.write_text('global=true\n' + global_profile.read_text())
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    plan = m.plan_initialization(project, agent="codex", catalog=Catalog(builtin=tmp_path / "catalog"),
-                                 profile="@builtin/local")
-    result = m.initialize(plan, home=tmp_path / "home", registry=tmp_path / "registry")
-    assert result.provisioning.ok, result
-    assert (tmp_path / "home/.codex/skills/shared/SKILL.md").is_file()
-    assert (project / ".agents/skills/local/SKILL.md").is_file()
-    assert not (project / ".agents/skills/shared").exists()
+    plan = m.plan_initialization(project, profile="@builtin/local")
+    result = m.initialize(plan)
+    assert result.root == project.resolve()
+    assert not (tmp_path / "home/.codex/skills").exists()
+    assert not (project / ".agents/skills").exists()
 
 
 def test_current_ignore_rule_overrides_earlier_negation(tmp_path, monkeypatch):
@@ -211,6 +198,6 @@ def test_current_ignore_rule_overrides_earlier_negation(tmp_path, monkeypatch):
     ignore = project / "openspec/.pspec/.gitignore"
     ignore.write_text('/current.toml\n!current.toml\n')
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
-    m.initialize(m.plan_initialization(project, agent="codex", catalog=catalog))
+    m.initialize(m.plan_initialization(project))
     assert ignore.read_text().startswith('/current.toml\n!current.toml\n')
     assert subprocess.run(["git", "check-ignore", "openspec/.pspec/current.toml"], cwd=project).returncode == 0

@@ -1,4 +1,4 @@
-"""Plan and initialize the Git-root OpenSpec consumer without replacing values."""
+"""Plan and establish a Git-root OpenSpec consumer without provisioning agents."""
 from dataclasses import dataclass
 from pathlib import Path
 import json
@@ -6,16 +6,9 @@ import re
 import shutil
 import subprocess
 
-from zuat.pub import SUPPORTED_AGENTS
-
 from .catalog import ConfigurationError, read_toml, reference
 from .consumer import find_git_root
 from .models import ConsumerConfig
-from .profiles import compose
-from .provisioning import (
-    SkillPlan, ProvisionResult, HookOutcome, plan_skills, provision_skills,
-    provision_hooks,
-)
 
 
 @dataclass(frozen=True)
@@ -23,16 +16,12 @@ class InitializationPlan:
     root: Path
     config_path: Path
     profile: str | None
-    skills: tuple[SkillPlan, ...]
-    agent: str
     config_bytes: bytes | None
 
 
 @dataclass(frozen=True)
 class InitializationResult:
     root: Path
-    provisioning: ProvisionResult
-    hooks: HookOutcome
     warnings: tuple[str, ...]
 
 
@@ -43,9 +32,7 @@ def _contained(root, relative):
     return path
 
 
-def plan_initialization(cwd: Path, *, agent: str | None, catalog, profile=None):
-    if agent not in SUPPORTED_AGENTS:
-        raise ConfigurationError("init requires an explicit supported --agent: " + ", ".join(SUPPORTED_AGENTS))
+def plan_initialization(cwd: Path, *, profile: str | None = None):
     root = find_git_root(cwd)
     if root is None:
         raise ConfigurationError("init requires an existing Git repository")
@@ -59,9 +46,7 @@ def plan_initialization(cwd: Path, *, agent: str | None, catalog, profile=None):
         if config.profile is not None and config.profile != profile:
             raise ConfigurationError(f"{config_path}: profile already selects {config.profile}; edit config.toml to change it")
     selected = config.profile or profile or None
-    bundle = compose(catalog, selected, agent=agent, project_root=root,
-                     exclude_profiles=config.exclude_profiles)
-    return InitializationPlan(root, config_path, selected, plan_skills(bundle), agent, original)
+    return InitializationPlan(root, config_path, selected, original)
 
 
 def bootstrap_openspec(root: Path):
@@ -86,7 +71,7 @@ def bootstrap_openspec(root: Path):
         raise ConfigurationError("OpenSpec bootstrap did not create openspec/config.yaml")
 
 
-def initialize(plan: InitializationPlan, *, home=None, registry=None) -> InitializationResult:
+def initialize(plan: InitializationPlan) -> InitializationResult:
     root = plan.root
     for name in ("openspec/config.yaml", "openspec/.pspec/config.toml",
                  "openspec/.pspec/current.toml", "openspec/.pspec/.gitignore",
@@ -121,6 +106,4 @@ def initialize(plan: InitializationPlan, *, home=None, registry=None) -> Initial
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", "openspec/.pspec/current.toml"],
                              cwd=root, capture_output=True, timeout=15)
     warnings = ("current.toml is already tracked; adding an ignore rule does not untrack it",) if tracked.returncode == 0 else ()
-    skills = provision_skills(plan.skills, home=home, registry=registry)
-    hooks = provision_hooks(plan.agent, home=home, registry=registry)
-    return InitializationResult(root, skills, hooks, warnings)
+    return InitializationResult(root, warnings)
