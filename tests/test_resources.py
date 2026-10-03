@@ -38,11 +38,30 @@ def test_missing_catalog_is_diagnosed_without_fetch_or_generation(tmp_path, monk
     missing_package = tmp_path / "package"
     missing_checkout = tmp_path / "checkout"
     monkeypatch.setattr(resources, "files", lambda _name: missing_package)
+    monkeypatch.setattr(resources, "_distribution_catalog_root", lambda: None)
     monkeypatch.setattr(resources, "_checkout_catalog_root", lambda: missing_checkout)
 
     with pytest.raises(ConfigurationError, match="builtin catalog is missing"):
         with resources.builtin_catalog_root():
             pass
+
+
+def test_editable_catalog_overlays_live_authored_files_on_packaged_upstream(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    installed = tmp_path / "installed"
+    (checkout / "profiles").mkdir(parents=True)
+    (installed / "profiles").mkdir(parents=True)
+    (installed / "skills/openspec-example").mkdir(parents=True)
+    (installed / "profiles/live.toml").write_text('scope="stale"')
+    (checkout / "profiles/live.toml").write_text('scope="user"')
+    (installed / "skills/openspec-example/SKILL.md").write_text("upstream")
+    monkeypatch.setattr(resources, "files", lambda _name: tmp_path / "missing")
+    monkeypatch.setattr(resources, "_checkout_catalog_root", lambda: checkout)
+    monkeypatch.setattr(resources, "_distribution_catalog_root", lambda: installed)
+
+    with resources.builtin_catalog_root() as root:
+        assert (root / "profiles/live.toml").read_text() == 'scope="user"'
+        assert (root / "skills/openspec-example/SKILL.md").read_text() == "upstream"
 
 
 def test_built_wheel_has_no_checkout_paths(tmp_path):

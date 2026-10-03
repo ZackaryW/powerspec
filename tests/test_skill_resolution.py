@@ -29,14 +29,14 @@ Use <mode>.
 Shared.
 """)
     put(root / "pspec.toml", """
-version = 1
+version = 2
 entry = "SKILL.md"
 
 [[input]]
 id = "mode"
 type = "string"
 choices = ["python", "rust"]
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which mode?"
 default = "python"
@@ -45,7 +45,7 @@ default = "python"
 id = "command"
 type = "string"
 when = { mode = "python" }
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which command?"
 

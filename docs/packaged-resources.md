@@ -1,28 +1,33 @@
 # Packaged resources
 
-Powerspec distributions contain the complete builtin `.pspec` catalog. Normal
-builds, installations, `pspec init`, `pspec sync`, and `pspec resolve skill` resolution
-read that snapshot locally. They do not fetch OpenSpec skills or generate missing
-resources.
+Powerspec distributions contain the complete builtin catalog. Normal
+installations, `pspec init`, `pspec sync`, and `pspec resolve skill` read that
+snapshot locally. Runtime commands never fetch OpenSpec skills or generate
+missing resources.
 
-ZuAT and Zuu are pinned Git dependencies in the distribution metadata as well as
-the uv lockfile. A wheel installer therefore resolves the same revisions without
-depending on a checkout's uv source configuration. Installing dependencies may
-access their Git sources; provisioning the packaged OpenSpec skills uses the
-local catalog.
+Powerspec-authored profiles, contexts, traits, and skills remain under `.pspec`.
+The OpenSpec repository, immutable commit, selected skill roots, and license path
+are declared under `[tool.hatch.build.hooks.custom.source]` in `pyproject.toml`.
+They are not copied into `.pspec/skills`.
 
-The vendored OpenSpec skill snapshot is recorded in
-`.pspec/skills/UPSTREAM_PROVENANCE.md`; its license is retained in
-`.pspec/skills/UPSTREAM_LICENSE.txt`. Refreshing it is a maintainer operation:
+The Hatch build hook uses Zuu's pinned GitHub-subpath materializer to stage only
+the declared complete skill roots. It rejects missing or redirected paths,
+identity mismatches, and invalid revisions. It adds generated license,
+provenance, and content digests to the build snapshot. Direct wheels receive the
+validated skills through Hatch's `force_include` boundary.
 
-1. Select an OpenSpec tag compatible with the supported OpenSpec CLI.
-2. Copy each complete selected `skills/<name>` directory, including references
-   and scripts, into `.pspec/skills/<name>`.
-3. Update the pinned tag, commit, source paths, and compatibility statement in
-   `UPSTREAM_PROVENANCE.md`, and refresh the upstream license when necessary.
-4. Run the resource tests and build both distribution formats with `uv build`.
-5. Rebuild a wheel from the sdist with `uv build --offline --wheel <sdist>` and
-   compare its archive entries with the directly built wheel.
+An sdist carries the validated snapshot under `powerspec_build/openspec`. A wheel
+built from that sdist validates its digest manifest and reuses it without network
+access. To verify parity:
+
+1. Run `uv build --wheel --out-dir <direct>`.
+2. Run `uv build --sdist --out-dir <source>`.
+3. Run `uv build --offline --wheel <source>/powerspec-*.tar.gz --out-dir <rebuilt>`.
+4. Compare all `powerspec/_resources/catalog/` paths and bytes in both wheels.
+
+`POWERSPEC_OPENSPEC_SOURCE` is a build-test override for a prepared OpenSpec
+checkout. Normal builds leave it unset so the immutable public declaration is
+actually reproduced.
 
 If an installation lacks its packaged catalog, Powerspec reports a configuration
 error. Reinstall or repair the distribution; runtime fallback to a network source

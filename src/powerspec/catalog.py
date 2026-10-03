@@ -5,8 +5,9 @@ from pathlib import Path
 from collections.abc import Mapping, Sequence
 import re
 import tomllib
-import yaml
 from pydantic import ValidationError
+from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 from .models import Profile, Context, Trait
 
 
@@ -16,6 +17,7 @@ class ConfigurationError(ValueError):
 
 KINDS = {"profile", "context", "trait", "skill"}
 NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
+SAFE_YAML = YAML(typ="safe")
 
 
 def reference(value: str, *, wildcard: bool = False) -> str:
@@ -199,12 +201,12 @@ class Catalog:
             if not lines or lines[0] != "---":
                 raise ValueError("missing skill frontmatter")
             end = lines.index("---", 1)
-            data = yaml.safe_load("\n".join(lines[1:end]))
+            data = SAFE_YAML.load("\n".join(lines[1:end]))
             name = data.get("name") if isinstance(data, dict) else None
             if not isinstance(name, str) or not NAME.fullmatch(name):
                 raise ValueError("skill name must contain lowercase letters, numbers, and hyphens")
             return name, data
-        except (OSError, ValueError, yaml.YAMLError) as error:
+        except (OSError, ValueError, YAMLError) as error:
             raise ConfigurationError(f"{path}: {error}") from error
 
     def _catalog(self, source, root):

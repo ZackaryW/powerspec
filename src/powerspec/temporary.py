@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
-import tempfile
 
 from pydantic import ValidationError
 import tomlkit
@@ -12,6 +10,7 @@ import tomlkit
 from .catalog import ConfigurationError
 from .consumer import discover_consumer
 from .models import Variables
+from .utils.atomic import AtomicWriteError, replace_bytes
 
 
 @dataclass(frozen=True)
@@ -31,24 +30,6 @@ def _parse(original: bytes, path: Path):
 
 def _validate_candidate(candidate: bytes, path: Path) -> None:
     _parse(candidate, path)
-
-
-def _publish(path: Path, candidate: bytes) -> None:
-    temporary = None
-    try:
-        handle, name = tempfile.mkstemp(prefix=f".{path.name}.pspec-", dir=path.parent)
-        temporary = Path(name)
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(candidate)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        temporary = None
-    except OSError as error:
-        raise ConfigurationError(f"{path}: publication failed: {error}") from error
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
 
 
 def flush_current(cwd: Path, *, change: str | None = None) -> FlushResult:
@@ -83,7 +64,8 @@ def flush_current(cwd: Path, *, change: str | None = None) -> FlushResult:
         candidate = tomlkit.dumps(document).encode("utf-8")
 
     _validate_candidate(candidate, path)
-    if candidate == original:
-        return FlushResult(path, False)
-    _publish(path, candidate)
-    return FlushResult(path, True)
+    try:
+        updated = replace_bytes(path, candidate)
+    except AtomicWriteError as error:
+        raise ConfigurationError(f"{path}: publication failed: {error}") from error
+    return FlushResult(path, updated)

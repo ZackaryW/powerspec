@@ -10,6 +10,7 @@ from zuu.case16 import GitHubReleaseResolver, parse_version
 from zuu.case17 import FileCheckStateStore, ManagedReleaseBinary, ManagedReleaseBinaryError
 
 from .catalog import ConfigurationError
+from .utils.inspection import inspect_executable
 
 
 SAUCEPAN_CLI_LINES = {(0, 5), (0, 6)}
@@ -23,30 +24,35 @@ def _compatible(value: str) -> bool:
     return core[:2] in SAUCEPAN_CLI_LINES
 
 
-def _probe(path: Path) -> str:
-    completed = subprocess.run(
-        [str(path), "--version"],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=15,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-    output = completed.stdout.strip()
+def _saucepan_version(text: str) -> str:
+    output = text.strip()
     prefix = "saucepan "
     if not output.startswith(prefix):
         raise ValueError("Saucepan --version returned an unsupported response")
     return output.removeprefix(prefix)
 
 
-def _validate(path: Path, _tag: str) -> None:
-    subprocess.run(
-        [str(path), "--help"],
-        check=True,
-        capture_output=True,
+def _inspect(path: Path, *arguments: str, parse=None):
+    return inspect_executable(
+        [str(path), *arguments],
+        cwd=path.parent,
         timeout=15,
+        parse_version=parse,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
+
+
+def _probe(path: Path) -> str:
+    result = _inspect(path, "--version", parse=_saucepan_version)
+    if not result.ok:
+        raise ValueError(f"Saucepan version inspection failed: {result.kind}")
+    return result.version or ""
+
+
+def _validate(path: Path, _tag: str) -> None:
+    result = _inspect(path, "--help")
+    if not result.ok:
+        raise ValueError(f"Saucepan validation failed: {result.kind}")
 
 
 def _managed_saucepan(destination: Path) -> ManagedReleaseBinary:

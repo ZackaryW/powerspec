@@ -1,6 +1,17 @@
 import subprocess
 
-from powerspec.utils.inspection import inspect_executable
+from powerspec.utils.inspection import inspect_executable, semantic_version
+
+
+def test_semantic_version_accepts_two_or_three_components_and_rejects_other_text():
+    assert semantic_version("git version 2.50") == "2.50"
+    assert semantic_version("OpenSpec 1.13.2") == "1.13.2"
+    try:
+        semantic_version("development build")
+    except ValueError as error:
+        assert "semantic version" in str(error)
+    else:
+        raise AssertionError("missing semantic version must fail")
 
 
 def test_inspect_executable_reports_parsed_success(tmp_path, monkeypatch):

@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.12,<3",
-    "pyyaml==6.0.3",
     "ruamel-yaml>=0.18,<0.19",
     "saucepan-sdk @ git+https://github.com/ZackaryW/saucepan@4e22ad00722b7d6511f83d8b89bbbd9aa3f3caff#subdirectory=sdk/python",
     "tomlkit>=0.13,<1",
@@ -23,8 +22,30 @@ pspec = "powerspec.cli:main"
 powerspec = "powerspec.cli:main"
 
 [build-system]
-requires = ["hatchling>=1.27,<2"]
+requires = ["hatchling>=1.27,<2", "zuu>=202609.8,<202610"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.hooks.custom.source]
+owner = "Fission-AI"
+repository = "OpenSpec"
+revision = "db2309783547a14e150dbcbfc19120e4028446c3"
+license = "LICENSE"
+skills = [
+    "openspec-apply-change",
+    "openspec-archive-change",
+    "openspec-bulk-archive-change",
+    "openspec-continue-change",
+    "openspec-explore",
+    "openspec-ff-change",
+    "openspec-new-change",
+    "openspec-onboard",
+    "openspec-propose",
+    "openspec-sync-specs",
+    "openspec-update-change",
+    "openspec-verify-change",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -46,9 +67,11 @@ include = [
     "/README.md",
     "/pyproject.toml",
     "/uv.lock",
+    "/hatch_build.py",
 ]
 
 [dependency-groups]
 dev = [
+    "hatchling>=1.27,<2",
     "pytest>=9.1.1",
 ]

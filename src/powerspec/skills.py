@@ -26,7 +26,6 @@ class Prompt(ManifestModel):
     type: Literal["prompt"]
     prompt: Nonempty
     default: Any = None
-    default_hint: Nonempty | None = None
 
 
 class SkillInput(ManifestModel):
@@ -35,7 +34,7 @@ class SkillInput(ManifestModel):
     choices: list[Any] | None = Field(default=None, min_length=1)
     default: Any = None
     when: dict[Nonempty, Any] = Field(default_factory=dict)
-    parser: list[Prompt] = Field(default_factory=list)
+    parser: Prompt | None = None
 
     def validate_value(self, value: Any) -> Any:
         result = VALUE_ADAPTERS[self.type].validate_python(value, strict=True)
@@ -49,46 +48,23 @@ class SkillInput(ManifestModel):
             VALUE_ADAPTERS[self.type].validate_python(choice, strict=True)
         if "default" in self.model_fields_set:
             self.validate_value(self.default)
-        for parser in self.parser:
-            if "default" in parser.model_fields_set:
-                self.validate_value(parser.default)
+        if self.parser is not None and "default" in self.parser.model_fields_set:
+            self.validate_value(self.parser.default)
         return self
-
-
-class Hint(ManifestModel):
-    id: Nonempty
-    type: Literal["file-exists", "folder-exists"]
-    file_exists: Nonempty | None = None
-    folder_exists: Nonempty | None = None
-    value: Any
-
-    @model_validator(mode="after")
-    def detector_field(self):
-        expected = self.file_exists if self.type == "file-exists" else self.folder_exists
-        other = self.folder_exists if self.type == "file-exists" else self.file_exists
-        if expected is None or other is not None:
-            raise ValueError(f"{self.type} requires only its matching path field")
-        _relative_pattern(expected)
-        return self
-
-    @property
-    def pattern(self) -> str:
-        return self.file_exists or self.folder_exists or ""
 
 
 class Dynamic(ManifestModel):
     section: Nonempty
-    pos: Literal["before", "after", "replace", "combine"]
+    pos: Literal["after", "replace"]
     path: Nonempty
     source_section: Nonempty | None = None
     when: dict[Nonempty, Any] = Field(default_factory=dict)
 
 
 class SkillManifest(ManifestModel):
-    version: Literal[1]
+    version: Literal[2]
     entry: Nonempty
     input: list[SkillInput] = Field(default_factory=list)
-    hint: list[Hint] = Field(default_factory=list)
     dynamic: list[Dynamic] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -97,7 +73,6 @@ class SkillManifest(ManifestModel):
         if len(set(identifiers)) != len(identifiers):
             raise ValueError("input ids must be unique")
         by_id = {item.id: item for item in self.input}
-        hint_ids = {item.id for item in self.hint}
         graph: dict[str, list[str]] = {}
         for item in self.input:
             graph[item.id] = list(item.when)
@@ -105,9 +80,6 @@ class SkillManifest(ManifestModel):
                 if dependency not in by_id:
                     raise ValueError(f"{item.id}: unknown input reference {dependency}")
                 by_id[dependency].validate_value(expected)
-            for parser in item.parser:
-                if parser.default_hint is not None and parser.default_hint not in hint_ids:
-                    raise ValueError(f"{item.id}: unknown hint group {parser.default_hint}")
         for item in self.dynamic:
             for dependency, expected in item.when.items():
                 if dependency not in by_id:
@@ -177,24 +149,33 @@ def _relative_pattern(value: str, *, allow_glob=True) -> Path:
 
 def load_manifest(path: Path) -> SkillManifest:
     path = Path(path)
+    data = read_toml(path)
+    version = data.get("version") if isinstance(data, dict) else None
+    if version != 2:
+        raise ConfigurationError(
+            f"{path}: unsupported skill manifest version {version!r}; migrate to version 2"
+        )
+    if "hint" in data:
+        raise ConfigurationError(f"{path}: version 2 removed [[hint]] declarations")
+    for item in data.get("input", ()):
+        if not isinstance(item, dict):
+            continue
+        parser = item.get("parser")
+        if isinstance(parser, list):
+            raise ConfigurationError(
+                f"{path}: version 2 permits one prompt parser; use [input.parser]"
+            )
+        if isinstance(parser, dict) and "default_hint" in parser:
+            raise ConfigurationError(f"{path}: version 2 removed parser default_hint")
+    for item in data.get("dynamic", ()):
+        if isinstance(item, dict) and item.get("pos") in {"before", "combine"}:
+            raise ConfigurationError(
+                f"{path}: version 2 removed dynamic position {item['pos']!r}; use 'after' or 'replace'"
+            )
     try:
-        return SkillManifest.model_validate(read_toml(path))
+        return SkillManifest.model_validate(data)
     except (ValidationError, ValueError) as error:
         raise ConfigurationError(f"{path}: {error}") from error
-
-
-def _matches_hint(hint: Hint, root: Path) -> bool:
-    root = root.resolve(strict=True)
-    matches = root.glob(hint.pattern)
-    for candidate in matches:
-        resolved = candidate.resolve()
-        if not resolved.is_relative_to(root):
-            continue
-        if hint.type == "file-exists" and resolved.is_file():
-            return True
-        if hint.type == "folder-exists" and resolved.is_dir():
-            return True
-    return False
 
 
 def resolve_inputs(manifest: SkillManifest, bundle, consumer, *, needed, change=None) -> InputResult:
@@ -239,19 +220,10 @@ def resolve_inputs(manifest: SkillManifest, bundle, consumer, *, needed, change=
             origins[key] = all_origins[key]
             resolving.remove(key)
             return "value"
-        parser = declaration.parser[0] if declaration.parser else None
+        parser = declaration.parser
         suggested = None
         has_suggestion = False
-        if parser is not None and parser.default_hint is not None and consumer is not None:
-            for hint in (item for item in manifest.hint if item.id == parser.default_hint):
-                if _matches_hint(hint, consumer.git_root):
-                    try:
-                        suggested = declaration.validate_value(hint.value)
-                    except (ValidationError, ValueError) as error:
-                        raise ConfigurationError(f"hint {hint.id} suggests invalid {key}: {error}") from error
-                    has_suggestion = True
-                    break
-        if not has_suggestion and parser is not None and "default" in parser.model_fields_set:
+        if parser is not None and "default" in parser.model_fields_set:
             suggested = parser.default
             has_suggestion = True
         location = None
@@ -391,7 +363,7 @@ def compose_document(root: Path, entry: str, dynamics: list[Dynamic] | tuple[Dyn
 
     replacement_targets = {
         (item.target.start, item.target.end): item.target
-        for item in materials if item.dynamic.pos in {"replace", "combine"}
+        for item in materials if item.dynamic.pos == "replace"
     }
 
     def suppressed(item: _Material) -> bool:
@@ -404,30 +376,25 @@ def compose_document(root: Path, entry: str, dynamics: list[Dynamic] | tuple[Dyn
     replacements: dict[int, tuple[int, str]] = {}
     for start, target in sorted((value.start, value) for value in replacement_targets.values()):
         group = [item for item in eligible if item.target.start == start
-                 and item.dynamic.pos in {"replace", "combine"}]
+                 and item.dynamic.pos == "replace"]
         if not group:
             continue
-        retained: list[tuple[tuple[Path, str | None], str]] = []
-        for item in sorted(group, key=lambda value: value.order):
-            if item.dynamic.pos == "replace":
-                retained = [(item.identity, item.content)]
-            elif item.identity not in {identity for identity, _ in retained}:
-                retained.append((item.identity, item.content))
-        replacements[start] = (target.end, "".join(content for _, content in retained))
+        selected = max(group, key=lambda value: value.order)
+        replacements[start] = (target.end, selected.content)
 
     insertions: dict[int, list[tuple[int, int, int, str]]] = {}
     seen: set[tuple[int, str, tuple[Path, str | None]]] = set()
     for item in eligible:
-        if item.dynamic.pos not in {"before", "after"}:
+        if item.dynamic.pos != "after":
             continue
         key = item.target.start, item.dynamic.pos, item.identity
         if key in seen:
             continue
         seen.add(key)
-        position = item.target.start if item.dynamic.pos == "before" else item.target.end
-        # Ending child sections precede ending ancestors; after precedes before at a shared endpoint.
-        phase = 0 if item.dynamic.pos == "after" else 1
-        depth = -item.target.start if item.dynamic.pos == "after" else item.target.start
+        position = item.target.end
+        # Ending child sections precede ending ancestors at a shared endpoint.
+        phase = 0
+        depth = -item.target.start
         insertions.setdefault(position, []).append((phase, depth, item.order, item.content))
 
     output: list[str] = []

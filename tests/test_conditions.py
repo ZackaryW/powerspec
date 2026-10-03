@@ -5,6 +5,7 @@ from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.consumer import discover_consumer
 from powerspec.profiles import compose
 from powerspec.conditions import Invocation, evaluate, context_contributions, trait_contributions
+from powerspec.resources import builtin_catalog_root
 
 
 def put(root, name, text):
@@ -153,14 +154,15 @@ def test_armed_exclusions_shared_descendants_remote_and_fresh_snapshot(tmp_path)
 def test_package_inspection_trait_follows_utility_bundle():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    catalog = Catalog(builtin=root/'.pspec')
-    excluded = ['@builtin/zmem-lifecycle', '@builtin/adhd-friendly']
-    selected = compose(catalog, '@builtin/python-simple-cli', agent='codex', exclude_profiles=excluded)
-    ref = '@builtin/mature-package-inspection'
-    result = trait_contributions(selected, None, Invocation(root), matching_refs=[ref])
-    assert len(result) == 1 and 'reusable helpers' in result[0].body
-    without = compose(catalog, '@builtin/python-simple-cli', agent='codex', exclude_profiles=[*excluded, '@builtin/utils-planning-aware'])
-    assert trait_contributions(without, None, Invocation(root), matching_refs=[ref]) == ()
+    with builtin_catalog_root() as catalog_root:
+        catalog = Catalog(builtin=catalog_root)
+        excluded = ['@builtin/zmem-lifecycle', '@builtin/adhd-friendly']
+        selected = compose(catalog, '@builtin/python-simple-cli', agent='codex', exclude_profiles=excluded)
+        ref = '@builtin/mature-package-inspection'
+        result = trait_contributions(selected, None, Invocation(root), matching_refs=[ref])
+        assert len(result) == 1 and 'reusable helpers' in result[0].body
+        without = compose(catalog, '@builtin/python-simple-cli', agent='codex', exclude_profiles=[*excluded, '@builtin/utils-planning-aware'])
+        assert trait_contributions(without, None, Invocation(root), matching_refs=[ref]) == ()
 
 
 def test_context_compiles_declared_values_skills_and_distinct_ids_once(tmp_path):

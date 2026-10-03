@@ -4,6 +4,7 @@ import pytest
 from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.profiles import compose
 from powerspec.sources import SourceBinding
+from powerspec.resources import builtin_catalog_root
 
 
 def profile(root, name, **values):
@@ -92,10 +93,10 @@ def test_selected_names_conflict_but_distinct_scopes_do_not(tmp_path):
 
 
 def test_reviewed_python_bundle(tmp_path):
-    root = Path(__file__).resolve().parents[1] / ".pspec"
-    catalog = Catalog(builtin=root)
-    bundle = compose(catalog, "@builtin/python-simple-cli", agent="codex",
-                     exclude_profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"])
+    with builtin_catalog_root() as root:
+        catalog = Catalog(builtin=root)
+        bundle = compose(catalog, "@builtin/python-simple-cli", agent="codex",
+                         exclude_profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"])
     assert {r.name for r in bundle.contexts} == {
         "archive-temporary-state", "python-simple-cli", "utility-plan", "utility-apply",
     }

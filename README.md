@@ -37,8 +37,8 @@ Each command also supports `--help`.
 Implemented commands report configuration and operation failures with exit **1**.
 Help exits **0**; invalid syntax exits **2**. Skill lookup returns
 `null` only for an installed skill without a Powerspec manifest.
-The historical `skill`, `hook`, and `flush` forms remain hidden compatibility
-aliases while integrations migrate to `resolve` and `state`.
+The removed historical `skill`, `hook`, and `flush` forms are usage errors; use
+the grouped `resolve` and `state` commands shown above.
 
 See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),
 [context sync](docs/context-sync.md), [runtime hook delivery](docs/hook-delivery.md),

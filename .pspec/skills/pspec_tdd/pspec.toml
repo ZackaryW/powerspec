@@ -1,4 +1,4 @@
-version = 1
+version = 2
 entry = "SKILL.md"
 
 # SKILL.md owns the shared flow; only dynamic additions are declared here.
@@ -7,7 +7,7 @@ entry = "SKILL.md"
 id = "language"
 type = "string"
 
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which language applies to this TDD segment?"
 
@@ -18,7 +18,7 @@ id = "build_tool"
 type = "string"
 when = { language = "python" }
 
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which build/environment tool does this Python project use?"
 
@@ -27,7 +27,7 @@ id = "test_runner"
 type = "string"
 when = { language = "python" }
 
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which test runner does this Python project use?"
 
@@ -36,7 +36,7 @@ id = "test_command"
 type = "string"
 when = { language = "python" }
 
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "What command runs tests in this Python project's environment?"
 

@@ -130,11 +130,15 @@ def test_changed_configuration_aborts_before_bootstrap(tmp_path, monkeypatch):
 def test_bootstrap_invokes_upstream_with_no_local_tools(tmp_path, monkeypatch):
     import powerspec.initialization as m
     calls = []
-    monkeypatch.setattr(m.shutil, "which", lambda _: "openspec")
+    monkeypatch.setattr(
+        m,
+        "inspect_executable",
+        lambda *args, **kwargs: type(
+            "Observation", (), {"kind": "ok", "ok": True, "version": "1.13.2", "executable": "openspec"}
+        )(),
+    )
     def run(argv, **kwargs):
         calls.append((argv, kwargs))
-        if "--version" in argv:
-            return subprocess.CompletedProcess(argv, 0, "1.13.2", "")
         bootstrap(tmp_path)
         return subprocess.CompletedProcess(argv, 0, "initialized", "")
     monkeypatch.setattr(m.subprocess, "run", run)

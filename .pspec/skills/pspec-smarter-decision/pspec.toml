@@ -1,4 +1,4 @@
-version = 1
+version = 2
 entry = "SKILL.md"
 
 # Valid configured values skip input prompting. Standalone use is balanced too.

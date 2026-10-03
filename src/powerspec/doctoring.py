@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 
 from saucepan_sdk.client import shared_executable_path
 
 from .consumer import discover_consumer
 from .saucepan_tool import _compatible
-from .utils.inspection import ExecutableResult, inspect_executable
+from .utils.inspection import ExecutableResult, inspect_executable, semantic_version
 
 
 @dataclass(frozen=True)
@@ -27,13 +26,6 @@ class DoctorResult:
     @property
     def ok(self) -> bool:
         return all(item.status == "ok" for item in self.checks)
-
-
-def _version(text: str) -> str:
-    match = re.search(r"\b(\d+\.\d+(?:\.\d+)?)\b", text)
-    if match is None:
-        raise ValueError("version output did not contain a semantic version")
-    return match.group(1)
 
 
 def _check(name: str, result: ExecutableResult, *, minimum=None, compatible=None) -> DoctorCheck:
@@ -70,13 +62,13 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None) -> DoctorRe
             else DoctorCheck("consumer", "failed", "no owning openspec/.pspec/config.toml")
         )
         root = consumer.git_root if consumer is not None else cwd
-    git = inspect_executable(["git", "--version"], cwd=root, timeout=15, parse_version=_version)
-    openspec = inspect_executable(["openspec", "--version"], cwd=root, timeout=15, parse_version=_version)
+    git = inspect_executable(["git", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
+    openspec = inspect_executable(["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
     saucepan = inspect_executable(
         [str(saucepan_path or shared_executable_path()), "--version"],
         cwd=root,
         timeout=15,
-        parse_version=_version,
+        parse_version=semantic_version,
     )
     return DoctorResult((
         consumer_check,

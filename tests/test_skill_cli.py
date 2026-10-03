@@ -35,7 +35,7 @@ Use <language>.
         put(root / "pspec.toml", manifest)
     elif default is not None:
         put(root / "pspec.toml", f"""
-version = 1
+version = 2
 entry = "SKILL.md"
 [[input]]
 id = "language"
@@ -81,7 +81,7 @@ def test_empty_consumer_profile_resolves_global_defaults(tmp_path, monkeypatch):
     def resources():
         yield catalog
     monkeypatch.setattr(importlib.import_module("powerspec.cli.skill"), "builtin_catalog_root", resources)
-    result = invoke(["skill", "example", "--agent", "codex"])
+    result = invoke(["resolve", "skill", "example", "--agent", "codex"])
     assert result.exit_code == 0 and "Use python." in result.stdout, result.output
 
 
@@ -102,7 +102,7 @@ def test_installed_skill_resolution_does_not_require_global_remote_materializati
     def resources():
         yield catalog
     monkeypatch.setattr(importlib.import_module("powerspec.cli.skill"), "builtin_catalog_root", resources)
-    result = invoke(["skill", "example", "--agent", "codex"])
+    result = invoke(["resolve", "skill", "example", "--agent", "codex"])
     assert result.exit_code == 0 and "Use python." in result.stdout, result.output
 
 
@@ -111,7 +111,7 @@ def test_located_skill_without_manifest_returns_literal_null(tmp_path, monkeypat
     installed(home, manifest=None)
     before = snapshot(tmp_path)
     for extra in ([], ["--json"]):
-        result = invoke(["skill", "example", "--agent", "codex", *extra])
+        result = invoke(["resolve", "skill", "example", "--agent", "codex", *extra])
         assert result.exit_code == 0 and result.stdout == "null\n" and result.stderr == ""
     assert snapshot(tmp_path) == before
 
@@ -144,7 +144,7 @@ def test_both_installed_aliases_resolve_the_same_content(tmp_path):
     outputs = []
     for name in ("pspec", "powerspec"):
         result = subprocess.run(
-            [console(name), "skill", "example", "--agent", "codex"],
+            [console(name), "resolve", "skill", "example", "--agent", "codex"],
             cwd=project,
             env=environment_vars,
             capture_output=True,
@@ -159,27 +159,27 @@ def test_both_installed_aliases_resolve_the_same_content(tmp_path):
 def test_pending_withholds_content_and_describes_scoped_rerun(tmp_path, monkeypatch):
     home, project = environment(tmp_path, monkeypatch)
     installed(home, manifest="""
-version = 1
+version = 2
 entry = "SKILL.md"
 [[input]]
 id = "language"
 type = "string"
 choices = ["python", "rust"]
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which language?"
 default = "python"
 """)
     (project / ".git").mkdir()
     put(project / "openspec/.pspec/config.toml", 'exclude-profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]\n')
-    result = invoke(["skill", "example", "--agent", "codex", "--change", "work"])
+    result = invoke(["resolve", "skill", "example", "--agent", "codex", "--change", "work"])
     assert result.exit_code == 0 and "resolution pending" in result.stdout
     assert "Use <language>" not in result.stdout
     assert "Suggested value: `python`" in result.stdout
     assert "current.toml#_change.work" in result.stdout
     assert "--change work" in result.stdout
 
-    structured = invoke(["skill", "example", "--agent", "codex", "--change", "work", "--json"])
+    structured = invoke(["resolve", "skill", "example", "--agent", "codex", "--change", "work", "--json"])
     payload = json.loads(structured.stdout)
     assert payload["status"] == "pending" and "content" not in payload
     assert payload["questions"][0]["key"] == "language"
@@ -189,12 +189,12 @@ default = "python"
 def test_change_answer_resolves_without_affecting_another_change(tmp_path, monkeypatch):
     home, project = environment(tmp_path, monkeypatch)
     installed(home, manifest="""
-version = 1
+version = 2
 entry = "SKILL.md"
 [[input]]
 id = "language"
 type = "string"
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which language?"
 """)
@@ -212,16 +212,16 @@ def test_selected_path_resolves_codex_coexistence(tmp_path, monkeypatch):
     installed(home, default="user")
     local = project / ".agents/skills/example"
     put(local / "SKILL.md", "---\nname: example\ndescription: Local.\n---\n\n# Local\n")
-    without = invoke(["skill", "example", "--agent", "codex"])
+    without = invoke(["resolve", "skill", "example", "--agent", "codex"])
     assert without.exit_code == 1 and "unresolved" in without.stderr
-    chosen = invoke(["skill", "example", "--agent", "codex", "--selected", str(local)])
+    chosen = invoke(["resolve", "skill", "example", "--agent", "codex", "--selected", str(local)])
     assert chosen.exit_code == 0 and chosen.stdout == "null\n"
 
 
 def test_malformed_manifest_is_error_without_success_payload(tmp_path, monkeypatch):
     home, _ = environment(tmp_path, monkeypatch)
-    installed(home, manifest='version = 2\nentry = "SKILL.md"\n')
-    result = invoke(["skill", "example", "--agent", "codex", "--json"])
+    installed(home, manifest='version = 1\nentry = "SKILL.md"\n')
+    result = invoke(["resolve", "skill", "example", "--agent", "codex", "--json"])
     assert result.exit_code == 1 and result.stdout == ""
     assert "pspec.toml" in result.stderr and "version" in result.stderr
 
@@ -237,8 +237,8 @@ profile = "@builtin/python-simple-cli"
 exclude-profiles = ["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]
 """)
     before = snapshot(tmp_path)
-    markdown = invoke(["skill", "pspec-tdd", "--agent", "codex"])
-    structured = invoke(["skill", "pspec-tdd", "--agent", "codex", "--json"])
+    markdown = invoke(["resolve", "skill", "pspec-tdd", "--agent", "codex"])
+    structured = invoke(["resolve", "skill", "pspec-tdd", "--agent", "codex", "--json"])
     assert markdown.exit_code == structured.exit_code == 0
     payload = json.loads(structured.stdout)
     assert payload["status"] == "resolved" and payload["content"] == markdown.stdout

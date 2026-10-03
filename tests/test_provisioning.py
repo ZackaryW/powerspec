@@ -137,7 +137,7 @@ def test_reviewed_bundle_installs_upstream_and_manifest_resources(tmp_path, monk
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "home/.codex"))
     monkeypatch.chdir(project)
-    fallback = CliRunner().invoke(app, ["skill", "openspec-apply-change", "--agent", "codex"])
+    fallback = CliRunner().invoke(app, ["resolve", "skill", "openspec-apply-change", "--agent", "codex"])
     assert fallback.exit_code == 0 and fallback.stdout.strip() == "null", fallback.output
     tdd = installed_skill("codex", "pspec-tdd", cwd=project, home=tmp_path / "home")
     assert (tdd.root / "languages/python.md").is_file()

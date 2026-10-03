@@ -59,12 +59,6 @@ config_app.command(name="show")(show_config)
 config_app.command(name="profile")(config_profile)
 config_app.command(name="edit")(edit_config)
 
-# Compatibility protocol aliases stay callable while remaining out of root help.
-app.command(name="skill", hidden=True)(skill)
-app.command(name="hook", hidden=True)(hook)
-app.command(name="flush", hidden=True)(flush)
-
-
 def main() -> None:
     """Run the same application for either installed console script."""
     app()

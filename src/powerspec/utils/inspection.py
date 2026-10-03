@@ -5,8 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 import subprocess
+
+
+SEMANTIC_VERSION = re.compile(r"\b(\d+\.\d+(?:\.\d+)?)\b")
+
+
+def semantic_version(text: str) -> str:
+    """Return the first two- or three-component semantic version in text."""
+    match = SEMANTIC_VERSION.search(text)
+    if match is None:
+        raise ValueError("version output did not contain a semantic version")
+    return match.group(1)
 
 
 @dataclass(frozen=True)
@@ -29,6 +41,7 @@ def inspect_executable(
     cwd: Path,
     timeout: float,
     parse_version: Callable[[str], str] | None = None,
+    creationflags: int = 0,
 ) -> ExecutableResult:
     """Run literal argv with a time bound and return a categorized observation."""
     if isinstance(argv, (str, bytes)) or not argv or any(not isinstance(x, str) or not x for x in argv):
@@ -45,6 +58,7 @@ def inspect_executable(
             capture_output=True,
             text=True,
             shell=False,
+            creationflags=creationflags,
         )
     except subprocess.TimeoutExpired:
         return ExecutableResult("timeout", executable=executable)

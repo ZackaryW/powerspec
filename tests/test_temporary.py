@@ -121,7 +121,7 @@ def test_publication_failure_preserves_original_and_cleans_staging(tmp_path, mon
     def fail(_source, _destination):
         raise OSError("injected replacement failure")
 
-    monkeypatch.setattr(temporary.os, "replace", fail)
+    monkeypatch.setattr("powerspec.utils.atomic.os.replace", fail)
     with pytest.raises(ConfigurationError, match="publication failed"):
         flush_current(root)
     assert path.read_bytes() == before
@@ -149,8 +149,8 @@ def test_cli_reports_updated_unchanged_and_no_consumer(tmp_path, monkeypatch):
 
     root = project(tmp_path, '[_change.work]\nanswer = "temporary"\n')
     monkeypatch.chdir(root / "openspec")
-    updated = CliRunner().invoke(app, ["flush", "--change", "work"])
-    unchanged = CliRunner().invoke(app, ["flush", "--change", "work"])
+    updated = CliRunner().invoke(app, ["state", "clear", "--change", "work"])
+    unchanged = CliRunner().invoke(app, ["state", "clear", "--change", "work"])
     assert updated.exit_code == unchanged.exit_code == 0
     assert updated.stdout.startswith("updated:")
     assert unchanged.stdout.startswith("unchanged:")
@@ -158,6 +158,6 @@ def test_cli_reports_updated_unchanged_and_no_consumer(tmp_path, monkeypatch):
     outside = tmp_path / "outside"
     outside.mkdir()
     monkeypatch.chdir(outside)
-    missing = CliRunner().invoke(app, ["flush"])
+    missing = CliRunner().invoke(app, ["state", "clear"])
     assert missing.exit_code == 1 and missing.stdout == ""
     assert "no owning" in missing.stderr.lower()

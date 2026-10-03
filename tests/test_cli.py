@@ -107,7 +107,7 @@ def test_installed_aliases_report_upgrade_without_consumer(name, tmp_path):
 
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
-def test_installed_aliases_flush_one_change(name, tmp_path):
+def test_installed_entrypoints_clear_one_change(name, tmp_path):
     project = tmp_path / "project"
     state = project / "openspec/.pspec"
     state.mkdir(parents=True)
@@ -116,7 +116,7 @@ def test_installed_aliases_flush_one_change(name, tmp_path):
     (state / "current.toml").write_text(
         '[vars]\nshared = "keep"\n[_change.example]\nanswer = "clear"\n'
     )
-    result = run_process([console(name), "flush", "--change", "example"], project)
+    result = run_process([console(name), "state", "clear", "--change", "example"], project)
     assert result.returncode == 0 and result.stderr == ""
     assert result.stdout.startswith("updated:")
     rendered = (state / "current.toml").read_text()
@@ -125,9 +125,9 @@ def test_installed_aliases_flush_one_change(name, tmp_path):
 
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
-def test_installed_aliases_report_missing_skill(name, tmp_path):
+def test_installed_entrypoints_report_missing_skill(name, tmp_path):
     result = run_process(
-        [console(name), "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
+        [console(name), "resolve", "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
         home=tmp_path / "empty-home",
     )
     assert result.returncode == 1

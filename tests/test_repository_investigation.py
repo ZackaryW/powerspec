@@ -149,7 +149,7 @@ def test_investigation_skill_is_provisioned_as_an_ordinary_skill(tmp_path, monke
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.chdir(project)
     resolved = CliRunner().invoke(
-        app, ["skill", "pspec-repo-investigation", "--agent", "codex"],
+        app, ["resolve", "skill", "pspec-repo-investigation", "--agent", "codex"],
     )
     assert resolved.exit_code == 0, resolved.output
     assert resolved.stdout.strip() == "null"

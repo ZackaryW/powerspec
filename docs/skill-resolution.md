@@ -1,9 +1,9 @@
 # Skill content resolution
 
-`pspec.toml` version 1 keeps the shared procedure in its entrypoint and declares only typed inputs, optional suggestions, and dynamic additions. It does not enumerate a second static sequence.
+`pspec.toml` version 2 keeps the shared procedure in its entrypoint and declares only typed inputs, an optional prompt per input, and dynamic additions. It does not enumerate a second static sequence.
 
 ```toml
-version = 1
+version = 2
 entry = "SKILL.md"
 
 [[input]]
@@ -11,7 +11,7 @@ id = "language"
 type = "string"
 choices = ["python", "rust"]
 
-[[input.parser]]
+[input.parser]
 type = "prompt"
 prompt = "Which language applies?"
 default = "python" # suggestion, not an answer
@@ -23,9 +23,7 @@ path = "languages/<language>.md"
 source_section = "red"
 ```
 
-An input-level or dynamic `when = { language = "python" }` is an equality guard; every member must match. Known false guards exclude their branch before dependent inputs are requested. Input defaults are effective values at the lowest runtime precedence. Prompt defaults and matching hints are only suggestions in a pending question and never become values or write state.
-
-Repeated top-level `[[hint]]` entries with one `id` form an ordered local group. Version 1 supports `file-exists` with `file_exists` and `folder-exists` with `folder_exists`. A prompt names one scalar `default_hint`; the first matching detector supplies its suggestion. Detectors are evaluated relative to the owning consumer's Git root only when that unresolved prompt is reachable. Explicit/configured values bypass prompting and hint probes. Invalid effective values fail without falling back.
+An input-level or dynamic `when = { language = "python" }` is an equality guard; every member must match. Known false guards exclude their branch before dependent inputs are requested. Input defaults are effective values at the lowest runtime precedence. A prompt default is only a suggestion in a pending question and never becomes a value or writes state. Version 2 rejects hint declarations, `default_hint`, and more than one prompt parser per input with migration diagnostics.
 
 Runtime precedence is caller skill defaults, global-profile defaults, selected-profile defaults, persistent shared/change values, then temporary shared/change values. Change tables participate only when `--change` is explicit. A pending result tells the agent where a confirmed answer may be placed in `current.toml`; lookup never writes the answer. Without an owning consumer, it reports the unresolved choice without inventing a file location.
 
@@ -33,7 +31,7 @@ The Python TDD branch needs `build_tool`, `test_runner`, and `test_command`. A n
 
 Dynamic entries select an exact, unique Markdown heading from the shared entrypoint. A selected heading includes its body and descendant headings through the next heading at the same or a higher level. Headings inside fenced code blocks are ignored. Omitting `source_section` selects the whole source file.
 
-`before` and `after` retain the shared section and add selected content around it. `replace` replaces the shared section and resets earlier replacement content at that destination. `combine` also replaces the shared section, then appends to the current replacement set; a first `combine` therefore does not keep the original section. A later `replace` wins and clears the retained-source history. Replacement of an ancestor suppresses all dynamic operations aimed inside that original ancestor.
+`after` retains the shared section and adds selected content after its body and descendants. `replace` replaces the shared section, and the last active replacement at a destination wins. Replacement of an ancestor suppresses all dynamic operations aimed inside that original ancestor. Version 2 rejects `before`, `combine`, and other position values rather than silently reinterpreting them.
 
 All destinations use the original entrypoint's section coordinates. Inserted content is never searched for new anchors. Duplicate selected sources are removed only when their canonical destination, position, file, and optional source section are equal, so one source can still appear at distinct destinations. Source labels identify the selected relative file and section.
 

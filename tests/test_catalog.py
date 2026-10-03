@@ -35,6 +35,13 @@ def test_duplicate_names_and_reserved_source(tmp_path):
         Catalog(sources={"builtin": tmp_path})
 
 
+def test_malformed_skill_frontmatter_keeps_a_catalog_diagnostic(tmp_path):
+    path = write(tmp_path, "skills/bad/SKILL.md", "---\nname: [unterminated\n---\n")
+    with pytest.raises(ConfigurationError, match=r"bad\\SKILL\.md|bad/SKILL\.md") as raised:
+        Catalog(builtin=tmp_path)
+    assert str(path) in str(raised.value)
+
+
 @pytest.mark.parametrize("kind,body", [
     ("traits", 'mode="config"\n[[attach.context]]\nbody="x"'),
     ("traits", 'hooks=["sessionStart"]\nbody="x"\n[[compiletime]]\nid="x"\ntype="string"'),

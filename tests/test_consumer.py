@@ -4,6 +4,7 @@ import pytest
 from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.consumer import discover_consumer, runtime_values, context_values
 from powerspec.profiles import compose
+from powerspec.resources import builtin_catalog_root
 
 
 def put(path, content):
@@ -65,23 +66,23 @@ def test_context_ignores_even_malformed_current_and_change(tmp_path):
     with pytest.raises(ConfigurationError, match="current.toml"):
         discover_consumer(tmp_path)
     consumer = discover_consumer(tmp_path, runtime=False)
-    root = Path(__file__).resolve().parents[1] / ".pspec"
-    catalog = Catalog(builtin=root)
-    bundle = compose(catalog,"@builtin/python-simple-cli",agent="codex",exclude_profiles=["@builtin/zmem-lifecycle","@builtin/adhd-friendly"])
-    context = catalog.get("context","@builtin/python-simple-cli")
-    values, origins = context_values(context,consumer,bundle)
-    assert values["test_command"] == "uv run pytest"
-    assert values["cli_framework"] == "typer"
-    assert values["utility_path"] == "src/example/utils"
-    assert origins["utility_path"].endswith("config.toml#vars")
-    config.write_text('[vars]\nutility_path="utils"\ncli_framework="invalid"')
-    with pytest.raises(ConfigurationError, match="cli_framework"):
-        context_values(context,discover_consumer(tmp_path,runtime=False),bundle)
-    with pytest.raises(ConfigurationError, match="utility_path"):
-        context_values(context,None,bundle)
-    config.write_text('[vars]\nutility_path="utils"')
-    empty = SimpleNamespace(global_defaults={},selected_defaults={})
-    assert context_values(context,discover_consumer(tmp_path,runtime=False),empty)[0]["test_command"] == "uv run pytest"
+    with builtin_catalog_root() as root:
+        catalog = Catalog(builtin=root)
+        bundle = compose(catalog,"@builtin/python-simple-cli",agent="codex",exclude_profiles=["@builtin/zmem-lifecycle","@builtin/adhd-friendly"])
+        context = catalog.get("context","@builtin/python-simple-cli")
+        values, origins = context_values(context,consumer,bundle)
+        assert values["test_command"] == "uv run pytest"
+        assert values["cli_framework"] == "typer"
+        assert values["utility_path"] == "src/example/utils"
+        assert origins["utility_path"].endswith("config.toml#vars")
+        config.write_text('[vars]\nutility_path="utils"\ncli_framework="invalid"')
+        with pytest.raises(ConfigurationError, match="cli_framework"):
+            context_values(context,discover_consumer(tmp_path,runtime=False),bundle)
+        with pytest.raises(ConfigurationError, match="utility_path"):
+            context_values(context,None,bundle)
+        config.write_text('[vars]\nutility_path="utils"')
+        empty = SimpleNamespace(global_defaults={},selected_defaults={})
+        assert context_values(context,discover_consumer(tmp_path,runtime=False),empty)[0]["test_command"] == "uv run pytest"
 
 
 def test_two_consumers_do_not_share_answers(tmp_path):

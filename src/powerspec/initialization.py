@@ -2,13 +2,12 @@
 from dataclasses import dataclass
 from pathlib import Path
 import json
-import re
-import shutil
 import subprocess
 
 from .catalog import ConfigurationError, read_toml, reference
 from .consumer import find_git_root
 from .models import ConsumerConfig
+from .utils.inspection import inspect_executable, semantic_version
 
 
 @dataclass(frozen=True)
@@ -50,18 +49,20 @@ def plan_initialization(cwd: Path, *, profile: str | None = None):
 
 
 def bootstrap_openspec(root: Path):
-    executable = shutil.which("openspec")
-    if executable is None:
+    observed = inspect_executable(
+        ["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version
+    )
+    if observed.kind == "missing":
         raise ConfigurationError("OpenSpec CLI is required for initialization; install compatible OpenSpec 1.13.2 or later")
+    if not observed.ok:
+        raise ConfigurationError("cannot determine installed OpenSpec CLI version")
+    version = tuple(int(part) for part in (observed.version or "0").split("."))
+    if version < (1, 13, 2):
+        raise ConfigurationError(
+            f"OpenSpec {observed.version} is older than bundled skill compatibility (1.13.2)"
+        )
     try:
-        version = subprocess.run([executable, "--version"], capture_output=True, text=True,
-                                 cwd=root, timeout=15)
-        match = re.search(r"\b(\d+)\.(\d+)\.(\d+)\b", version.stdout)
-        if version.returncode or not match:
-            raise ConfigurationError("cannot determine installed OpenSpec CLI version")
-        if tuple(map(int, match.groups())) < (1, 13, 2):
-            raise ConfigurationError(f"OpenSpec {match.group()} is older than bundled skill compatibility (1.13.2)")
-        result = subprocess.run([executable, "init", str(root), "--tools", "none", "--no-animation"],
+        result = subprocess.run([observed.executable, "init", str(root), "--tools", "none", "--no-animation"],
                                 cwd=root, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ConfigurationError(f"OpenSpec bootstrap failed: {error}") from error

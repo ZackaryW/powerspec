@@ -62,18 +62,16 @@ def test_exact_sections_include_descendants_and_ignore_fenced_headings(tmp_path)
         section(duplicated, "Alpha", location=path)
 
 
-def test_before_after_order_dedup_and_distinct_destinations(tmp_path):
+def test_after_order_dedup_and_distinct_destinations(tmp_path):
     put(tmp_path, "SKILL.md", ENTRY)
     put(tmp_path, "parts.md", "# Parts\n\n## one\n\nOne.\n\n## two\n\nTwo.\n")
     items = [
-        dynamic("Alpha", "before", "parts.md", "one"),
         dynamic("Alpha", "after", "parts.md", "one"),
         dynamic("Alpha", "after", "parts.md", "one"),
         dynamic("Alpha", "after", "parts.md", "two"),
         dynamic("Beta", "after", "parts.md", "one"),
     ]
     result = compose_document(tmp_path, "SKILL.md", items, {"declared": "VALUE"})
-    assert result.index("<!-- Source: parts.md, section: one -->") < result.index("## Alpha")
     alpha_start = result.index("## Alpha")
     beta_start = result.index("## Beta")
     alpha = result[alpha_start:beta_start]
@@ -98,37 +96,6 @@ def test_replace_last_active_wins_and_whole_file_selection(tmp_path):
     assert "## Beta" in result
 
 
-def test_combine_and_replace_reset_duplicate_history(tmp_path):
-    put(tmp_path, "SKILL.md", ENTRY)
-    for name in "ABCD":
-        put(tmp_path, f"{name.lower()}.md", f"# {name}\n\n{name} body.\n")
-    result = compose_document(tmp_path, "SKILL.md", [
-        dynamic("Alpha", "replace", "a.md"),
-        dynamic("Alpha", "combine", "b.md"),
-        dynamic("Alpha", "replace", "c.md"),
-        dynamic("Alpha", "combine", "d.md"),
-    ], {})
-    alpha = result[result.index("Source: c.md"):result.index("## Beta")]
-    assert "# C" in alpha and "# D" in alpha
-    assert "# A" not in alpha and "# B" not in alpha and "Alpha body" not in alpha
-
-    reset = compose_document(tmp_path, "SKILL.md", [
-        dynamic("Alpha", "combine", "a.md"),
-        dynamic("Alpha", "replace", "b.md"),
-        dynamic("Alpha", "combine", "a.md"),
-        dynamic("Alpha", "combine", "a.md"),
-    ], {})
-    alpha = reset[reset.index("Source: b.md"):reset.index("## Beta")]
-    assert alpha.count("Source: a.md") == 1 and "Alpha body" not in alpha
-
-
-def test_first_combine_excludes_original(tmp_path):
-    put(tmp_path, "SKILL.md", ENTRY)
-    put(tmp_path, "a.md", "# A\n\nA.\n")
-    result = compose_document(tmp_path, "SKILL.md", [dynamic("Final", "combine", "a.md")], {})
-    assert "Final body" not in result and "# A" in result and "## Beta" in result
-
-
 def test_ancestor_replacement_suppresses_child_in_any_declaration_order(tmp_path):
     put(tmp_path, "SKILL.md", ENTRY)
     put(tmp_path, "parent.md", "# Parent\n\nParent body.\n\n### Child\nReplacement child.\n")
@@ -138,23 +105,21 @@ def test_ancestor_replacement_suppresses_child_in_any_declaration_order(tmp_path
         dynamic("Alpha", "replace", "parent.md"),
     ], [
         dynamic("Alpha", "replace", "parent.md"),
-        dynamic("Child", "before", "child.md"),
+        dynamic("Child", "after", "child.md"),
     ]):
         result = compose_document(tmp_path, "SKILL.md", items, {})
         assert "Should not appear" not in result and "Replacement child" in result
 
 
-def test_same_target_before_after_surround_replacement(tmp_path):
+def test_same_target_after_follows_replacement(tmp_path):
     put(tmp_path, "SKILL.md", ENTRY)
-    put(tmp_path, "before.md", "Before marker.\n")
     put(tmp_path, "replace.md", "# Replacement\n")
     put(tmp_path, "after.md", "After marker.\n")
     result = compose_document(tmp_path, "SKILL.md", [
         dynamic("Alpha", "after", "after.md"),
         dynamic("Alpha", "replace", "replace.md"),
-        dynamic("Alpha", "before", "before.md"),
     ], {})
-    assert result.index("Before marker") < result.index("# Replacement") < result.index("After marker") < result.index("## Beta")
+    assert result.index("# Replacement") < result.index("After marker") < result.index("## Beta")
 
 
 def test_single_pass_substitution_and_unknown_prose(tmp_path):
