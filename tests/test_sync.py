@@ -239,12 +239,12 @@ exclude-profiles = ["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]
 def test_publication_failure_preserves_original_and_cleans_staging(tmp_path, monkeypatch):
     target = put(tmp_path / "config.yaml", "schema: spec-driven\n")
     original = target.read_bytes()
-    import powerspec.syncing as syncing
+    import powerspec.utils.atomic as atomic
 
     def fail(source, destination):
         raise OSError("controlled replacement failure")
 
-    monkeypatch.setattr(syncing.os, "replace", fail)
+    monkeypatch.setattr(atomic.os, "replace", fail)
     try:
         publish(target, [contribution("context", "body", "@builtin/x/context/1")])
     except ConfigurationError as error:

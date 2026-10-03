@@ -3,15 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import StringIO
-import os
 from pathlib import Path
-import tempfile
 
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.scalarstring import LiteralScalarString
 
 from .catalog import ConfigurationError
+from .utils.atomic import AtomicWriteError, replace_bytes
 
 
 START = "<!-- pspec:contexts:start -->"
@@ -173,21 +172,8 @@ def publish(path: Path, contributions) -> SyncResult:
         candidate = reconcile(original, contributions)
     except OSError as error:
         raise ConfigurationError(f"{path}: {error}") from error
-    if candidate == original:
-        return SyncResult(path, False)
-    temporary = None
     try:
-        handle, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.pspec-", dir=path.parent)
-        temporary = Path(temporary_name)
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(candidate)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        temporary = None
-    except OSError as error:
+        updated = replace_bytes(path, candidate)
+    except AtomicWriteError as error:
         raise ConfigurationError(f"{path}: publication failed: {error}") from error
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-    return SyncResult(path, True)
+    return SyncResult(path, updated)
