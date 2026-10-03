@@ -1,6 +1,6 @@
 [project]
 name = "powerspec"
-version = "0.1.0"
+version = "0.1.1"
 description = "Profile-driven project guidance and skill resolution"
 readme = "README.md"
 authors = [
