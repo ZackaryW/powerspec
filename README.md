@@ -33,5 +33,6 @@ not-implemented diagnostic and perform no domain work. Skill lookup returns
 
 See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),
 [context sync](docs/context-sync.md), [runtime hook delivery](docs/hook-delivery.md),
-and [remote sources](docs/remote-sources.md). Temporary-state cleanup remains
-active implementation work.
+[remote sources](docs/remote-sources.md), and the
+[repository investigation bundle](docs/repository-investigation.md).
+Temporary-state cleanup remains active implementation work.

@@ -1,0 +1,6 @@
+hooks = ["sessionStart", "afterCompaction"]
+when = "armed('skill', '@builtin/pspec-repo-investigation')"
+
+body = """
+When the current task needs repository evidence or has material feasibility uncertainty, use <skill:pspec-repo-investigation>. Choose the investigation route from the task and the interfaces that can actually serve this repository: prefer CodeGraph for broad architecture and cross-module understanding, and Ripwire for targeted symbols or change impact. Preserve the caller's active decision policy, accepted answers, scope, and authorization. This reminder does not start an investigation, prototype, utility plan, TDD, or BDD workflow by itself.
+"""

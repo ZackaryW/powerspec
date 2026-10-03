@@ -1,0 +1,4 @@
+scope = "user"
+global = true
+traits = ["@builtin/repository-investigation"]
+skills = ["@builtin/pspec-repo-investigation"]
