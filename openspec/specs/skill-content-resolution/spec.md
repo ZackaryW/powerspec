@@ -8,85 +8,93 @@ Resolve a supported installed skill into the content and inputs needed for its c
 
 ### Requirement: Skill support is described by pspec.toml
 
-A supported installed skill SHALL carry pspec.toml alongside its entrypoint and referenced resources. SKILL.md SHALL own the shared procedure and its static order. The manifest SHALL declare inputs, defaults, and dynamic additions through [[dynamic]] entries: section identifies a destination heading in the entrypoint, pos declares placement relative to that section and SHALL be before, after, replace, or combine, path identifies a skill-relative resource with optional declared variable substitution, and optional source_section identifies a heading in that source. An omitted source_section SHALL select the complete source file. The reviewed TDD entries SHALL explicitly use pos = "after". The old after key SHALL NOT identify destinations in this shape. Numbered insert placement is outside this change; unsupported pos values SHALL produce a manifest diagnostic. The manifest SHALL NOT require enumerating shared content or duplicating the static procedure, and the entrypoint SHALL NOT require inline insertion markers. References SHALL resolve relative to the installed skill root rather than the working directory. Source and installed forms SHALL preserve equivalent behavior without a matching always-selected trait.
+A supported installed skill SHALL carry pspec.toml alongside its entrypoint and referenced resources. SKILL.md SHALL own the shared procedure and its static order. Manifest version 2 SHALL declare inputs, defaults, and dynamic additions through `[[dynamic]]` entries: `section` identifies an exact destination heading in the entrypoint, `pos` SHALL be `after` or `replace`, `path` identifies a skill-relative resource with optional declared variable substitution, and optional `source_section` identifies an exact heading in that source. An omitted `source_section` SHALL select the complete source file. Each input SHALL declare zero or one prompt parser. `before`, `combine`, hint groups, `default_hint`, multiple parsers, numbered insertion, and other position values SHALL produce migration diagnostics rather than being silently reinterpreted. References SHALL resolve relative to the installed skill root rather than the working directory.
 
 #### Scenario: Skill installed from a bundle
-- **WHEN** the supported skill is copied to the selected agent's user-level installation
+- **WHEN** a supported version 2 skill is copied to the selected agent's installation
 - **THEN** its pspec.toml and referenced content remain usable without the authoring checkout
 
 #### Scenario: No workflow trait
-- **WHEN** TDD is available as a profile skill without a TDD trait selected for OpenSpec
-- **THEN** direct lookup can still resolve its manifest and return the selected TDD procedure
+- **WHEN** a supported skill is available through a selected profile without a matching workflow trait
+- **THEN** direct lookup still resolves its manifest and returns the selected procedure
+
+#### Scenario: Version 1 manifest requires migration
+- **WHEN** lookup encounters a version 1 manifest or a removed version 1 field
+- **THEN** it reports a migration diagnostic without returning partially resolved content
+
+#### Scenario: More than one prompt parser
+- **WHEN** an input declares multiple prompt parsers
+- **THEN** manifest validation rejects the ambiguous input instead of selecting the first parser
 
 ### Requirement: Resolve only the invoked skill's necessary inputs
 
-Lookup SHALL combine the requested skill's defaults with mounted profile defaults and explicit project or temporal values when available. Explicit values SHALL take precedence over suggestions. Inputs SHALL be evaluated only when required to select or render a reachable part of this skill; excluded branches and unrelated skills SHALL not request inputs. Missing values needed by a decision SHALL remain pending, while invalid values or dependency cycles SHALL produce diagnostics. Conversation interpretation and answers SHALL belong to the agent rather than a hidden classifier inside the resolver.
+Lookup SHALL combine the requested skill's defaults with mounted profile defaults and explicit project or temporal values when available. Explicit values SHALL take precedence over prompt suggestions. Inputs SHALL be evaluated only when required to select or render a reachable part of this skill; excluded branches and unrelated skills SHALL not request inputs. Missing values needed by a decision SHALL remain pending, while invalid values or dependency cycles SHALL produce diagnostics. Conversation interpretation and answers SHALL belong to the agent rather than a hidden classifier inside the resolver.
 
-Lookup SHALL consume the shared/change layers and precedence defined by consumer-configuration, applying this skill's value defaults last. A valid effective value SHALL bypass its prompt and hint evaluation. Prompt defaults and hints SHALL remain suggestions, distinct from value defaults. Invalid effective values SHALL produce diagnostics without silently substituting lower-precedence values or prompting for replacement.
+Lookup SHALL consume the shared/change layers and precedence defined by consumer-configuration, applying this skill's value defaults last. A valid effective value SHALL bypass its prompt. A prompt default SHALL remain a suggestion, distinct from a value default. Invalid effective values SHALL produce diagnostics without silently substituting lower-precedence values or prompting for replacement. Resolution SHALL NOT probe repository files to infer prompt suggestions.
 
 #### Scenario: Persistent language skips its prompt
-- **WHEN** config.toml declares language = "python" under [vars] and current.toml has no override
-- **THEN** lookup substitutes python into languages/<language>.md and does not activate the language prompt
+- **WHEN** config.toml declares `language = "python"` under `[vars]` and current.toml has no override
+- **THEN** lookup substitutes python into the selected path and does not activate the language prompt
 
 #### Scenario: Temporal language overrides persistent language
 - **WHEN** current.toml supplies a valid different language value for the same skill
-- **THEN** lookup uses that value without prompting or modifying the persistent configuration
+- **THEN** lookup uses that value without prompting or modifying persistent configuration
 
 #### Scenario: Skill value default skips its prompt
 - **WHEN** no stronger value exists and the skill declares a valid input value default
-- **THEN** lookup uses that value without treating the prompt's suggested default as an answer
+- **THEN** lookup uses that value without treating a prompt default as an answer
 
-#### Scenario: Invalid configured input
-- **WHEN** the effective configured language has an invalid type or violates its declared allowed values
-- **THEN** lookup reports an input diagnostic without activating a replacement prompt or falling back to a default
+#### Scenario: Prompt default remains unconfirmed
+- **WHEN** an unresolved input has a prompt default and no effective value
+- **THEN** lookup returns that value only as a suggestion and leaves the input pending
 
 #### Scenario: Python TDD does not ask about BDD
 - **WHEN** the Python CLI bundle's TDD skill is invoked
 - **THEN** resolution returns its relevant inputs and content without requesting a BDD framework
 
 #### Scenario: Branch is excluded
-- **WHEN** a known language choice excludes a framework-specific branch
+- **WHEN** a known input value excludes a branch
 - **THEN** inputs used only by that branch are not requested and its content is omitted
 
 #### Scenario: A required choice is missing
-- **WHEN** a branch condition depends on an unanswered input
-- **THEN** the result identifies the decision and leaves its dependent content pending without guessing
+- **WHEN** a reachable branch depends on an unanswered input
+- **THEN** lookup reports the pending choice without guessing or reading an unrelated branch
 
-### Requirement: Ordered hints suggest rather than select
-
-Manifests SHALL support repeated hint IDs forming local groups in authored order. A prompt parser SHALL reference one group through scalar default_hint. The first matching hint SHALL supply the suggested default; no match SHALL retain the prompt's ordinary default or no suggestion. Explicit configured values SHALL skip hint-driven prompting. Hints SHALL use typed, read-only detectors and SHALL neither persist values nor count as confirmed answers. Hint lookup SHALL not merge groups across skills.
-
-#### Scenario: More than one detector matches
-- **WHEN** two hints with the same ID match
-- **THEN** only the first authored match supplies the suggestion and the agent still obtains an answer
-
-#### Scenario: Explicit selection exists
-- **WHEN** a configured value differs from a matching hint
-- **THEN** the configured value wins without an unnecessary prompt
-
-#### Scenario: No hint matches
-- **WHEN** the group produces no match
-- **THEN** the prompt uses its ordinary default if declared, otherwise requests a choice without a suggestion
+#### Scenario: Invalid configured input
+- **WHEN** an effective configured value has the wrong type or violates its choices
+- **THEN** lookup reports the invalid origin without prompting for a replacement or falling back
 
 ### Requirement: Return selected content directly and deterministically
 
-For pos = "before", resolution SHALL place selected source content immediately before the destination heading while preserving the target section. For pos = "after", resolution SHALL preserve the shared entrypoint's body and order, inserting each selected dynamic addition after its named destination section's body and descendants, before the next heading of equal or higher rank, or at document end. Destination and source selectors SHALL each identify an exact unique Markdown heading; headings inside code fences SHALL not count. Before and after contributions at one destination and position SHALL follow manifest declaration order, with identical resolved destination/position/file/source-section contributions appearing once at their first occurrence. Replace and combine declarations SHALL use the declaration-order accumulator defined below; references at different destinations SHALL retain their declared placements. Output SHALL contain actual shared and inserted text with concise provenance, without separate agent reads. Inactive content SHALL not appear as instructions. Declared variable substitution in resource paths or content SHALL occur once without executing code or recursively interpreting inserted content as further selections.
+For `pos = "after"`, resolution SHALL preserve the shared entrypoint's body and order and insert each selected addition after its named destination section body and descendants, before the next heading of equal or higher rank or at document end. Identical resolved destination/file/source-section contributions SHALL appear once at their first occurrence, and different additions at one destination SHALL follow manifest order. For `pos = "replace"`, the last active declaration for one destination SHALL replace that entire original section, including its heading and descendants, while preserving surrounding sections. Destination and source selectors SHALL each identify an exact unique ATX Markdown heading; headings inside code fences SHALL not count. Output SHALL contain the actual shared and selected text with concise provenance. Declared variable substitution in resource paths or content SHALL occur once without executing code or recursively interpreting inserted content.
 
 #### Scenario: Python additions preserve the shared TDD flow
-- **WHEN** language is python and dynamic entries use destination section, pos = "after", and source_section to select the Python scope, red, and green additions
-- **THEN** each corresponding Python section appears after its target body while shared refactor and handoff content remain in their original order without TOML entries for them
+- **WHEN** Python dynamic entries select scope, red, and green source sections with `pos = "after"`
+- **THEN** each addition appears after its named target while the remaining shared flow retains its order
 
 #### Scenario: Shared section is referenced twice
-- **WHEN** two active before or after entries reference the same source section at the same destination and position
-- **THEN** it appears once there with its source label
+- **WHEN** two active after entries reference the same source section at the same destination
+- **THEN** that contribution appears once at its first declaration position
 
 #### Scenario: Several additions share a destination
-- **WHEN** two different pos = "after" additions target the same entrypoint section
-- **THEN** their content appears after that section in manifest order before the next peer or ancestor heading
+- **WHEN** two different active after entries target one destination
+- **THEN** their content follows manifest order before the next peer or ancestor heading
 
 #### Scenario: Section selection
-- **WHEN** a dynamic entry uses source_section to identify one section of a multi-section source document
-- **THEN** the output includes that section and its nested content without unrelated sibling sections
+- **WHEN** a dynamic entry selects one source section from a multi-section resource
+- **THEN** output includes that heading and its descendants without unrelated sibling sections
+
+#### Scenario: Last active replacement wins
+- **WHEN** several active replace entries target one section
+- **THEN** only the final active declaration supplies that section's replacement
+
+#### Scenario: Inactive replacement cannot override
+- **WHEN** a later replacement is excluded by its condition
+- **THEN** the prior active replacement remains selected
+
+#### Scenario: Duplicate addition
+- **WHEN** the same after contribution is selected repeatedly for one destination
+- **THEN** it appears once at its first declaration position
 
 ### Requirement: Resolution errors cannot yield misleading partial success
 
@@ -132,7 +140,7 @@ The TDD skill SHALL explicitly declare build_tool, test_runner, and test_command
 - **WHEN** an installed supported non-Python branch is selected
 - **THEN** the Python tooling inputs do not activate or introduce questions
 
-### Requirement: Replace substitutes the entire destination section
+### Requirement: Replacement substitutes the entire destination section
 
 For pos = "replace", resolution SHALL replace the target section identified by section, including its heading, body, and descendant subsections. The replaced range SHALL end before the next heading of equal or higher rank, or at document end. Replacement content SHALL be the selected source_section including its heading and descendants, or the complete source file if source_section is omitted. The old destination heading SHALL NOT be retained, and surrounding sections SHALL remain intact. Boundaries SHALL be determined from the original entrypoint using the same exact-heading and code-fence rules as other placements.
 
@@ -149,65 +157,26 @@ For pos = "replace", resolution SHALL replace the target section identified by s
 - **WHEN** a dynamic entry declares pos = "insert,3"
 - **THEN** manifest validation reports an unsupported placement rather than guessing insertion coordinates
 
-### Requirement: Same-target replacement supports last-wins and combine
-
-When multiple active pos = "replace" entries target the same destination section, the last declaration in manifest order SHALL supply the replacement. Earlier replacement content SHALL NOT appear in the result, and an inactive later declaration SHALL NOT override an active one. Winner selection SHALL occur before duplicate elimination.
-
-Resolution SHALL process active replace and combine declarations for one destination together in manifest order, beginning with an empty replacement accumulator. Replace SHALL reset the accumulator to its selected source; combine SHALL append its selected source while preserving selected headings and content. A first combine SHALL start with its source rather than the original target content. Resolution SHALL replace the whole target section once with the final accumulator and SHALL NOT perform semantic text merging. Inactive declarations SHALL neither reset nor append. Combine SHALL deduplicate source identities against contributions currently retained in the accumulator; replace SHALL reset this history as well as the content. An active replacement group on an ancestor section SHALL suppress all descendant-targeted placements, as specified below.
-
-#### Scenario: Last active replacement wins
-- **WHEN** two active replace entries target the same section
-- **THEN** only the later entry supplies that section's replacement
-
-#### Scenario: Repeated replacement returns to earlier content
-- **WHEN** active same-target replace entries select A, then B, then A
-- **THEN** the final replacement is A rather than B
-
-#### Scenario: Inactive later replacement
-- **WHEN** a later same-target replace entry is excluded by its condition
-- **THEN** it does not override the last active replacement
-
-#### Scenario: Combine replacement contributions
-- **WHEN** two different active combine entries target the same section
-- **THEN** that section is replaced once by the first contribution followed by the second, without retaining the original target content
-
-#### Scenario: Mixed replacement and combination
-- **WHEN** active entries for one target declare replace A, combine B, replace C, and combine D in that order
-- **THEN** the target is replaced once by C followed by D, without A, B, or the original target content
-
-#### Scenario: Combination starts the replacement
-- **WHEN** the first active replacement-mode entry for a target is combine A
-- **THEN** its accumulator starts with A and excludes the original target content
-
-#### Scenario: Replacement clears earlier duplicate history
-- **WHEN** active entries declare combine A, replace B, and combine A for one target
-- **THEN** the target is replaced by B followed by A because the earlier A was discarded by replace
-
-#### Scenario: Duplicate retained contribution
-- **WHEN** active entries declare replace A, combine A, and combine B for one target using the same source identity for both A entries
-- **THEN** the target is replaced by A followed by B with A appearing only once
-
 ### Requirement: Ancestor replacement takes precedence over descendant placements
 
-Resolution SHALL derive destination boundaries and section ancestry from the original entrypoint. An active replace/combine group targeting an ancestor section SHALL suppress all entries targeting descendant sections, regardless of declaration order or placement type. This suppression SHALL apply to before, after, replace, and combine entries, including descendant after-placements sharing the ancestor's end boundary. Resolution SHALL NOT search replacement content for suppressed descendant anchors or replay descendant edits against inserted text. An inactive ancestor replacement SHALL NOT suppress child placements. Before/after entries targeting the replaced ancestor itself SHALL remain eligible and surround its final replacement.
+Resolution SHALL derive destination boundaries and section ancestry from the original entrypoint. An active replacement targeting an ancestor section SHALL suppress active after placements and replacements targeting its descendant sections regardless of declaration order. Resolution SHALL NOT search replacement content for suppressed descendant anchors or replay descendant edits against inserted text. An inactive ancestor replacement SHALL NOT suppress descendant placements.
 
 #### Scenario: Parent replacement suppresses a later child edit
-- **WHEN** an active replacement targets Red and a later entry targets its CLI tests subsection
-- **THEN** the Red replacement is emitted without the child contribution
-- **AND** reversing the declaration order does not change the ancestor precedence
+- **WHEN** an active replacement targets a parent section and an active after entry targets its child section
+- **THEN** the parent replacement is emitted without the child addition regardless of declaration order
 
 #### Scenario: Parent combination suppresses child placements
-- **WHEN** an active combine group replaces Red and before/after entries target a descendant subsection
-- **THEN** the combined Red replacement is emitted without those descendant placements
+- **WHEN** a removed version 1 combine declaration and descendant placements occur in one manifest
+- **THEN** version validation rejects the manifest before either operation is applied
 
 #### Scenario: Inactive parent replacement
-- **WHEN** every replace/combine entry for Red is inactive and an entry for its CLI tests subsection is active
-- **THEN** the child placement remains eligible
+- **WHEN** the parent replacement is inactive and a child after entry is active
+- **THEN** the child addition remains eligible
 
 #### Scenario: Replacement contains a matching child heading
-- **WHEN** the selected parent replacement happens to contain a heading matching an original child destination
-- **THEN** the suppressed child entry is not reapplied to that replacement content
+- **WHEN** selected parent replacement content contains a heading matching an original child destination
+- **THEN** a suppressed child entry is not reapplied to inserted content
 
 #### Scenario: Placements surround their own target replacement
-- **WHEN** before, replace, and after entries target the same Red section
-- **THEN** the before content precedes the final Red replacement and the after content follows it
+- **WHEN** active replace and after entries target the same section
+- **THEN** the final replacement is followed by the after contribution without restoring the original section

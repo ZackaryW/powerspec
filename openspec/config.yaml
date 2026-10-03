@@ -46,7 +46,7 @@ operations:
   archive:
     guidance:
       - |
-        After an OpenSpec change is successfully archived, run `pspec flush --change <archived-change-name>` from that change's owning repository. Run it only after archive success; do not clear temporal values when archive fails or is cancelled. Report cleanup failure separately from archive success and do not claim the values were cleared. Persistent `config.toml` values remain unchanged.
+        After an OpenSpec change is successfully archived, run `pspec state clear --change <archived-change-name>` from that change's owning repository. Run it only after archive success; do not clear temporal values when archive fails or is cancelled. Report cleanup failure separately from archive success and do not claim the values were cleared. Persistent `config.toml` values remain unchanged.
 
         <!-- pspec:managed -->
         ^@builtin/archive-temporary-state/operations.archive.guidance/flush-temporary-change-state

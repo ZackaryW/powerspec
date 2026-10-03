@@ -229,4 +229,3 @@ class CustomBuildHook(BuildHookInterface):
 
     def finalize(self, version, build_data, artifact_path):
         shutil.rmtree(getattr(self, "_temporary", ""), ignore_errors=True)
-
