@@ -1,0 +1,94 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+context: |
+  <!-- pspec:contexts:start -->
+  This project is a small Python CLI using typer, with uv as its build tool and pytest tests run through `uv run pytest`. Follow the existing package layout, dependency management, and framework conventions. Configuration describes the intended setup; verify available tooling before running it. Preserve established tooling rather than migrating it to satisfy a profile default; reconcile configuration with the project's actual choice.
+  ^@builtin/python-simple-cli/context/1
+
+  Keep argument and option naming consistent across commands. Send successful results to stdout and diagnostics to stderr; preserve documented exit codes. Define each file-writing command's behavior for existing destinations and repeated invocations. Do not assume overwrite or transactional behavior unless the command's contract promises it.
+  ^@builtin/python-simple-cli/context/2
+
+  Keep command handlers focused on parsing inputs, invoking implementation code, and presenting results. Place generic helpers that other projects could reuse under `src/powerspec/utils`, organized by operation. Give them portable inputs and results. Keep application models, profile/configuration policy, CLI parsing, and presentation with their application owners. Create utility modules when current work needs them; this guidance does not require an empty scaffold or speculative abstractions.
+  ^@builtin/python-simple-cli/context/3
+
+  <!-- pspec:contexts:end -->
+operations:
+  archive:
+    guidance:
+      - |
+        After an OpenSpec change is successfully archived, run `pspec flush --change <archived-change-name>` from that change's owning repository. Run it only after archive success; do not clear temporal values when archive fails or is cancelled. Report cleanup failure separately from archive success and do not claim the values were cleared. Persistent `config.toml` values remain unchanged.
+
+        <!-- pspec:managed -->
+        ^@builtin/archive-temporary-state/operations.archive.guidance/flush-temporary-change-state
+  apply:
+    guidance:
+      - |
+        Checkpoint incrementally after a coherent slice is implemented and its relevant checks pass, rather than waiting for the entire change. Use boundaries such as a verified utility contract, an integrated behavior, or a complete resource bundle; do not manufacture checkpoints for trivial edits or run the full test suite at every checkpoint without a reason.
+
+        When committing is authorized, inspect the diff, stage only the checkpoint's explicit paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Follow the applicable commit-authoring guidance supplied for the session. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
+
+        <!-- pspec:managed -->
+        ^@builtin/incremental-checkpoints/operations.apply.guidance/1
+      - |
+        For planned generic helpers, use pspec-tdd to implement and verify the accepted portable contracts before application integration that depends on them. Keep helper interfaces usable by other projects; application models, configuration conventions, and workflow rules belong in their callers. Reuse existing utility implementations and evidence when they still cover the accepted contracts; preserve work already present. Resolve missing or materially changed contracts before dependent implementation. Then wire the verified utilities into their callers and verify the integrated behavior. Passing utility tests does not establish integration or whole-change completion. This ordering applies only where utility work is needed; environment-only work, documentation, and configuration edits without behavioral effects do not activate it.
+
+        <!-- pspec:managed -->
+        ^@builtin/utility-apply/operations.apply.guidance/1
+      - |
+        When implementing or changing software behavior, use pspec-tdd for the accepted implementation segment. For environment-only work, documentation, investigation, or configuration edits without behavioral effects, use appropriate validation without activating TDD. For mixed work, apply TDD to the behavioral portion. Use `uv run pytest` with the runner's appropriate selectors for focused checks, broadening when dependencies, failures, or unresolved concerns warrant it.
+
+        <!-- pspec:managed -->
+        ^@builtin/python-simple-cli/operations.apply.guidance/1
+rules:
+  tasks:
+    - |
+      Organize authorized implementation into meaningful, dependency-ordered checkpoints. Each checkpoint should deliver a coherent, independently reviewable slice with its relevant verification, before work proceeds to the next slice. Do not split implementation from verification into knowingly broken intermediate states or require a checkpoint for every edit.
+
+      <!-- pspec:managed -->
+      ^@builtin/incremental-checkpoints/rules.tasks/1
+    - |
+      Reflect the design's portable helper contracts in coherent implementation-and-verification tasks, ordered before application integration that depends on them. Verify helpers with domain-neutral inputs and keep application policy tests with their callers. Keep integration checks after that wiring. Reuse already implemented and verified utilities where their contracts still fit; do not manufacture new utility tasks merely to satisfy this ordering.
+
+      <!-- pspec:managed -->
+      ^@builtin/utility-plan/rules.tasks/1
+    - |
+      Plan verification at the changed boundary: focused tests for utilities; actual CLI-entrypoint tests for argument parsing, output, and exit codes; isolated filesystem tests for persistent effects; installation or executable checks when packaging changes. Scale the test selection to the affected behavior and shared dependencies. Complete required project checks without scheduling the full suite after every small increment.
+
+      <!-- pspec:managed -->
+      ^@builtin/python-simple-cli/rules.tasks/1
+  design:
+    - |
+      When the accepted change needs generic helpers that could be reused in other projects, use pspec-plan-utilities. Record portable contracts, existing-library fit, a concrete use outside this project, and focused verification. Keep application models, configuration conventions, and workflow policy in application code. Describe how that code supplies inputs and consumes the helpers separately. Do not invent utilities when existing APIs or feature-owned logic suffice. Skip environment-only work, documentation, and configuration edits without behavioral effects; for mixed work assess only the relevant portion. Planning does not authorize implementation.
+
+      <!-- pspec:managed -->
+      ^@builtin/utility-plan/rules.design/1
