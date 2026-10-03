@@ -24,7 +24,7 @@ reference = "main"
 
 Identical declarations can be shared across selected profiles. Different recipes for the same alias are a composition error. `builtin` remains reserved.
 
-All recipes are materialized through one Saucepan application named `powerspec`. Powerspec creates the Saucepan store and registers that application lazily during `pspec install` when a selected recipe is missing. Repeating install reuses a matching current materialization without refreshing it. Powerspec uses the application view, source history, and artifact path to locate exact recipe matches; one application may therefore contain many sources.
+All recipes are materialized through one Saucepan application named `powerspec`. Powerspec creates the Saucepan store and registers that application lazily during `pspec init` or `pspec sync` when a selected recipe is missing. Repeating either command reuses a matching current materialization without refreshing it. Powerspec uses the application view, source history, and artifact path to locate exact recipe matches; one application may therefore contain many sources.
 
 Installation and explicit upgrade submit the profile's Git origin and reference, request the complete repository, and retain:
 
@@ -43,8 +43,8 @@ Recipe declaration, materialization, selection, installation, synchronization, a
 - Powerspec owns the single Saucepan application lifecycle and validates selected materializations;
 - Saucepan owns source acquisition and retained content;
 - ZuAT owns native agent installation and installation provenance.
-- `pspec sync` reuses existing materializations and does not fetch, install, or remove skills.
-- `pspec install` may acquire a selected recipe only when it is missing;
+- `pspec sync` reuses existing materializations without refresh and does not install or remove skills.
+- `pspec init` and `pspec sync` may acquire a selected recipe only when it is missing;
 - explicit upgrade is the only Powerspec operation that refreshes an existing selected recipe.
 
 An unavailable Powerspec app during read-only lookup, ambiguous matching source, missing full-root artifact, failed acquisition, or invalid replacement produces a source-specific diagnostic. Such failure does not turn an earlier valid binding into a successful replacement.

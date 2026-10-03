@@ -7,7 +7,6 @@ from .config import edit as edit_config, profile as config_profile, show as show
 from .doctor import doctor
 from .hook import hook
 from .init import init
-from .install import install
 from .skill import skill
 from .state import show as show_state
 from .status import status
@@ -43,7 +42,6 @@ def config_root(ctx: typer.Context) -> None:
 
 
 app.command()(init)
-app.command()(install)
 app.command()(status)
 app.command()(sync)
 app.command()(upgrade)

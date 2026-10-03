@@ -21,8 +21,9 @@ def test_root_help_exposes_control_plane_and_groups_but_hides_compatibility_alia
 
     result = invoke(["--help"])
     assert result.exit_code == 0
-    for command in ("init", "status", "sync", "install", "upgrade", "doctor", "config", "state", "resolve"):
+    for command in ("init", "status", "sync", "upgrade", "doctor", "config", "state", "resolve"):
         assert command in result.stdout
+    assert "install" not in result.stdout
     command = get_command(app)
     for hidden in ("skill", "hook", "flush"):
         assert command.commands[hidden].hidden is True

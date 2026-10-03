@@ -52,10 +52,11 @@ class App:
 
 
 class Client:
-    def __init__(self, app, *, store=True, registered=True):
+    def __init__(self, app, *, store=True, registered=True, missing="store index is missing"):
         self.app = app
         self.store = store
         self.registered = registered
+        self.missing = missing
         self.names = []
         self.init_calls = 0
         self.register_calls = []
@@ -69,7 +70,7 @@ class Client:
                 if attribute == "view":
                     def view():
                         if not client.store:
-                            raise SaucepanError("store index is missing", stderr="store index is missing")
+                            raise SaucepanError(client.missing, stderr=client.missing)
                         if not client.registered:
                             raise SaucepanError("app is not registered", stderr="app is not registered")
                         return client.app.view()
@@ -171,14 +172,29 @@ def test_remote_git_suffix_is_treated_as_the_same_declared_origin(tmp_path):
     assert result.repository == SOURCE["origin"]
 
 
-def test_ensure_initializes_registers_and_acquires_missing_recipe(tmp_path):
+@pytest.mark.parametrize("missing", ["store index is missing", "store secret is missing"])
+def test_ensure_initializes_registers_and_acquires_missing_recipe(tmp_path, missing):
     app = App(tmp_path, entries={})
-    client = Client(app, store=False, registered=False)
+    client = Client(app, store=False, registered=False, missing=missing)
     result = SaucepanSources(client).ensure("tools", SOURCE)
     assert result.resolved_revision == "b" * 40
     assert client.init_calls == 1
     assert client.register_calls == ["powerspec"]
     assert app.acquire_calls == [{"source": SOURCE}]
+
+
+def test_missing_secret_does_not_bypass_saucepan_initialization_guard(tmp_path):
+    app = App(tmp_path, entries={})
+    client = Client(app, store=False, registered=False, missing="store secret is missing")
+
+    def reject_existing_store():
+        raise SaucepanError("existing store data prevents initialization")
+
+    client.init = reject_existing_store
+    with pytest.raises(ConfigurationError, match="cannot initialize Saucepan store.*existing store data"):
+        SaucepanSources(client).ensure("tools", SOURCE)
+    assert client.register_calls == []
+    assert app.acquire_calls == []
 
 
 def binding(identity, root, revision="a" * 40):

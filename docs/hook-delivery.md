@@ -1,6 +1,6 @@
 # Runtime trait hook delivery
 
-`pspec install --agent codex` and `pspec install --agent claude` install one generic
+`pspec init --agent codex` and `pspec init --agent claude` install one generic
 user-level hook asset through ZuAT. The asset contains commands only. It does not
 contain a consumer profile, trait body, or repository path. At invocation, the
 host sends JSON on stdin and Powerspec uses its absolute `cwd` to discover the

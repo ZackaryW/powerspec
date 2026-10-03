@@ -1,51 +1,50 @@
 # Initialize a consumer
 
-Run from anywhere inside the target Git repository:
+Run inside the target Git repository:
 
 ```console
-pspec init --profile @builtin/python-simple-cli
+pspec init --profile @builtin/python-simple-cli --agent codex
 pspec sync
-pspec install --agent codex
 ```
 
-A new consumer can use `--profile`; an existing consumer reads its selection from
-`openspec/.pspec/config.toml`. Omitting the profile (or configuring `profile = ""`)
-selects only global profiles, after exclusions. Thus `pspec init`
-is a valid global-only bootstrap. Supplying a different profile does not overwrite
-that choice: edit the configuration explicitly to change it.
+Initialization creates the Git-root OpenSpec/Powerspec consumer, acquires missing
+selected sources, and provisions selected skills and hooks for the supplied
+agent. There is no separate install command. Repeat `init --agent codex` to
+prepare another machine or reconcile that agent after changing profile selection.
 
-Initialization invokes an installed
-OpenSpec CLI (1.13.2 or later) with `--tools none`. It establishes the Git-root
-`openspec` structure, including worktree roots, without generating repository
-agent skills. Existing OpenSpec configuration, variables, and native skills are
-preserved. Initialization neither opens Saucepan nor invokes ZuAT.
+`--profile` sets a new consumer's selection; later runs reuse config.toml.
+An omitted or empty profile selects global profiles after exclusions. Conflicting
+profile options are rejected: edit config.toml to change an existing choice.
 
-`pspec install --agent <agent>` acquires missing configured sources, provisions
-selected skills, and reconciles the generic Powerspec runtime dispatcher into
-the agent's user-level hook settings through ZuAT. Hook scope is independent
-from profile skill scope. Kimi and Pi currently report an
-unsupported runtime-delivery surface because no context-capable mapping has been
-verified. See [runtime hook delivery](hook-delivery.md).
+Plain `pspec init` prepares the consumer and selected sources without guessing an
+agent or provisioning assets. Rerun with `--agent` for agent setup. Unsupported
+agents are rejected before consumer writes.
 
-The consumer's `.gitignore` covers `current.toml`, while `config.toml` remains
-trackable. A tracked current file is reported; initialization does not untrack it.
-Existing shared `[vars]` and change-specific `[_change.<name>]` values remain in
-place. Repeating initialization preserves matching consumer files. Installation
-reports each skill and hook outcome; successful assets remain available after a
-partial failure. Resolve conflicts and rerun install. See
-[skill installation](skill-installation.md).
+OpenSpec CLI 1.13.2 or later is required when bootstrapping OpenSpec. Powerspec
+invokes it with `--tools none`; ZuAT installs skills at each profile's declared
+scope. Bundled OpenSpec skills use user scope. Only project-scoped profiles create
+repository-local agent skills. Generic hooks use the agent's user-level settings.
+Unsupported hook surfaces are reported explicitly; see [hook delivery](hook-delivery.md).
 
-Initialization does not publish contexts, acquire sources, install skills,
-register hooks, execute skills, or prove an agent followed guidance. Run
-`pspec sync` to publish configured contexts and `pspec install --agent <agent>`
-to install agent assets.
+Existing config.yaml, config.toml, current.toml, and unrelated native assets are
+preserved. A tracked current.toml is reported; initialization adds its ignore rule
+but does not untrack it. Later failures leave established consumer files and
+successful assets in place. Resolve the error and rerun init with the same options;
+matching materializations and assets are reused.
 
-The bundled zmem and ADHD-friendly profiles declare external Git recipes.
-Installation lazily establishes the single `powerspec` Saucepan application and
-acquires any selected recipe that has no current materialization. Existing
-materializations are reused without refresh. Acquisition or provisioning
-failures are reported as incomplete installation. A bundled-only trial can
-explicitly exclude those profiles in the consumer configuration:
+`pspec sync` publishes contexts, acquiring missing sources without refreshing
+existing revisions or installing skills/hooks. `pspec upgrade --agent codex`
+refreshes selected sources and reconciles installations, committing obsolete
+managed removals only after successful preparation.
+
+The bundled zmem and ADHD-friendly profiles use external Git recipes. First use
+of init or sync lazily prepares the shared Powerspec Saucepan application.
+Native secret and index initialization are delegated to Saucepan; existing
+store data is never deleted or rekeyed to bypass failure. A missing credential
+service or damaged existing store remains an error. Do not copy an encrypted
+Saucepan store between computers as a substitute for initialization.
+
+For a bundled-only consumer, explicitly exclude the external profiles:
 
 ```toml
 profile = "@builtin/python-simple-cli"
@@ -55,6 +54,5 @@ exclude-profiles = ["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]
 utility_path = "src/example/utils"
 ```
 
-Exclusion changes this consumer's selection; it never removes skills shared with
-other consumers. Examples and integration tests use disposable agent homes and
-ZuAT registries. `ZUAT_HOME` redirects ZuAT's registry for isolated checks.
+Excluding a profile does not uninstall skills shared by other projects.
+Initialization does not execute skills or prove that an agent followed guidance.

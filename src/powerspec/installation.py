@@ -41,7 +41,7 @@ def install_consumer(
     """Ensure sources, install selected skills, and reconcile one dispatcher."""
     if agent not in SUPPORTED_AGENTS:
         raise ConfigurationError(
-            "install requires a supported --agent: " + ", ".join(SUPPORTED_AGENTS)
+            "provisioning requires a supported --agent: " + ", ".join(SUPPORTED_AGENTS)
         )
     with open_workspace(
         cwd,

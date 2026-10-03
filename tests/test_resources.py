@@ -28,10 +28,10 @@ def test_builtin_guidance_uses_canonical_cli_surface():
         bootstrap = (root / "skills/pspec-skill-bootstrap/SKILL.md").read_text(encoding="utf-8")
         trait = (root / "traits/skill-bootstrap.toml").read_text(encoding="utf-8")
         archive = (root / "contexts/archive-temporary-state.toml").read_text(encoding="utf-8")
-    assert "pspec resolve skill" in bootstrap and "pspec install --agent" in bootstrap
+    assert "pspec resolve skill" in bootstrap and "pspec init --agent" in bootstrap
     assert "pspec resolve skill" in trait
     assert "pspec state clear --change" in archive
-    assert "pspec init --agent" not in bootstrap
+    assert "pspec install --agent" not in bootstrap
 
 
 def test_missing_catalog_is_diagnosed_without_fetch_or_generation(tmp_path, monkeypatch):

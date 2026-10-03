@@ -19,13 +19,12 @@ Each command also supports `--help`.
 
 | Command | Current behavior |
 | --- | --- |
-| `pspec init [--profile PROFILE]` | Establish the Git-root OpenSpec consumer and Powerspec configuration without agent installation |
+| `pspec init [--profile PROFILE] [--agent AGENT]` | Bootstrap the Git-root consumer and missing sources; provision selected skills and hooks when an agent is supplied |
 | `pspec status [--json]` | Inspect the effective profile, resources, and existing source availability without mutation |
 | `pspec doctor [--json]` | Check the consumer boundary and required tools without repair |
-| `pspec install --agent AGENT` | Acquire missing selected sources and reconcile skills and the user-level hook dispatcher |
 | `pspec resolve skill NAME --agent AGENT [--change CHANGE] [--json]` | Resolve an installed skill's selected content |
 | `pspec resolve hook EVENT --agent AGENT [--change CHANGE]` | Resolve runtime traits from a native hook payload on stdin |
-| `pspec sync` | Reconcile OpenSpec configuration |
+| `pspec sync` | Acquire missing selected sources and reconcile OpenSpec configuration without refreshing existing revisions |
 | `pspec state show [--json]` | Inspect temporal global and change-scoped values |
 | `pspec state clear [--change CHANGE]` | Clear all temporal values or one change-specific layer |
 | `pspec config show [--json]` | Inspect committed consumer configuration |

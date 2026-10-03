@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 
-COMMANDS = ("init", "status", "sync", "install", "upgrade", "doctor", "config", "state", "resolve")
+COMMANDS = ("init", "status", "sync", "upgrade", "doctor", "config", "state", "resolve")
 
 
 def invoke(args):

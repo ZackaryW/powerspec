@@ -19,7 +19,7 @@ ZuAT then performs its own non-forced installation checks.
 
 Provisioning returns a result for every planned skill. Successful earlier actions
 remain installed if a later action fails. Resolve the reported conflicts and rerun
-`pspec install --agent <agent>`; matching completed installations will be reused. Powerspec does
+`pspec init --agent <agent>`; matching completed installations will be reused. Powerspec does
 not claim rollback or complete readiness after a partial failure.
 
 The entire skill directory is installed, including manifests and currently

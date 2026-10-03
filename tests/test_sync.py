@@ -74,10 +74,10 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
 
     class Sources:
         def __init__(self, *, manage_binary):
-            assert manage_binary is False
+            assert manage_binary is True
 
-        def lookup(self, identity, recipe):
-            calls.append(("lookup", identity, recipe))
+        def ensure(self, identity, recipe):
+            calls.append(("ensure", identity, recipe))
             return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
                                  "1" * 64, "artifact", remote)
 
@@ -94,7 +94,7 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
-    assert calls == [("lookup", "tools", {
+    assert calls == [("ensure", "tools", {
         "provider": "git", "origin": "https://example.test/tools", "reference": "main"
     })]
     assert "Remote-aware guidance" in target.read_text()
@@ -118,9 +118,9 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
 
     class Sources:
         def __init__(self, *, manage_binary):
-            assert manage_binary is False
+            assert manage_binary is True
 
-        def lookup(self, identity, recipe):
+        def ensure(self, identity, recipe):
             raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
 
     @contextmanager

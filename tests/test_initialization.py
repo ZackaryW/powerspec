@@ -147,14 +147,20 @@ def test_init_cli_reports_availability_and_reuses_configuration(tmp_path, monkey
     from typer.testing import CliRunner
     from powerspec.cli import app
     import powerspec.initialization as m
+    import powerspec.workspace as workspace
+    from contextlib import contextmanager
     project, _ = setup_repo(tmp_path)
+    @contextmanager
+    def resources():
+        yield tmp_path / "catalog"
+    monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
     monkeypatch.chdir(project)
     result = CliRunner().invoke(app, ["init"])
     assert result.exit_code == 0, result.output
     assert "initialized:" in result.stdout
     assert "Run pspec sync" in result.stdout
-    assert "pspec install --agent" in result.stdout
+    assert "pspec init --agent" in result.stdout
     assert not (project / ".agents").exists()
 
 

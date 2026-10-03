@@ -164,8 +164,13 @@ class SaucepanSources:
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
             if not create:
                 raise ConfigurationError(f"Powerspec Saucepan application is unavailable: {error}") from error
-            if self._missing(error, "store index is missing"):
+            if any(self._missing(error, message) for message in (
+                "store index is missing", "store secret is missing",
+            )):
                 try:
+                    # Native stores check the OS secret before the index. Let
+                    # Saucepan distinguish first use from damaged existing data;
+                    # never replace its secret or delete its store ourselves.
                     client.init()
                 except (SaucepanError, OSError, ValueError) as init_error:
                     raise ConfigurationError(f"cannot initialize Saucepan store: {init_error}") from init_error
