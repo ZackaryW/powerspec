@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
 import os
 from pathlib import Path
 import re
@@ -93,7 +94,12 @@ class SaucepanSources:
     def _source(identity: str, recipe) -> _GitSource:
         SaucepanSources._identity(identity)
         try:
-            return _GitSource.model_validate(recipe)
+            # Profile composition freezes authored mappings before exposing the
+            # effective bundle. Pydantic's strict model validator accepts a
+            # concrete mapping but rejects MappingProxyType, so normalize any
+            # mapping-shaped recipe at this wire boundary.
+            payload = dict(recipe) if isinstance(recipe, Mapping) else recipe
+            return _GitSource.model_validate(payload)
         except ValidationError as error:
             raise ConfigurationError(f"invalid Git source recipe for {identity!r}: {error}") from error
 

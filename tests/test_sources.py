@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 from saucepan_sdk import SaucepanError
@@ -100,6 +101,13 @@ def test_lookup_is_read_only_and_retains_provenance(tmp_path):
     assert result.root == tmp_path.resolve()
     assert app.acquire_calls == []
     assert client.names == ["powerspec"]
+
+
+def test_lookup_accepts_frozen_profile_recipe(tmp_path):
+    result = SaucepanSources(Client(App(tmp_path))).lookup(
+        "tools", MappingProxyType(SOURCE)
+    )
+    assert result.repository == SOURCE["origin"]
 
 
 def test_acquire_refreshes_registered_recipe_and_returns_complete_root(tmp_path):
