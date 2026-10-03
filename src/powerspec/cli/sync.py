@@ -19,7 +19,7 @@ def sync() -> None:
             agent="powerspec-sync",
             source_mode="lookup",
             runtime=False,
-            source_store=SaucepanSources(),
+            source_store=SaucepanSources(manage_binary=False),
         ) as workspace:
             contributions = context_contributions(
                 workspace.bundle, workspace.consumer, Invocation(cwd)

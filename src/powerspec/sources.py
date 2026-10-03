@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from saucepan_sdk import Saucepan, SaucepanError
 
 from .catalog import ConfigurationError, NAME
-from .saucepan_tool import ensure_saucepan_binary
+from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary
 
 
 class _WireModel(BaseModel):
@@ -76,12 +76,18 @@ class SaucepanSources:
 
     APP = "powerspec"
 
-    def __init__(self, client: Saucepan | None = None):
+    def __init__(self, client: Saucepan | None = None, *, manage_binary: bool = True):
         self._client = client
+        self._manage_binary = manage_binary
 
     def _client_or_default(self):
         if self._client is None:
-            self._client = Saucepan(binary=ensure_saucepan_binary())
+            binary = (
+                ensure_saucepan_binary()
+                if self._manage_binary
+                else inspect_saucepan_binary()
+            )
+            self._client = Saucepan(binary=binary)
         return self._client
 
     @staticmethod

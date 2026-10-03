@@ -223,7 +223,17 @@ def test_hook_cli_reads_native_payload_and_emits_only_structured_guidance(tmp_pa
     @contextmanager
     def resources():
         yield root
+    source_modes = []
+
+    class Sources:
+        def __init__(self, *, manage_binary):
+            source_modes.append(manage_binary)
+
+        def lookup(self, *_args, **_kwargs):
+            raise AssertionError("local hook fixture performed remote lookup")
+
     monkeypatch.setattr(cli, "builtin_catalog_root", resources)
+    monkeypatch.setattr(cli, "SaucepanSources", Sources)
     monkeypatch.chdir(project)
     result = CliRunner().invoke(
         app, ["resolve", "hook", "sessionStart", "--agent", "codex"],
@@ -231,3 +241,4 @@ def test_hook_cli_reads_native_payload_and_emits_only_structured_guidance(tmp_pa
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"] == "guide"
+    assert source_modes == [False]

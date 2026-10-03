@@ -11,6 +11,7 @@ from powerspec.saucepan_tool import (
     SAUCEPAN_CLI_LINES,
     _managed_saucepan,
     ensure_saucepan_binary,
+    inspect_saucepan_binary,
 )
 
 
@@ -63,6 +64,19 @@ def test_ensure_translates_missing_usable_binary_to_configuration_error(tmp_path
         ensure_saucepan_binary(tmp_path / "bin" / "saucepan.exe")
 
 
+def test_inspect_requires_existing_compatible_binary_without_creating_parent(tmp_path, monkeypatch):
+    destination = tmp_path / "missing" / "saucepan.exe"
+    with pytest.raises(ConfigurationError, match="not installed"):
+        inspect_saucepan_binary(destination)
+    assert not destination.parent.exists()
+
+    destination.parent.mkdir()
+    destination.write_bytes(b"binary")
+    monkeypatch.setattr("powerspec.saucepan_tool._probe", lambda path: "0.5.0")
+    monkeypatch.setattr("powerspec.saucepan_tool._validate", lambda path, tag: None)
+    assert inspect_saucepan_binary(destination) == destination
+
+
 def test_default_source_client_lazily_uses_ensured_binary(tmp_path, monkeypatch):
     from powerspec import sources
 
@@ -83,6 +97,25 @@ def test_default_source_client_lazily_uses_ensured_binary(tmp_path, monkeypatch)
     assert client.binary == str(destination)
     assert store._client_or_default() is client
     assert calls == ["ensure"]
+
+
+def test_read_only_source_client_lazily_inspects_existing_binary(tmp_path, monkeypatch):
+    from powerspec import sources
+
+    destination = tmp_path / "saucepan.exe"
+    calls = []
+    monkeypatch.setattr(
+        sources,
+        "inspect_saucepan_binary",
+        lambda: calls.append("inspect") or destination,
+    )
+    monkeypatch.setattr(
+        sources,
+        "ensure_saucepan_binary",
+        lambda: (_ for _ in ()).throw(AssertionError("read-only lookup managed the binary")),
+    )
+    client = sources.SaucepanSources(manage_binary=False)._client_or_default()
+    assert client.binary == str(destination) and calls == ["inspect"]
 
 
 def test_explicit_source_client_bypasses_managed_binary(monkeypatch):

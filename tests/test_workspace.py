@@ -77,3 +77,32 @@ def test_workspace_selects_lookup_or_acquisition_without_read_mode_acquisition(t
     with open_workspace(project, agent="codex", source_mode="ensure", source_store=store):
         pass
     assert calls == ["ensure", "lookup"]
+
+
+def test_workspace_only_manages_saucepan_binary_for_acquisition(tmp_path, monkeypatch):
+    import powerspec.workspace as workspace
+
+    project, builtin = setup(tmp_path)
+    modes = []
+
+    class Sources:
+        def __init__(self, *, manage_binary):
+            modes.append(manage_binary)
+
+        def lookup(self, *_args, **_kwargs):
+            raise AssertionError("local-only workspace performed remote lookup")
+
+        def ensure(self, *_args, **_kwargs):
+            raise AssertionError("local-only workspace performed remote acquisition")
+
+    @contextmanager
+    def resources():
+        yield builtin
+
+    monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
+    monkeypatch.setattr(workspace, "SaucepanSources", Sources)
+    with open_workspace(project, agent="codex", source_mode="lookup"):
+        pass
+    with open_workspace(project, agent="codex", source_mode="ensure"):
+        pass
+    assert modes == [False, True]

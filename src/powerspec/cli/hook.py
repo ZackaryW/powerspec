@@ -28,8 +28,11 @@ def hook(
         with builtin_catalog_root() as root:
             sources = ({"local": consumer.config_path.parent}
                        if consumer is not None and consumer.config_path.parent.is_dir() else {})
-            catalog = Catalog(builtin=root, sources=sources,
-                              git_resolver=SaucepanSources().lookup)
+            catalog = Catalog(
+                builtin=root,
+                sources=sources,
+                git_resolver=SaucepanSources(manage_binary=False).lookup,
+            )
             guidance = dispatch(logical_event=event, agent=agent, payload=payload,
                                 catalog=catalog, change=change)
         output = serialize(agent, event, guidance)

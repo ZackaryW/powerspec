@@ -73,6 +73,9 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     calls = []
 
     class Sources:
+        def __init__(self, *, manage_binary):
+            assert manage_binary is False
+
         def lookup(self, identity, recipe):
             calls.append(("lookup", identity, recipe))
             return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
@@ -114,6 +117,9 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
         'origin="https://example.test/offline"\nreference="main"\n')
 
     class Sources:
+        def __init__(self, *, manage_binary):
+            assert manage_binary is False
+
         def lookup(self, identity, recipe):
             raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
 

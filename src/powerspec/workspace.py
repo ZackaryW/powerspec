@@ -44,7 +44,7 @@ def open_workspace(
     consumer = discover_consumer(Path(cwd), runtime=runtime)
     if consumer is None:
         raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
-    store = source_store or SaucepanSources()
+    store = source_store or SaucepanSources(manage_binary=source_mode == "ensure")
     if source_mode == "lookup":
         resolver = store.lookup
     elif source_mode == "ensure":

@@ -77,4 +77,19 @@ def ensure_saucepan_binary(destination: Path | None = None) -> Path:
         raise ConfigurationError(f"cannot install or update Saucepan: {error}") from error
 
 
-__all__ = ["ensure_saucepan_binary"]
+def inspect_saucepan_binary(destination: Path | None = None) -> Path:
+    """Return an existing compatible binary without creating or updating it."""
+    target = Path(destination) if destination is not None else shared_executable_path()
+    if not target.is_file():
+        raise ConfigurationError(f"Saucepan is not installed at {target}")
+    try:
+        version = _probe(target)
+        if not _compatible(version):
+            raise ValueError(f"unsupported Saucepan version {version}")
+        _validate(target, version)
+        return target
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        raise ConfigurationError(f"cannot use existing Saucepan: {error}") from error
+
+
+__all__ = ["ensure_saucepan_binary", "inspect_saucepan_binary"]
