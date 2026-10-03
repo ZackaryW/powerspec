@@ -8,13 +8,13 @@ from zuu.case17 import ManagedReleaseBinaryError
 
 from powerspec.catalog import ConfigurationError
 from powerspec.saucepan_tool import (
-    SAUCEPAN_SDK_LINE,
+    SAUCEPAN_CLI_LINES,
     _managed_saucepan,
     ensure_saucepan_binary,
 )
 
 
-def test_manager_uses_sdk_line_shared_policy_and_zuu_release_lifecycle(tmp_path):
+def test_manager_uses_supported_cli_lines_and_zuu_release_lifecycle(tmp_path):
     destination = tmp_path / "bin" / "saucepan.exe"
 
     managed = _managed_saucepan(destination)
@@ -23,17 +23,17 @@ def test_manager_uses_sdk_line_shared_policy_and_zuu_release_lifecycle(tmp_path)
     assert managed.resolver.owner == "ZackaryW"
     assert managed.resolver.repository == "saucepan"
     assert managed.max_age == timedelta(hours=24)
-    assert managed.policy_id == f"saucepan-sdk-{'.'.join(map(str, SAUCEPAN_SDK_LINE))}-v1"
+    assert managed.policy_id == "saucepan-cli-0.5-0.6-v1"
     assert managed.state_store.path == destination.with_name("saucepan-check.json")
-    compatible = ".".join(map(str, (*SAUCEPAN_SDK_LINE, 9)))
-    incompatible = f"{SAUCEPAN_SDK_LINE[0]}.{SAUCEPAN_SDK_LINE[1] + 1}.0"
-    assert managed.is_compatible(compatible)
-    assert not managed.is_compatible(incompatible)
+    assert SAUCEPAN_CLI_LINES == {(0, 5), (0, 6)}
+    assert managed.is_compatible("0.5.9")
+    assert managed.is_compatible("0.6.0")
+    assert not managed.is_compatible("0.7.0")
     assert managed.resolver.candidate_filter(
-        Candidate(f"v{compatible}", ResolutionSource.RELEASE)
+        Candidate("v0.6.0", ResolutionSource.RELEASE)
     )
     assert not managed.resolver.candidate_filter(
-        Candidate(f"v{incompatible}", ResolutionSource.RELEASE)
+        Candidate("v0.7.0", ResolutionSource.RELEASE)
     )
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import subprocess
 from datetime import timedelta
-from importlib.metadata import version
 from pathlib import Path
 
 from saucepan_sdk.client import shared_executable_path
@@ -13,18 +12,7 @@ from zuu.case17 import FileCheckStateStore, ManagedReleaseBinary, ManagedRelease
 from .catalog import ConfigurationError
 
 
-SAUCEPAN_SDK_VERSION = version("saucepan-sdk")
-
-
-def _version_line(value: str) -> tuple[int, int]:
-    parsed = parse_version(value)
-    if parsed is None:
-        raise ConfigurationError(f"unsupported saucepan-sdk version: {value!r}")
-    core = parsed[0] + (0,)
-    return core[0], core[1]
-
-
-SAUCEPAN_SDK_LINE = _version_line(SAUCEPAN_SDK_VERSION)
+SAUCEPAN_CLI_LINES = {(0, 5), (0, 6)}
 
 
 def _compatible(value: str) -> bool:
@@ -32,7 +20,7 @@ def _compatible(value: str) -> bool:
     if parsed is None:
         return False
     core = parsed[0] + (0,)
-    return core[:2] == SAUCEPAN_SDK_LINE
+    return core[:2] in SAUCEPAN_CLI_LINES
 
 
 def _probe(path: Path) -> str:
@@ -62,7 +50,6 @@ def _validate(path: Path, _tag: str) -> None:
 
 
 def _managed_saucepan(destination: Path) -> ManagedReleaseBinary:
-    line = ".".join(map(str, SAUCEPAN_SDK_LINE))
     resolver = GitHubReleaseResolver(
         "ZackaryW",
         "saucepan",
@@ -76,7 +63,7 @@ def _managed_saucepan(destination: Path) -> ManagedReleaseBinary:
         validator=_validate,
         state_store=FileCheckStateStore(destination.with_name("saucepan-check.json")),
         max_age=timedelta(hours=24),
-        policy_id=f"saucepan-sdk-{line}-v1",
+        policy_id="saucepan-cli-0.5-0.6-v1",
     )
 
 

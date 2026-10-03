@@ -3,3 +3,9 @@ global = true
 contexts = ["@builtin/incremental-checkpoints"]
 traits = ["@builtin/zmem-lifecycle"]
 skills = ["@gitsource/zmem/skills/*"]
+
+[[source]]
+id = "zmem"
+provider = "git"
+origin = "https://github.com/ZackaryW/zmem"
+reference = "main"

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from saucepan_sdk import SaucepanError
 
 from powerspec.catalog import ConfigurationError
 from powerspec.sources import ExternalCatalogs, SaucepanSources, SourceBinding, discover_catalogs
@@ -9,11 +10,11 @@ from powerspec.sources import ExternalCatalogs, SaucepanSources, SourceBinding, 
 SOURCE = {"provider": "git", "origin": "https://example.test/team/tools", "reference": "main"}
 
 
-def artifact(root: Path, *, folder=None, revision="a" * 40, snapshot="snap"):
+def artifact(root: Path, *, folder=None, revision="a" * 40, snapshot="snap", source=SOURCE):
     return {
         "id": "artifact-" + (folder or "root"),
         "source_id": "1" * 64,
-        "source": SOURCE,
+        "source": source,
         "snapshot_id": snapshot,
         "revision": revision,
         "folder": folder,
@@ -21,21 +22,22 @@ def artifact(root: Path, *, folder=None, revision="a" * 40, snapshot="snap"):
 
 
 class App:
-    def __init__(self, root: Path, *, entries=None, fail=None):
+    def __init__(self, root: Path, *, entries=None, fail=None, source=SOURCE):
         self.root = root
-        self.entries = entries if entries is not None else {"root": artifact(root)}
+        self.source = source
+        self.entries = entries if entries is not None else {"root": artifact(root, source=source)}
         self.fail = fail
         self.acquire_calls = []
 
     def view(self):
         if self.fail == "view":
             raise OSError("view unavailable")
-        return {"version": 1, "app": "tools", "entries": self.entries}
+        return {"version": 1, "app": "powerspec", "entries": self.entries}
 
     def history(self, source_id):
         if self.fail == "history":
             raise OSError("history unavailable")
-        return {"source": SOURCE, "current": {"id": "snap", "revision": "a" * 40}}
+        return {"source": self.source, "current": {"id": "snap", "revision": "a" * 40}}
 
     def path(self, artifact_id):
         return str(self.root)
@@ -44,24 +46,52 @@ class App:
         self.acquire_calls.append(recipe)
         if self.fail == "acquire":
             raise OSError("network unavailable")
-        return {"artifact": artifact(self.root, revision="b" * 40),
+        return {"artifact": artifact(self.root, revision="b" * 40, source=self.source),
                 "directory": str(self.root), "content_verified": True}
 
 
 class Client:
-    def __init__(self, app):
+    def __init__(self, app, *, store=True, registered=True):
         self.app = app
+        self.store = store
+        self.registered = registered
         self.names = []
+        self.init_calls = 0
+        self.register_calls = []
 
     def for_app(self, name):
         self.names.append(name)
-        return self.app
+        client = self
+
+        class Selected:
+            def __getattr__(self, attribute):
+                if attribute == "view":
+                    def view():
+                        if not client.store:
+                            raise SaucepanError("store index is missing", stderr="store index is missing")
+                        if not client.registered:
+                            raise SaucepanError("app is not registered", stderr="app is not registered")
+                        return client.app.view()
+                    return view
+                return getattr(client.app, attribute)
+
+        return Selected()
+
+    def init(self):
+        self.init_calls += 1
+        self.store = True
+        return {"created": True}
+
+    def register(self, name):
+        self.register_calls.append(name)
+        self.registered = True
+        return {"version": 1, "app": name, "token": []}
 
 
 def test_lookup_is_read_only_and_retains_provenance(tmp_path):
     app = App(tmp_path)
     client = Client(app)
-    result = SaucepanSources(client).lookup("tools")
+    result = SaucepanSources(client).lookup("tools", SOURCE)
     assert result.identity == "tools"
     assert result.repository == SOURCE["origin"]
     assert result.requested_revision == "main"
@@ -69,12 +99,12 @@ def test_lookup_is_read_only_and_retains_provenance(tmp_path):
     assert result.source_id == "1" * 64
     assert result.root == tmp_path.resolve()
     assert app.acquire_calls == []
-    assert client.names == ["tools"]
+    assert client.names == ["powerspec"]
 
 
 def test_acquire_refreshes_registered_recipe_and_returns_complete_root(tmp_path):
     app = App(tmp_path)
-    result = SaucepanSources(Client(app)).acquire("tools")
+    result = SaucepanSources(Client(app)).acquire("tools", SOURCE)
     assert app.acquire_calls == [{"source": SOURCE}]
     assert result.resolved_revision == "b" * 40
     assert result.root == tmp_path.resolve()
@@ -84,36 +114,63 @@ def test_acquire_refreshes_registered_recipe_and_returns_complete_root(tmp_path)
 def test_reserved_or_invalid_identity_is_rejected_without_sdk_call(tmp_path, identity):
     client = Client(App(tmp_path))
     with pytest.raises(ConfigurationError, match="invalid or reserved"):
-        SaucepanSources(client).lookup(identity)
+        SaucepanSources(client).lookup(identity, SOURCE)
     assert client.names == []
 
 
-def test_lookup_requires_one_git_source_and_full_current_artifact(tmp_path):
+def test_lookup_requires_declared_recipe_and_full_current_artifact(tmp_path):
     empty = App(tmp_path, entries={})
-    with pytest.raises(ConfigurationError, match="no touched Git source"):
-        SaucepanSources(Client(empty)).lookup("tools")
+    with pytest.raises(ConfigurationError, match="no current materialization"):
+        SaucepanSources(Client(empty)).lookup("tools", SOURCE)
 
     entries = {"folder": artifact(tmp_path, folder="skills")}
     with pytest.raises(ConfigurationError, match="no unique full-repository"):
-        SaucepanSources(Client(App(tmp_path, entries=entries))).lookup("tools")
+        SaucepanSources(Client(App(tmp_path, entries=entries))).lookup("tools", SOURCE)
 
     other = artifact(tmp_path)
     other["id"] = "second"
     other["source_id"] = "2" * 64
     other["source"] = {**SOURCE, "origin": "https://example.test/other"}
-    with pytest.raises(ConfigurationError, match="ambiguous"):
-        SaucepanSources(Client(App(tmp_path, entries={"one": artifact(tmp_path), "two": other}))).lookup("tools")
+    result = SaucepanSources(Client(App(tmp_path, entries={"one": artifact(tmp_path), "two": other}))).lookup(
+        "tools", SOURCE
+    )
+    assert result.source_id == "1" * 64
 
 
 def test_failed_refresh_reports_failure_without_replacing_prior_lookup(tmp_path):
     app = App(tmp_path)
     sources = SaucepanSources(Client(app))
-    before = sources.lookup("tools")
+    before = sources.lookup("tools", SOURCE)
     app.fail = "acquire"
     with pytest.raises(ConfigurationError, match="failed to acquire.*network unavailable"):
-        sources.acquire("tools")
+        sources.acquire("tools", SOURCE)
     app.fail = None
-    assert sources.lookup("tools") == before
+    assert sources.lookup("tools", SOURCE) == before
+
+
+def test_ensure_reuses_existing_recipe_without_refresh(tmp_path):
+    app = App(tmp_path)
+    client = Client(app)
+    result = SaucepanSources(client).ensure("tools", SOURCE)
+    assert result.resolved_revision == "a" * 40
+    assert app.acquire_calls == []
+    assert client.init_calls == 0 and client.register_calls == []
+
+
+def test_remote_git_suffix_is_treated_as_the_same_declared_origin(tmp_path):
+    canonical = {**SOURCE, "origin": SOURCE["origin"] + ".git"}
+    result = SaucepanSources(Client(App(tmp_path, source=canonical))).lookup("tools", SOURCE)
+    assert result.repository == SOURCE["origin"]
+
+
+def test_ensure_initializes_registers_and_acquires_missing_recipe(tmp_path):
+    app = App(tmp_path, entries={})
+    client = Client(app, store=False, registered=False)
+    result = SaucepanSources(client).ensure("tools", SOURCE)
+    assert result.resolved_revision == "b" * 40
+    assert client.init_calls == 1
+    assert client.register_calls == ["powerspec"]
+    assert app.acquire_calls == [{"source": SOURCE}]
 
 
 def binding(identity, root, revision="a" * 40):

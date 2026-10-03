@@ -21,8 +21,9 @@ def init(
         local = git_root / "openspec/.pspec" if git_root else None
         with builtin_catalog_root() as root:
             sources = {"local": local} if local is not None and local.is_dir() else {}
+            store = SaucepanSources()
             catalog = Catalog(builtin=root, sources=sources,
-                              git_resolver=SaucepanSources().lookup)
+                              git_resolver=store.ensure)
             plan = plan_initialization(cwd, agent=agent, catalog=catalog, profile=profile)
             typer.echo(f"Initialize {plan.root} with {plan.profile or 'global profiles'}")
             for item in plan.skills:

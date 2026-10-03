@@ -42,10 +42,12 @@ registrations. It does not publish contexts into `config.yaml`, execute skills,
 or prove an agent followed delivered guidance. Run `pspec sync` to publish
 configured contexts.
 
-The bundled zmem and ADHD-friendly profiles reference external Saucepan sources.
-If their registered materializations are unavailable, initialization reports the
-missing selected resources. A bundled-only trial can explicitly exclude those
-profiles in the consumer configuration:
+The bundled zmem and ADHD-friendly profiles declare external Git recipes.
+Initialization lazily establishes the single `powerspec` Saucepan application
+and acquires any selected recipe that has no current materialization. Existing
+materializations are reused without refresh. Acquisition or provisioning
+failures are reported as incomplete initialization. A bundled-only trial can
+explicitly exclude those profiles in the consumer configuration:
 
 ```toml
 profile = "@builtin/python-simple-cli"

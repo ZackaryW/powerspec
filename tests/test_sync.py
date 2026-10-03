@@ -65,19 +65,21 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     target = put(project / "openspec/config.yaml", 'schema: spec-driven\n')
     catalog = tmp_path / "catalog"
     put(catalog / "profiles/global.toml",
-        'global=true\nskills=["@gitsource/tools/skills/*"]\ncontexts=["@builtin/global"]\n')
+        'global=true\nskills=["@gitsource/tools/skills/*"]\ncontexts=["@builtin/global"]\n'
+        '[[source]]\nid="tools"\nprovider="git"\n'
+        'origin="https://example.test/tools"\nreference="main"\n')
     put(catalog / "contexts/global.toml", '[[attach.context]]\nbody="Remote-aware guidance"\n')
     put(remote / "skills/tool/SKILL.md", '---\nname: tool\ndescription: Tool.\n---\n')
     calls = []
 
     class Sources:
-        def lookup(self, identity):
-            calls.append(("lookup", identity))
+        def lookup(self, identity, recipe):
+            calls.append(("lookup", identity, recipe))
             return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
                                  "1" * 64, "artifact", remote)
 
-        def acquire(self, identity):
-            calls.append(("acquire", identity))
+        def acquire(self, identity, recipe):
+            calls.append(("acquire", identity, recipe))
             raise AssertionError("sync acquired a source")
 
     @contextmanager
@@ -89,7 +91,9 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
-    assert calls == [("lookup", "tools")]
+    assert calls == [("lookup", "tools", {
+        "provider": "git", "origin": "https://example.test/tools", "reference": "main"
+    })]
     assert "Remote-aware guidance" in target.read_text()
 
 
@@ -103,10 +107,13 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
     target = put(project / "openspec/config.yaml", 'schema: spec-driven\ncontext: Keep me.\n')
     publish(target, [contribution("context", "Obsolete managed guidance", "@builtin/old/context/1")])
     catalog = tmp_path / "catalog"
-    put(catalog / "profiles/global.toml", 'global=true\nskills=["@gitsource/offline/skills/*"]\n')
+    put(catalog / "profiles/global.toml",
+        'global=true\nskills=["@gitsource/offline/skills/*"]\n'
+        '[[source]]\nid="offline"\nprovider="git"\n'
+        'origin="https://example.test/offline"\nreference="main"\n')
 
     class Sources:
-        def lookup(self, identity):
+        def lookup(self, identity, recipe):
             raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
 
     @contextmanager

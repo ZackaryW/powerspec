@@ -3,7 +3,12 @@ global = true
 traits = ["@builtin/adhd-friendly"]
 skills = ["@gitsource/i-have-adhd/skills/i-have-adhd"]
 
-# The Git source identity must already be registered through Saucepan.
+[[source]]
+id = "i-have-adhd"
+provider = "git"
+origin = "https://github.com/ayghri/i-have-adhd"
+reference = "main"
+
 # Consumers opt into automatic activation through their variables.
 [vars]
 adhd_friendly = false

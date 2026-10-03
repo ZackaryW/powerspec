@@ -35,14 +35,14 @@ class Store:
         self.failure = failure
         self.calls = []
 
-    def lookup(self, identity):
-        self.calls.append(("lookup", identity))
+    def lookup(self, identity, recipe):
+        self.calls.append(("lookup", identity, recipe))
         if self.failure == "lookup":
             raise ConfigurationError("source registration is unavailable")
         return self.old
 
-    def acquire(self, identity):
-        self.calls.append(("acquire", identity))
+    def acquire(self, identity, recipe):
+        self.calls.append(("acquire", identity, recipe))
         if self.failure == "acquire":
             raise ConfigurationError("controlled acquisition failure")
         return self.new
@@ -57,7 +57,9 @@ def fixture(tmp_path, *, empty=False, malformed=False):
     registry = tmp_path / "registry"
     project.mkdir()
     put(builtin / "profiles/main.toml",
-        'scope="user"\nskills=["@gitsource/tools/skills/*"]\n')
+        'scope="user"\nskills=["@gitsource/tools/skills/*"]\n'
+        '[[source]]\nid="tools"\nprovider="git"\n'
+        'origin="https://example.test/tools"\nreference="main"\n')
     skill(old, "a-folder", "a", "old a")
     skill(old, "b-folder", "b", "old b")
     (new / "skills").mkdir(parents=True)

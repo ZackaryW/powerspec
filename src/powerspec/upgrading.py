@@ -100,7 +100,7 @@ def upgrade_consumer(
 
         refreshed = {}
         for identity in dict.fromkeys(map(_source_identity, refs)):
-            refreshed[identity] = store.acquire(identity)
+            refreshed[identity] = store.acquire(identity, old_bundle.sources[identity])
         new_catalog = Catalog(
             builtin=builtin, sources=source_roots, gitsources=refreshed,
             git_resolver=store.lookup,

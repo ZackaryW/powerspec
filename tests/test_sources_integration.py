@@ -20,7 +20,7 @@ def git(repo: Path, *args):
     return result.stdout.strip()
 
 
-def test_registered_app_identity_materializes_and_refreshes_complete_repository():
+def test_powerspec_app_materializes_and_refreshes_declared_recipe():
     # Saucepan documents short test roots as required on Windows.
     with tempfile.TemporaryDirectory(prefix="ps-sp-") as temporary:
         root = Path(temporary)
@@ -43,17 +43,12 @@ def test_registered_app_identity_materializes_and_refreshes_complete_repository(
         first_revision = git(repo, "rev-parse", "HEAD")
 
         base = Saucepan(binary=BINARY, test_root=root / "store", test_key="12" * 32)
-        base.init()
-        token = base.register("tools")
-        app = base.for_app(token)
-        recipe = {"source": {"provider": "git", "origin": str(repo), "reference": "main"}}
-        initial = app.acquire(recipe)
-        assert initial["artifact"]["revision"] == first_revision
-
+        source = {"provider": "git", "origin": str(repo), "reference": "main"}
         sources = SaucepanSources(base)
-        observed = sources.lookup("tools")
+        observed = sources.ensure("tools", source)
         assert observed.resolved_revision == first_revision
         assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
+        assert sources.ensure("tools", source) == observed
         external = ExternalCatalogs().register(observed)
         reusable = Catalog(sources=external.sources())
         assert reusable.get("profile", "@tools/base").name == "base"
@@ -64,7 +59,7 @@ def test_registered_app_identity_materializes_and_refreshes_complete_repository(
         (repo / "resource.txt").write_text("two", encoding="utf-8")
         git(repo, "commit", "-am", "second")
         second_revision = git(repo, "rev-parse", "HEAD")
-        refreshed = sources.acquire("tools")
+        refreshed = sources.acquire("tools", source)
         assert refreshed.resolved_revision == second_revision
         assert refreshed.source_id == observed.source_id
         assert (refreshed.root / "resource.txt").read_text(encoding="utf-8") == "two"

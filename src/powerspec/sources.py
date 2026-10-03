@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+import re
 from typing import Literal
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from saucepan_sdk import Saucepan, SaucepanError
@@ -67,7 +71,9 @@ class SourceBinding:
 
 
 class SaucepanSources:
-    """Resolve registered Saucepan identities through an ensured default client."""
+    """Resolve profile-owned recipes through one shared Powerspec application."""
+
+    APP = "powerspec"
 
     def __init__(self, client: Saucepan | None = None):
         self._client = client
@@ -83,35 +89,115 @@ class SaucepanSources:
             raise ConfigurationError(f"invalid or reserved Git source identity: {identity!r}")
         return identity
 
-    def _registered(self, identity: str):
-        identity = self._identity(identity)
-        app = self._client_or_default().for_app(identity)
+    @staticmethod
+    def _source(identity: str, recipe) -> _GitSource:
+        SaucepanSources._identity(identity)
+        try:
+            return _GitSource.model_validate(recipe)
+        except ValidationError as error:
+            raise ConfigurationError(f"invalid Git source recipe for {identity!r}: {error}") from error
+
+    @staticmethod
+    def _missing(error, message: str) -> bool:
+        if not isinstance(error, SaucepanError):
+            return False
+        diagnostic = f"{getattr(error, 'stderr', '')} {error}".lower()
+        return message in diagnostic
+
+    @staticmethod
+    def _origin_path(origin: str) -> str | None:
+        parsed = urlparse(origin)
+        if re.match(r"^[A-Za-z]:[\\/]", origin) or origin.startswith("\\\\"):
+            path = origin
+        elif parsed.scheme == "file":
+            path = url2pathname(unquote(parsed.path))
+            if parsed.netloc:
+                path = f"//{parsed.netloc}{path}"
+        elif parsed.scheme or not Path(origin).is_absolute():
+            return None
+        else:
+            path = origin
+        try:
+            return os.path.normcase(str(Path(path).resolve(strict=False)))
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _remote_origin(origin: str):
+        parsed = urlparse(origin)
+        if parsed.scheme.lower() not in {"git", "http", "https", "ssh"} or not parsed.netloc:
+            return None
+        path = parsed.path.rstrip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        return parsed.scheme.lower(), parsed.netloc.lower(), path, parsed.params, parsed.query, parsed.fragment
+
+    @classmethod
+    def _same_source(cls, left: _GitSource, right: _GitSource) -> bool:
+        if left.provider != right.provider or left.reference != right.reference:
+            return False
+        if left.origin == right.origin:
+            return True
+        left_path, right_path = cls._origin_path(left.origin), cls._origin_path(right.origin)
+        if left_path is not None or right_path is not None:
+            return left_path is not None and right_path is not None and left_path == right_path
+        left_remote, right_remote = cls._remote_origin(left.origin), cls._remote_origin(right.origin)
+        return left_remote is not None and right_remote is not None and left_remote == right_remote
+
+    def _application(self, *, create: bool):
+        client = self._client_or_default()
+        app = client.for_app(self.APP)
         try:
             view = _View.model_validate(app.view())
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
-            raise ConfigurationError(f"Git source {identity!r} is not available from Saucepan: {error}") from error
-        sources = {item.source_id: item.source for item in view.entries.values()}
-        if not sources:
-            raise ConfigurationError(f"Saucepan source {identity!r} has no touched Git source")
-        if len(sources) != 1:
+            if not create:
+                raise ConfigurationError(f"Powerspec Saucepan application is unavailable: {error}") from error
+            if self._missing(error, "store index is missing"):
+                try:
+                    client.init()
+                except (SaucepanError, OSError, ValueError) as init_error:
+                    raise ConfigurationError(f"cannot initialize Saucepan store: {init_error}") from init_error
+            elif not self._missing(error, "app is not registered"):
+                raise ConfigurationError(f"Powerspec Saucepan application is unavailable: {error}") from error
+            try:
+                client.register(self.APP)
+            except (SaucepanError, OSError, ValueError) as register_error:
+                if not self._missing(register_error, "app is already registered"):
+                    raise ConfigurationError(
+                        f"cannot register Powerspec Saucepan application: {register_error}"
+                    ) from register_error
+            try:
+                view = _View.model_validate(app.view())
+            except (SaucepanError, ValidationError, OSError, ValueError) as view_error:
+                raise ConfigurationError(
+                    f"Powerspec Saucepan application is unavailable after registration: {view_error}"
+                ) from view_error
+        if view.app != self.APP:
             raise ConfigurationError(
-                f"Saucepan source {identity!r} is ambiguous: expected one touched Git source, found {len(sources)}"
+                f"Saucepan returned application {view.app!r}; expected {self.APP!r}"
             )
-        source_id, source = next(iter(sources.items()))
-        return app, view, source_id, source
+        return app, view
 
-    def lookup(self, identity: str) -> SourceBinding:
-        """Return the current complete materialization without fetching or repair."""
-        app, view, source_id, source = self._registered(identity)
+    def _binding(self, identity: str, source: _GitSource, app, view: _View) -> SourceBinding:
+        matched = [item for item in view.entries.values() if self._same_source(item.source, source)]
+        source_ids = {item.source_id for item in matched}
+        if not source_ids:
+            raise ConfigurationError(f"Git source {identity!r} has no current materialization in Saucepan")
+        if len(source_ids) != 1:
+            raise ConfigurationError(
+                f"Git source {identity!r} is ambiguous in Saucepan: found {len(source_ids)} matching sources"
+            )
+        source_id = next(iter(source_ids))
         try:
             history = _History.model_validate(app.history(source_id))
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
             raise ConfigurationError(f"cannot inspect Saucepan source {identity!r}: {error}") from error
+        if not self._same_source(history.source, source):
+            raise ConfigurationError(f"Saucepan history does not match declared recipe for {identity!r}")
         if history.current is None:
             raise ConfigurationError(f"Saucepan source {identity!r} has no current materialization")
-        candidates = [item for item in view.entries.values()
-                      if item.source_id == source_id and item.snapshot_id == history.current.id
-                      and item.folder is None]
+        candidates = [item for item in matched
+                      if item.snapshot_id == history.current.id and item.folder is None]
         if len(candidates) != 1:
             raise ConfigurationError(
                 f"Saucepan source {identity!r} has no unique full-repository current artifact"
@@ -129,25 +215,43 @@ class SaucepanSources:
         return SourceBinding(identity, source.origin, source.reference, artifact.revision,
                              source_id, artifact.id, root)
 
-    def acquire(self, identity: str) -> SourceBinding:
-        """Refresh an existing registered identity and return its complete repository."""
-        app, _view, source_id, source = self._registered(identity)
+    def lookup(self, identity: str, recipe) -> SourceBinding:
+        """Return the current complete materialization without fetching or repair."""
+        source = self._source(identity, recipe)
+        app, view = self._application(create=False)
+        return self._binding(identity, source, app, view)
+
+    def _acquire(self, identity: str, source: _GitSource, app) -> SourceBinding:
         try:
             result = _Acquired.model_validate(app.acquire({"source": source.model_dump()}))
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
             raise ConfigurationError(f"failed to acquire Saucepan source {identity!r}: {error}") from error
         artifact = result.artifact
-        if artifact.source_id != source_id or artifact.folder is not None:
+        matches = self._same_source(artifact.source, source)
+        if not matches or artifact.folder is not None:
             raise ConfigurationError(
                 f"Saucepan returned an invalid full-repository binding for {identity!r}: "
-                f"source_id={artifact.source_id!r}, expected={source_id!r}, "
-                f"folder={artifact.folder!r}"
+                f"recipe_match={matches!r}, folder={artifact.folder!r}"
             )
         root = Path(result.directory).resolve(strict=True)
         if not root.is_dir():
             raise ConfigurationError(f"Saucepan source {identity!r} is not a directory: {root}")
         return SourceBinding(identity, source.origin, source.reference, artifact.revision,
-                             source_id, artifact.id, root)
+                             artifact.source_id, artifact.id, root)
+
+    def acquire(self, identity: str, recipe) -> SourceBinding:
+        """Refresh a declared recipe in the existing Powerspec application."""
+        source = self._source(identity, recipe)
+        app, _view = self._application(create=False)
+        return self._acquire(identity, source, app)
+
+    def ensure(self, identity: str, recipe) -> SourceBinding:
+        """Create the Powerspec app if needed and acquire only a missing recipe."""
+        source = self._source(identity, recipe)
+        app, view = self._application(create=True)
+        if any(self._same_source(item.source, source) for item in view.entries.values()):
+            return self._binding(identity, source, app, view)
+        return self._acquire(identity, source, app)
 
 
 def discover_catalogs(root: Path) -> tuple[Path, ...]:
