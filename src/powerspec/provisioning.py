@@ -1,6 +1,7 @@
 """Provision explicit profile targets through ZuAT's native ownership checks."""
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Mapping
 
 from zuat.pub import SUPPORTED_AGENTS, AssetInput, ZuatRequest, inspect_asset, install, locate_skill
 
@@ -16,6 +17,7 @@ class SkillPlan:
     agent: str
     scope: str
     project_root: Path | None
+    provenance: Mapping | None = None
 
     def asset(self):
         return AssetInput(agent=self.agent, kind="skill", scope=self.scope,
@@ -59,7 +61,8 @@ def plan_skills(bundle) -> tuple[SkillPlan, ...]:
             if not project.is_dir():
                 raise ConfigurationError(f"project_root is not a directory: {project}")
         plans.append(SkillPlan(target.resource.ref, target.resource.name, entry.parent,
-                               target.profile, target.agent, target.scope, project))
+                               target.profile, target.agent, target.scope, project,
+                               target.resource.provenance))
     return tuple(plans)
 
 

@@ -26,6 +26,7 @@ def _bundle(cwd: Path, agent: str, consumer, root: Path):
         agent=agent,
         project_root=consumer.git_root,
         exclude_profiles=consumer.config.exclude_profiles,
+        resolve_remote_skills=False,
     )
 
 

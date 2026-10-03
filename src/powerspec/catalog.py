@@ -1,7 +1,8 @@
 """Validated, read-only catalog inputs; no acquisition or native installation."""
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import re
 import tomllib
 import yaml
@@ -82,6 +83,7 @@ class Resource:
     name: str
     path: Path
     data: dict
+    provenance: Mapping | None = None
 
 
 class Catalog:
@@ -90,8 +92,11 @@ class Catalog:
     Consumer resources can be registered as a private 'local' source by the
     consumer caller. No arbitrary repository is discovered or called builtin.
     """
-    def __init__(self, *, builtin: Path | None = None, sources=None, gitsources=None):
+    def __init__(self, *, builtin: Path | None = None, sources=None, gitsources=None,
+                 git_resolver=None):
         self.resources: dict[tuple[str, str], Resource] = {}
+        self.gitsources = {}
+        self.git_resolver = git_resolver
         sources, gitsources = dict(sources or {}), dict(gitsources or {})
         if "builtin" in sources or "builtin" in gitsources or "gitsource" in sources:
             raise ConfigurationError("builtin and gitsource are reserved source namespaces")
@@ -100,19 +105,23 @@ class Catalog:
         for source, root in sources.items():
             if not isinstance(source, str) or not NAME.fullmatch(source):
                 raise ConfigurationError(f"invalid source identity: {source!r}")
-            self._catalog(source, Path(root))
-        for source, root in gitsources.items():
-            if not isinstance(source, str) or not NAME.fullmatch(source):
-                raise ConfigurationError(f"invalid Git source identity: {source!r}")
-            root = Path(root).resolve(strict=True)
-            names = set()
-            for path in sorted(root.rglob("SKILL.md")):
-                name, data = self._skill(path, root)
-                if name in names:
-                    raise ConfigurationError(f"{path}: duplicate skill name {name} in {source}")
-                names.add(name)
-                ref = f"@gitsource/{source}/{path.parent.relative_to(root).as_posix()}"
-                self._add(Resource("skill", reference(ref), name, path.resolve(), data))
+            roots = root if isinstance(root, Sequence) and not isinstance(root, (str, bytes, Path)) else (root,)
+            for item in roots:
+                self._catalog(source, Path(item))
+        for source, materialization in gitsources.items():
+            self._git_source(source, materialization)
+
+    def _git_source(self, source, materialization):
+        if not isinstance(source, str) or not NAME.fullmatch(source):
+            raise ConfigurationError(f"invalid Git source identity: {source!r}")
+        candidate = materialization if isinstance(materialization, (str, bytes, PathLike)) else materialization.root
+        root = Path(candidate).resolve(strict=True)
+        if not root.is_dir():
+            raise ConfigurationError(f"Git source {source!r} is not a directory: {root}")
+        identity = getattr(materialization, "identity", source)
+        if identity != source:
+            raise ConfigurationError(f"Git source key {source!r} does not match binding {identity!r}")
+        self.gitsources[source] = (root, materialization)
 
     @staticmethod
     def _contained(path, root):
@@ -161,6 +170,8 @@ class Catalog:
         if kind not in KINDS:
             raise ConfigurationError(f"unknown resource kind: {kind}")
         reference(ref)
+        if kind == "skill" and ref.startswith("@gitsource/"):
+            return self._select_git(ref)[0]
         try:
             return self.resources[kind, ref]
         except KeyError:
@@ -168,6 +179,8 @@ class Catalog:
 
     def select(self, kind, ref):
         reference(ref, wildcard=kind == "skill")
+        if kind == "skill" and ref.startswith("@gitsource/"):
+            return self._select_git(ref)
         if "*" not in ref:
             return (self.get(kind, ref),)
         prefix, pattern = ref.rsplit("/", 1)
@@ -179,3 +192,60 @@ class Catalog:
         if not matched:
             raise ConfigurationError(f"no materialized resources for selector: {ref}")
         return matched
+
+    def _select_git(self, ref):
+        parts = ref[1:].split("/")
+        source, selector = parts[1], parts[2:]
+        try:
+            root, materialization = self.gitsources[source]
+        except KeyError:
+            if self.git_resolver is None:
+                raise ConfigurationError(f"missing Saucepan Git source identity: {source}") from None
+            self._git_source(source, self.git_resolver(source))
+            root, materialization = self.gitsources[source]
+        pattern = selector[-1] if selector else None
+        prefix = root.joinpath(*selector[:-1]) if pattern in {"*", "**"} else root.joinpath(*selector)
+        try:
+            resolved_prefix = prefix.resolve(strict=True)
+        except OSError as error:
+            raise ConfigurationError(f"{ref}: selected path does not exist: {prefix}") from error
+        self._contained(resolved_prefix, root)
+        if not resolved_prefix.is_dir():
+            raise ConfigurationError(f"{ref}: selected path is not a directory")
+        if pattern == "*":
+            entries = [path / "SKILL.md" for path in sorted(resolved_prefix.iterdir()) if path.is_dir()]
+        elif pattern == "**":
+            entries = sorted(resolved_prefix.rglob("SKILL.md"))
+        else:
+            entries = [resolved_prefix / "SKILL.md"]
+        entries = [path for path in entries if path.is_file()]
+        if not entries:
+            raise ConfigurationError(f"no materialized resources for selector: {ref}")
+        resources, names = [], {}
+        for entry in entries:
+            self._contained(entry, root)
+            name, data = self._skill(entry, root)
+            relative = entry.parent.resolve().relative_to(root).as_posix()
+            if name in names:
+                raise ConfigurationError(
+                    f"{entry}: duplicate selected skill name {name}; already declared by {names[name]}"
+                )
+            names[name] = entry
+            identity = reference(f"@gitsource/{source}/{relative}")
+            provenance = {
+                "provider": "git",
+                "source": source,
+                "path": relative,
+            }
+            for key, attribute in (
+                ("repository", "repository"),
+                ("requested_revision", "requested_revision"),
+                ("resolved_revision", "resolved_revision"),
+                ("source_id", "source_id"),
+                ("artifact_id", "artifact_id"),
+            ):
+                value = getattr(materialization, attribute, None)
+                if value is not None:
+                    provenance[key] = value
+            resources.append(Resource("skill", identity, name, entry.resolve(), data, provenance))
+        return tuple(resources)

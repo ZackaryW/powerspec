@@ -7,6 +7,7 @@ from ..catalog import Catalog, ConfigurationError
 from ..consumer import find_git_root
 from ..initialization import plan_initialization, initialize
 from ..resources import builtin_catalog_root
+from ..sources import SaucepanSources
 
 
 def init(
@@ -20,7 +21,8 @@ def init(
         local = git_root / "openspec/.pspec" if git_root else None
         with builtin_catalog_root() as root:
             sources = {"local": local} if local is not None and local.is_dir() else {}
-            catalog = Catalog(builtin=root, sources=sources)
+            catalog = Catalog(builtin=root, sources=sources,
+                              git_resolver=SaucepanSources().lookup)
             plan = plan_initialization(cwd, agent=agent, catalog=catalog, profile=profile)
             typer.echo(f"Initialize {plan.root} with {plan.profile or 'global profiles'}")
             for item in plan.skills:

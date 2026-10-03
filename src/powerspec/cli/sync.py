@@ -9,6 +9,7 @@ from ..consumer import discover_consumer
 from ..profiles import compose
 from ..resources import builtin_catalog_root
 from ..syncing import publish
+from ..sources import SaucepanSources
 
 
 def sync() -> None:
@@ -19,21 +20,36 @@ def sync() -> None:
         if consumer is None:
             raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
         with builtin_catalog_root() as root:
-            catalog = Catalog(builtin=root)
+            catalog = Catalog(builtin=root, git_resolver=SaucepanSources().lookup)
             bundle = compose(
                 catalog,
                 consumer.config.profile,
                 agent="powerspec-sync",
                 project_root=consumer.git_root,
                 exclude_profiles=consumer.config.exclude_profiles,
+                resolve_remote_skills=False,
             )
             contributions = context_contributions(bundle, consumer, Invocation(cwd))
+            resource_error = None
+            try:
+                compose(
+                    catalog,
+                    consumer.config.profile,
+                    agent="powerspec-sync",
+                    project_root=consumer.git_root,
+                    exclude_profiles=consumer.config.exclude_profiles,
+                )
+            except ConfigurationError as error:
+                resource_error = error
         target = consumer.config_path.parent.parent / "config.yaml"
         if not target.is_file():
             raise ConfigurationError(f"{target}: existing OpenSpec config.yaml is required; run init first")
         result = publish(target, contributions)
         state = "updated" if result.updated else "unchanged"
         typer.echo(f"{state}: {result.path}")
+        if resource_error is not None:
+            typer.echo(f"Error: required selected resource is unavailable: {resource_error}", err=True)
+            raise typer.Exit(1)
     except (ConfigurationError, OSError, ValueError) as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(1) from error

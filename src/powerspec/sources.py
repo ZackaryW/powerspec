@@ -142,3 +142,52 @@ class SaucepanSources:
             raise ConfigurationError(f"Saucepan source {identity!r} is not a directory: {root}")
         return SourceBinding(identity, source.origin, source.reference, artifact.revision,
                              source_id, artifact.id, root)
+
+
+def discover_catalogs(root: Path) -> tuple[Path, ...]:
+    """Find reusable catalogs while excluding private OpenSpec consumers."""
+    source = Path(root).resolve(strict=True)
+    if not source.is_dir():
+        raise ConfigurationError(f"source materialization is not a directory: {source}")
+    candidates = ([source] if source.name == ".pspec" else []) + list(source.rglob(".pspec"))
+    found = []
+    for candidate in sorted(candidates):
+        if not candidate.is_dir() or candidate.parent.name.lower() == "openspec":
+            continue
+        resolved = candidate.resolve(strict=True)
+        if not resolved.is_relative_to(source):
+            raise ConfigurationError(f"{candidate}: reusable catalog escapes source root")
+        if resolved not in found:
+            found.append(resolved)
+    if not found:
+        raise ConfigurationError(f"{source}: no reusable .pspec catalog")
+    return tuple(found)
+
+
+@dataclass(frozen=True)
+class CatalogBinding:
+    source: SourceBinding
+    catalogs: tuple[Path, ...]
+
+
+class ExternalCatalogs:
+    """Validated external catalog bindings; failed replacements are atomic."""
+
+    def __init__(self, bindings=None):
+        self.bindings = dict(bindings or {})
+
+    def register(self, binding: SourceBinding) -> "ExternalCatalogs":
+        from .catalog import Catalog
+
+        if binding.identity == "builtin":
+            raise ConfigurationError("builtin is a reserved source identity")
+        catalogs = discover_catalogs(binding.root)
+        # Constructing the candidate validates all declarations and collisions
+        # before a replacement mapping can become observable.
+        Catalog(sources={binding.identity: catalogs})
+        replacement = dict(self.bindings)
+        replacement[binding.identity] = CatalogBinding(binding, catalogs)
+        return ExternalCatalogs(replacement)
+
+    def sources(self):
+        return {identity: item.catalogs for identity, item in self.bindings.items()}

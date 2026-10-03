@@ -29,11 +29,12 @@ class Bundle:
     def armed(self, kind: str, ref: str) -> bool:
         if not isinstance(kind, str) or kind not in KINDS:
             raise ConfigurationError(f"invalid resource kind: {kind!r}")
-        return (kind, reference(ref)) in self.selection
+        return (kind, reference(ref, wildcard=kind == "skill")) in self.selection
 
 
 def compose(catalog: Catalog, selected: str | None = None, *, agent: str, project_root: Path | None = None,
-            exclude_profiles=()) -> Bundle:
+            exclude_profiles=(), resolve_skills: bool = True,
+            resolve_remote_skills: bool = True) -> Bundle:
     """Compose the selected root and globals after explicit exclusions.
 
     Only consumer and selected-root exclusions apply. Scope stays with each
@@ -72,7 +73,7 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
         raise ConfigurationError(str(error)) from error
     defaults = {"selected": {}, "global": {}}
     owners = {"selected": {}, "global": {}}
-    contexts, traits, targets, names = {}, {}, {}, {}
+    contexts, traits, targets, names, deferred_skill_refs = {}, {}, {}, {}, []
     for identity in order:
         resource = resources[identity]
         data = resource.data
@@ -91,6 +92,9 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
                 destination.setdefault(item.ref, item)
         scope = data.get("scope", "user")
         for ref in data.get("skills", []):
+            if not resolve_skills or (not resolve_remote_skills and ref.startswith("@gitsource/")):
+                deferred_skill_refs.append(ref)
+                continue
             if scope == "project" and project_root is None:
                 raise ConfigurationError(f"{identity}: project scope requires explicit project_root")
             target_root = Path(project_root).resolve() if scope == "project" else None
@@ -103,6 +107,7 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
                 targets.setdefault((item.ref, agent, scope, target_root), target)
     profiles = tuple(resources[name] for name in order)
     selection = frozenset([(r.kind, r.ref) for r in (*profiles, *contexts.values(), *traits.values())]
-                          + [("skill", t.resource.ref) for t in targets.values()])
+                          + [("skill", t.resource.ref) for t in targets.values()]
+                          + [("skill", ref) for ref in deferred_skill_refs])
     return Bundle(profiles, tuple(contexts.values()), tuple(traits.values()), tuple(targets.values()),
                   MappingProxyType(defaults["selected"]), MappingProxyType(defaults["global"]), selection)

@@ -7,7 +7,8 @@ import tempfile
 import pytest
 from saucepan_sdk import Saucepan
 
-from powerspec.sources import SaucepanSources
+from powerspec.catalog import Catalog
+from powerspec.sources import ExternalCatalogs, SaucepanSources
 
 
 BINARY = os.environ.get("SAUCEPAN_TEST_BINARY")
@@ -29,7 +30,15 @@ def test_registered_app_identity_materializes_and_refreshes_complete_repository(
         git(repo, "config", "user.name", "Powerspec Test")
         git(repo, "config", "user.email", "powerspec@example.test")
         (repo / "resource.txt").write_text("one", encoding="utf-8")
-        git(repo, "add", "resource.txt")
+        (repo / ".pspec/profiles").mkdir(parents=True)
+        (repo / ".pspec/profiles/base.toml").write_text('scope="user"\n')
+        (repo / "openspec/.pspec/profiles").mkdir(parents=True)
+        (repo / "openspec/.pspec/profiles/private.toml").write_text('scope="user"\n')
+        (repo / "skills/example").mkdir(parents=True)
+        (repo / "skills/example/SKILL.md").write_text(
+            "---\nname: declared-example\ndescription: Example.\n---\n\nBody\n"
+        )
+        git(repo, "add", ".")
         git(repo, "commit", "-m", "first")
         first_revision = git(repo, "rev-parse", "HEAD")
 
@@ -45,6 +54,12 @@ def test_registered_app_identity_materializes_and_refreshes_complete_repository(
         observed = sources.lookup("tools")
         assert observed.resolved_revision == first_revision
         assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
+        external = ExternalCatalogs().register(observed)
+        reusable = Catalog(sources=external.sources())
+        assert reusable.get("profile", "@tools/base").name == "base"
+        assert ("profile", "@tools/private") not in reusable.resources
+        direct = Catalog(gitsources={"tools": observed})
+        assert direct.select("skill", "@gitsource/tools/skills/*")[0].name == "declared-example"
 
         (repo / "resource.txt").write_text("two", encoding="utf-8")
         git(repo, "commit", "-am", "second")

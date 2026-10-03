@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from powerspec.catalog import ConfigurationError
-from powerspec.sources import SaucepanSources
+from powerspec.sources import ExternalCatalogs, SaucepanSources, SourceBinding, discover_catalogs
 
 
 SOURCE = {"provider": "git", "origin": "https://example.test/team/tools", "reference": "main"}
@@ -114,3 +114,60 @@ def test_failed_refresh_reports_failure_without_replacing_prior_lookup(tmp_path)
         sources.acquire("tools")
     app.fail = None
     assert sources.lookup("tools") == before
+
+
+def binding(identity, root, revision="a" * 40):
+    return SourceBinding(identity, "https://example.test/tools", "main", revision,
+                         "1" * 64, "artifact", root)
+
+
+def write(root, relative, text):
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_catalog_discovery_includes_nested_reusable_roots_and_excludes_consumers(tmp_path):
+    public = tmp_path / ".pspec"
+    nested = tmp_path / "packages/tool/.pspec"
+    private = tmp_path / "openspec/.pspec"
+    for root in (public, nested, private):
+        write(root, "profiles/base.toml", 'scope="user"')
+    assert discover_catalogs(tmp_path) == (public.resolve(), nested.resolve())
+
+
+def test_catalog_discovery_rejects_absence_and_escape(tmp_path):
+    with pytest.raises(ConfigurationError, match="no reusable"):
+        discover_catalogs(tmp_path)
+    outside = tmp_path.parent / "external-catalog"
+    write(outside, "profiles/base.toml", 'scope="user"')
+    link = tmp_path / ".pspec"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(str(error))
+    with pytest.raises(ConfigurationError, match="escapes"):
+        discover_catalogs(tmp_path)
+
+
+def test_external_registration_is_validated_atomic_and_reserves_builtin(tmp_path):
+    good = tmp_path / "good"
+    write(good, ".pspec/profiles/base.toml", 'scope="user"')
+    registry = ExternalCatalogs().register(binding("team", good))
+    assert tuple(registry.bindings) == ("team",)
+
+    bad = tmp_path / "bad"
+    write(bad, ".pspec/profiles/base.toml", 'scope="broken"')
+    with pytest.raises(ConfigurationError, match="base.toml"):
+        registry.register(binding("team", bad, "b" * 40))
+    assert registry.bindings["team"].source.root == good
+
+    absent = tmp_path / "absent"
+    absent.mkdir()
+    with pytest.raises(ConfigurationError, match="no reusable"):
+        registry.register(binding("team", absent))
+    assert registry.bindings["team"].source.root == good
+
+    with pytest.raises(ConfigurationError, match="reserved"):
+        registry.register(binding("builtin", good))

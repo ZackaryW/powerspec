@@ -85,6 +85,24 @@ def test_empty_consumer_profile_resolves_global_defaults(tmp_path, monkeypatch):
     assert result.exit_code == 0 and "Use python." in result.stdout, result.output
 
 
+def test_installed_skill_resolution_does_not_require_global_remote_materialization(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    home, project = environment(tmp_path, monkeypatch)
+    installed(home, default="fallback")
+    (project / ".git").mkdir()
+    put(project / "openspec/.pspec/config.toml", '[vars]\n')
+    catalog = tmp_path / "catalog"
+    put(catalog / "profiles/global.toml",
+        'global=true\nskills=["@gitsource/offline/skills/*"]\n[vars]\nlanguage="python"\n')
+    @contextmanager
+    def resources():
+        yield catalog
+    monkeypatch.setattr(importlib.import_module("powerspec.cli.skill"), "builtin_catalog_root", resources)
+    result = invoke(["skill", "example", "--agent", "codex"])
+    assert result.exit_code == 0 and "Use python." in result.stdout, result.output
+
+
 def test_located_skill_without_manifest_returns_literal_null(tmp_path, monkeypatch):
     home, _ = environment(tmp_path, monkeypatch)
     installed(home, manifest=None)

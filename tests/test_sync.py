@@ -8,6 +8,7 @@ import yaml
 from typer.testing import CliRunner
 
 from powerspec.catalog import ConfigurationError
+from powerspec.sources import SourceBinding
 from powerspec.syncing import publish, reconcile
 
 
@@ -51,6 +52,74 @@ def test_global_contexts_sync_without_a_selected_profile(tmp_path, monkeypatch):
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
     assert "Global guidance" in target.read_text()
+
+
+def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    module = importlib.import_module("powerspec.cli.sync")
+    project = tmp_path / "project"
+    remote = tmp_path / "remote"
+    (project / ".git").mkdir(parents=True)
+    put(project / "openspec/.pspec/config.toml", '[vars]\n')
+    target = put(project / "openspec/config.yaml", 'schema: spec-driven\n')
+    catalog = tmp_path / "catalog"
+    put(catalog / "profiles/global.toml",
+        'global=true\nskills=["@gitsource/tools/skills/*"]\ncontexts=["@builtin/global"]\n')
+    put(catalog / "contexts/global.toml", '[[attach.context]]\nbody="Remote-aware guidance"\n')
+    put(remote / "skills/tool/SKILL.md", '---\nname: tool\ndescription: Tool.\n---\n')
+    calls = []
+
+    class Sources:
+        def lookup(self, identity):
+            calls.append(("lookup", identity))
+            return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
+                                 "1" * 64, "artifact", remote)
+
+        def acquire(self, identity):
+            calls.append(("acquire", identity))
+            raise AssertionError("sync acquired a source")
+
+    @contextmanager
+    def resources():
+        yield catalog
+
+    monkeypatch.setattr(module, "builtin_catalog_root", resources)
+    monkeypatch.setattr(module, "SaucepanSources", Sources)
+    monkeypatch.chdir(project)
+    result = invoke(["sync"])
+    assert result.exit_code == 0, result.output
+    assert calls == [("lookup", "tools")]
+    assert "Remote-aware guidance" in target.read_text()
+
+
+def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    import importlib
+    module = importlib.import_module("powerspec.cli.sync")
+    project = tmp_path / "project"
+    (project / ".git").mkdir(parents=True)
+    put(project / "openspec/.pspec/config.toml", '[vars]\n')
+    target = put(project / "openspec/config.yaml", 'schema: spec-driven\ncontext: Keep me.\n')
+    publish(target, [contribution("context", "Obsolete managed guidance", "@builtin/old/context/1")])
+    catalog = tmp_path / "catalog"
+    put(catalog / "profiles/global.toml", 'global=true\nskills=["@gitsource/offline/skills/*"]\n')
+
+    class Sources:
+        def lookup(self, identity):
+            raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
+
+    @contextmanager
+    def resources():
+        yield catalog
+
+    monkeypatch.setattr(module, "builtin_catalog_root", resources)
+    monkeypatch.setattr(module, "SaucepanSources", Sources)
+    monkeypatch.chdir(project)
+    result = invoke(["sync"])
+    assert result.exit_code == 1 and "unavailable" in result.stderr
+    text = target.read_text()
+    assert "Keep me" in text and "Obsolete managed guidance" not in text
 
 
 def test_reconcile_preserves_user_content_and_replaces_managed_entries():
@@ -134,7 +203,7 @@ rules:
     monkeypatch.chdir(project)
 
     first = invoke(["sync"])
-    assert first.exit_code == 0 and first.stdout.startswith("updated:")
+    assert first.exit_code == 0 and first.stdout.startswith("updated:"), first.output
     published = target.read_bytes()
     text = published.decode()
     assert all(value in text for value in (

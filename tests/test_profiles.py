@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.profiles import compose
+from powerspec.sources import SourceBinding
 
 
 def profile(root, name, **values):
@@ -106,3 +107,40 @@ def test_empty_selection_composes_globals_and_exclusions(tmp_path, selected):
     assert [s.resource.name for s in bundle.skills] == ["shared"]
     empty = compose(catalog, selected, agent="codex", exclude_profiles=["@builtin/always"])
     assert empty.profiles == empty.skills == ()
+
+
+def test_runtime_composition_retains_raw_skill_arming_without_materialization(tmp_path):
+    profile(tmp_path, "always", **{"global": True},
+            skills=["@gitsource/offline/skills/*"], vars={"language": "python"})
+    catalog = Catalog(builtin=tmp_path, git_resolver=lambda _identity: (_ for _ in ()).throw(AssertionError()))
+    bundle = compose(catalog, agent="codex", resolve_skills=False)
+    assert bundle.skills == ()
+    assert bundle.armed("skill", "@gitsource/offline/skills/*")
+    assert bundle.global_defaults["language"] == "python"
+
+
+def test_remote_same_name_conflicts_only_when_selected_for_same_target(tmp_path):
+    builtin, one, two = tmp_path / "builtin", tmp_path / "one", tmp_path / "two"
+    skill(one, "folder-one", "shared")
+    skill(two, "folder-two", "shared")
+    profile(builtin, "one", skills=["@gitsource/one/skills/*"])
+    profile(builtin, "both", skills=["@gitsource/one/skills/*", "@gitsource/two/skills/*"])
+    bindings = {
+        "one": SourceBinding("one", "https://example.test/one", "main", "a" * 40,
+                             "1" * 64, "one", one),
+        "two": SourceBinding("two", "https://example.test/two", "main", "b" * 40,
+                             "2" * 64, "two", two),
+    }
+    catalog = Catalog(builtin=builtin, gitsources=bindings)
+    selected = compose(catalog, "@builtin/one", agent="codex")
+    assert [target.resource.name for target in selected.skills] == ["shared"]
+    with pytest.raises(ConfigurationError, match="skill target conflict.*gitsource/one.*gitsource/two"):
+        compose(catalog, "@builtin/both", agent="codex")
+
+    profile(builtin, "project", scope="project", skills=["@gitsource/two/skills/*"])
+    profile(builtin, "scoped", profiles=["@builtin/one", "@builtin/project"])
+    scoped = compose(Catalog(builtin=builtin, gitsources=bindings), "@builtin/scoped",
+                     agent="codex", project_root=tmp_path)
+    assert {(item.scope, item.resource.name) for item in scoped.skills} == {
+        ("user", "shared"), ("project", "shared")
+    }

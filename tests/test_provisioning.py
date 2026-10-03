@@ -6,6 +6,7 @@ from zuat.pub import AssetInspection, OperationResult, OperationStatus
 
 from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.profiles import compose
+from powerspec.sources import SourceBinding
 
 
 def bundle(tmp_path, *, agent="codex"):
@@ -143,3 +144,37 @@ def test_reviewed_bundle_installs_upstream_and_manifest_resources(tmp_path, monk
     resolved = resolve_skill(tdd.root, selected, None)
     assert resolved.status == "resolved"
     assert not (project / ".agents").exists()
+
+
+def test_remote_skill_provisions_complete_tree_with_declared_name_and_provenance(tmp_path):
+    from powerspec.provisioning import plan_skills, provision_skills
+
+    catalog_root = tmp_path / "catalog"
+    remote = tmp_path / "remote"
+    project = tmp_path / "project"
+    home = tmp_path / "home"
+    registry = tmp_path / "registry"
+    project.mkdir()
+    profile = catalog_root / "profiles/remote.toml"
+    profile.parent.mkdir(parents=True)
+    profile.write_text('scope="user"\nskills=["@gitsource/tools/skills/*"]\n')
+    entry = remote / "skills/folder-name/SKILL.md"
+    entry.parent.mkdir(parents=True)
+    entry.write_text("---\nname: declared-name\ndescription: Remote.\n---\n\nUse references when selected.\n")
+    reference = entry.parent / "references/inactive.md"
+    reference.parent.mkdir()
+    reference.write_text("inactive branch resource")
+    binding = SourceBinding("tools", "https://example.test/tools", "main", "a" * 40,
+                            "1" * 64, "artifact", remote)
+    selected = compose(Catalog(builtin=catalog_root, gitsources={"tools": binding}),
+                       "@builtin/remote", agent="codex", project_root=project)
+    plans = plan_skills(selected)
+    assert len(plans) == 1 and plans[0].name == "declared-name"
+    assert plans[0].provenance["source"] == "tools"
+    assert plans[0].provenance["resolved_revision"] == "a" * 40
+
+    result = provision_skills(plans, home=home, registry=registry)
+    assert result.ok and result.items[0].status == "installed"
+    installed = home / ".codex/skills/declared-name"
+    assert (installed / "SKILL.md").is_file()
+    assert (installed / "references/inactive.md").read_text() == "inactive branch resource"

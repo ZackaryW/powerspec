@@ -44,7 +44,7 @@ def test_capabilities_short_circuit_and_fresh_values(tmp_path, bundle):
 
 @pytest.mark.parametrize('code', ["1", "[]", "missing()", "len([]) == 0", "vars.__class__ is None",
                                   "run_json('command') is None", "armed('unknown', '@builtin/a')",
-                                  "armed('skill', '@gitsource/source/skills/*')", "1 / 0", "x = True"])
+                                  "1 / 0", "x = True"])
 def test_errors_are_located_not_false(tmp_path, bundle, code):
     with pytest.raises(ConfigurationError, match='example.toml/when'):
         evaluate(code, values={}, bundle=bundle, invocation=Invocation(tmp_path), location='example.toml/when')
@@ -75,6 +75,7 @@ def test_compiletime_runtime_timing_and_selection(tmp_path, bundle):
     assert not bundle.armed('skill', '@builtin/absent')
     assert not bundle.armed('trait', '@builtin/example')
     assert not bundle.armed('skill', '@gitsource/missing/skills/unavailable')
+    assert not bundle.armed('skill', '@gitsource/missing/skills/*')
 
 
 def test_batch_has_no_successful_partial_output(tmp_path, bundle):
