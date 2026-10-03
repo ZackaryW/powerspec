@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from saucepan_sdk import Saucepan, SaucepanError
 
 from .catalog import ConfigurationError, NAME
+from .saucepan_tool import ensure_saucepan_binary
 
 
 class _WireModel(BaseModel):
@@ -66,10 +67,15 @@ class SourceBinding:
 
 
 class SaucepanSources:
-    """Resolve registered Saucepan app identities without implicit acquisition."""
+    """Resolve registered Saucepan identities through an ensured default client."""
 
     def __init__(self, client: Saucepan | None = None):
-        self._client = client or Saucepan()
+        self._client = client
+
+    def _client_or_default(self):
+        if self._client is None:
+            self._client = Saucepan(binary=ensure_saucepan_binary())
+        return self._client
 
     @staticmethod
     def _identity(identity: str) -> str:
@@ -79,7 +85,7 @@ class SaucepanSources:
 
     def _registered(self, identity: str):
         identity = self._identity(identity)
-        app = self._client.for_app(identity)
+        app = self._client_or_default().for_app(identity)
         try:
             view = _View.model_validate(app.view())
         except (SaucepanError, ValidationError, OSError, ValueError) as error:

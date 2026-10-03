@@ -2,6 +2,12 @@
 
 Powerspec delegates Git acquisition and retained materialization to Saucepan. It does not clone repositories, infer repository URLs from profile references, or keep a second source-alias registry.
 
+## Managed Saucepan executable
+
+Powerspec uses Zuu's managed-release lifecycle when a selected remote reference first needs the default Saucepan client. If the SDK's shared executable under `~/.saucepan/bin` is absent, Powerspec selects the official Saucepan GitHub release asset for the current platform, checks that its major/minor version matches the installed `saucepan-sdk`, validates `--version` and `--help` on a staged file, and publishes it atomically. An explicitly supplied SDK client bypasses this lifecycle.
+
+Successful release checks are cached for 24 hours. A fresh matching check avoids GitHub discovery. When a later discovery or upgrade fails, Zuu retains a compatible installed executable; when no compatible executable can be produced, Powerspec reports the managed-tool failure before attempting the source operation. Constructing a catalog or running a bundled-only profile does not trigger installation: the lifecycle is lazy until a Saucepan identity is actually resolved.
+
 ## Saucepan identity contract
 
 The source identity in `@gitsource/<identity>/<selector>` is the name of an existing Saucepan app registration. That registration must have touched exactly one Git source. For example, `@gitsource/zmem/skills/*` resolves the registered Saucepan app named `zmem`; it does not imply `github.com/ZackaryW/zmem`.
