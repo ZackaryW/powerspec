@@ -22,6 +22,7 @@ class Bundle:
     contexts: tuple[Resource, ...]
     traits: tuple[Resource, ...]
     skills: tuple[SkillTarget, ...]
+    sources: Mapping
     selected_defaults: Mapping
     global_defaults: Mapping
     selection: frozenset[tuple[str, str]]
@@ -76,6 +77,18 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
         raise ConfigurationError(str(error)) from error
     defaults = {"selected": {}, "global": {}}
     owners = {"selected": {}, "global": {}}
+    sources, source_owners = {}, {}
+    for identity in order:
+        for declaration in resources[identity].data.get("source", []):
+            source = declaration["id"]
+            recipe = {key: declaration[key] for key in ("provider", "origin", "reference")}
+            if source in sources and sources[source] != recipe:
+                raise ConfigurationError(
+                    f"source alias conflict for {source}: {source_owners[source]} and {identity}"
+                )
+            sources[source] = recipe
+            source_owners[source] = identity
+    catalog.set_git_recipes(sources)
     contexts, traits, targets, names, deferred_skill_refs = {}, {}, {}, {}, []
     for identity in order:
         resource = resources[identity]
@@ -112,5 +125,6 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
     selection = frozenset([(r.kind, r.ref) for r in (*profiles, *contexts.values(), *traits.values())]
                           + [("skill", t.resource.ref) for t in targets.values()]
                           + [("skill", ref) for ref in deferred_skill_refs])
-    return Bundle(profiles, tuple(contexts.values()), tuple(traits.values()), tuple(targets.values()),
+    source_view = MappingProxyType({key: MappingProxyType(dict(value)) for key, value in sources.items()})
+    return Bundle(profiles, tuple(contexts.values()), tuple(traits.values()), tuple(targets.values()), source_view,
                   MappingProxyType(defaults["selected"]), MappingProxyType(defaults["global"]), selection)

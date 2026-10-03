@@ -112,13 +112,50 @@ def test_empty_selection_composes_globals_and_exclusions(tmp_path, selected):
 
 
 def test_runtime_composition_retains_raw_skill_arming_without_materialization(tmp_path):
-    profile(tmp_path, "always", **{"global": True},
-            skills=["@gitsource/offline/skills/*"], vars={"language": "python"})
-    catalog = Catalog(builtin=tmp_path, git_resolver=lambda _identity: (_ for _ in ()).throw(AssertionError()))
+    path = tmp_path / "profiles/always.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text('global=true\nskills=["@gitsource/offline/skills/*"]\n'
+                    '[[source]]\nid="offline"\nprovider="git"\n'
+                    'origin="https://example.test/offline"\nreference="main"\n'
+                    '[vars]\nlanguage="python"\n')
+    catalog = Catalog(builtin=tmp_path, git_resolver=lambda *_args: (_ for _ in ()).throw(AssertionError()))
     bundle = compose(catalog, agent="codex", resolve_skills=False)
     assert bundle.skills == ()
     assert bundle.armed("skill", "@gitsource/offline/skills/*")
+    assert bundle.sources == {
+        "offline": {"provider": "git", "origin": "https://example.test/offline", "reference": "main"}
+    }
     assert bundle.global_defaults["language"] == "python"
+
+
+def test_profile_source_recipe_drives_selected_git_alias(tmp_path):
+    builtin, remote = tmp_path / "builtin", tmp_path / "remote"
+    skill(remote, "tool", "remote-tool")
+    path = builtin / "profiles/main.toml"
+    path.parent.mkdir(parents=True)
+    path.write_text('skills=["@gitsource/tools/skills/*"]\n'
+                    '[[source]]\nid="tools"\nprovider="git"\n'
+                    'origin="https://example.test/tools"\nreference="main"\n')
+    calls = []
+
+    def resolve(identity, recipe):
+        calls.append((identity, recipe))
+        return SourceBinding(identity, recipe["origin"], recipe["reference"], "a" * 40,
+                             "1" * 64, "artifact", remote)
+
+    bundle = compose(Catalog(builtin=builtin, git_resolver=resolve), "@builtin/main", agent="codex")
+    assert [target.resource.name for target in bundle.skills] == ["remote-tool"]
+    assert calls == [("tools", bundle.sources["tools"])]
+
+
+def test_conflicting_profile_source_aliases_are_rejected(tmp_path):
+    for name, origin in (("one", "https://example.test/one"), ("two", "https://example.test/two")):
+        path = tmp_path / f"profiles/{name}.toml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f'[[source]]\nid="tools"\nprovider="git"\norigin="{origin}"\nreference="main"\n')
+    profile(tmp_path, "root", profiles=["@builtin/one", "@builtin/two"])
+    with pytest.raises(ConfigurationError, match="source alias conflict.*tools"):
+        compose(Catalog(builtin=tmp_path), "@builtin/root", agent="codex")
 
 
 def test_remote_same_name_conflicts_only_when_selected_for_same_target(tmp_path):

@@ -14,10 +14,25 @@ def _expression(value: str) -> str:
 
 Expression = Annotated[str, AfterValidator(_expression)]
 Nonempty = Annotated[str, Field(min_length=1)]
+SourceId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]*$")]
 
 
 class ConfigurationModel(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
+
+
+class GitSource(ConfigurationModel):
+    id: SourceId
+    provider: Literal["git"]
+    origin: Nonempty
+    reference: Nonempty
+
+    @field_validator("id")
+    @classmethod
+    def reserved_identity(cls, value):
+        if value == "builtin":
+            raise ValueError("builtin is a reserved source identity")
+        return value
 
 
 class Profile(ConfigurationModel):
@@ -27,8 +42,16 @@ class Profile(ConfigurationModel):
     contexts: list[str] = Field(default_factory=list)
     traits: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
+    source: list[GitSource] = Field(default_factory=list)
     exclude_profiles: list[str] = Field(default_factory=list, alias="exclude-profiles")
     vars: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def unique_sources(self):
+        identities = [item.id for item in self.source]
+        if len(set(identities)) != len(identities):
+            raise ValueError("source ids must be unique within a profile")
+        return self
 
 
 class Trait(ConfigurationModel):

@@ -41,6 +41,9 @@ def test_duplicate_names_and_reserved_source(tmp_path):
     ("contexts", 'hooks=["sessionStart"]\nbody="x"'),
     ("profiles", 'scope="elsewhere"'),
     ("profiles", 'skills=[{name="@builtin/x",scope="user"}]'),
+    ("profiles", '[[source]]\nid="Bad Name"\nprovider="git"\norigin="https://example.test/a"\nreference="main"'),
+    ("profiles", '[[source]]\nid="tools"\nprovider="url"\norigin="https://example.test/a"\nreference="main"'),
+    ("profiles", '[[source]]\nid="tools"\nprovider="git"\norigin="https://example.test/a"\nreference="main"\n[[source]]\nid="tools"\nprovider="git"\norigin="https://example.test/b"\nreference="main"'),
     ("profiles", 'hooks=["sessionStart"]'),
     ("traits", 'hooks=["sessionStart"]\nbody="x"\nwhen={check=true}'),
     ("traits", 'hooks=["sessionStart"]\nbody="x"\nwhen="not valid !!!"'),
@@ -100,21 +103,24 @@ def test_direct_and_recursive_git_selectors_have_explicit_depth(tmp_path):
     assert catalog.select("skill", "@gitsource/tools/skills/group/two")[0].name == "two"
 
 
-def test_git_materialization_is_resolved_lazily_for_selected_identity(tmp_path):
+def test_git_materialization_is_resolved_lazily_from_declared_recipe(tmp_path):
     write(tmp_path, "skills/one/SKILL.md", "---\nname: one\n---\n")
     calls = []
 
-    def resolve(identity):
-        calls.append(identity)
+    recipe = {"provider": "git", "origin": "https://example.test/tools", "reference": "main"}
+
+    def resolve(identity, selected):
+        calls.append((identity, selected))
         return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
                              "1" * 64, "artifact", tmp_path)
 
     catalog = Catalog(git_resolver=resolve)
+    catalog.set_git_recipes({"tools": recipe})
     assert calls == []
     assert catalog.select("skill", "@gitsource/tools/skills/*")[0].name == "one"
-    assert calls == ["tools"]
+    assert calls == [("tools", recipe)]
     catalog.select("skill", "@gitsource/tools/skills/one")
-    assert calls == ["tools"]
+    assert calls == [("tools", recipe)]
 
 
 def test_git_selector_rejects_unknown_empty_invalid_duplicate_and_escape(tmp_path):
@@ -123,7 +129,7 @@ def test_git_selector_rejects_unknown_empty_invalid_duplicate_and_escape(tmp_pat
     write(tmp_path, "invalid/bad/SKILL.md", "bad")
     (tmp_path / "empty").mkdir()
     catalog = Catalog(gitsources={"tools": tmp_path})
-    with pytest.raises(ConfigurationError, match="missing Saucepan"):
+    with pytest.raises(ConfigurationError, match="missing source declaration"):
         Catalog().select("skill", "@gitsource/unknown/skills/*")
     with pytest.raises(ConfigurationError, match="no materialized"):
         catalog.select("skill", "@gitsource/tools/empty/*")

@@ -99,6 +99,8 @@ class Catalog:
                  git_resolver=None):
         self.resources: dict[tuple[str, str], Resource] = {}
         self.gitsources = {}
+        self.git_recipes = {}
+        self._fixed_gitsources = set()
         self.git_resolver = git_resolver
         sources, gitsources = dict(sources or {}), dict(gitsources or {})
         if "builtin" in sources or "builtin" in gitsources or "gitsource" in sources:
@@ -113,6 +115,19 @@ class Catalog:
                 self._catalog(source, Path(item))
         for source, materialization in gitsources.items():
             self._git_source(source, materialization)
+            self._fixed_gitsources.add(source)
+
+    def set_git_recipes(self, recipes):
+        """Replace profile-owned recipes used for lazy Git materialization."""
+        selected = {}
+        for source, recipe in dict(recipes).items():
+            if not isinstance(source, str) or not NAME.fullmatch(source) or source == "builtin":
+                raise ConfigurationError(f"invalid or reserved Git source identity: {source!r}")
+            selected[source] = dict(recipe)
+        self.git_recipes = selected
+        for source in tuple(self.gitsources):
+            if source not in self._fixed_gitsources:
+                del self.gitsources[source]
 
     def _git_source(self, source, materialization):
         if not isinstance(source, str) or not NAME.fullmatch(source):
@@ -202,9 +217,13 @@ class Catalog:
         try:
             root, materialization = self.gitsources[source]
         except KeyError:
+            try:
+                recipe = self.git_recipes[source]
+            except KeyError:
+                raise ConfigurationError(f"missing source declaration for Git source alias: {source}") from None
             if self.git_resolver is None:
-                raise ConfigurationError(f"missing Saucepan Git source identity: {source}") from None
-            self._git_source(source, self.git_resolver(source))
+                raise ConfigurationError(f"Git source alias is not materialized: {source}") from None
+            self._git_source(source, self.git_resolver(source, dict(recipe)))
             root, materialization = self.gitsources[source]
         pattern = selector[-1] if selector else None
         prefix = root.joinpath(*selector[:-1]) if pattern in {"*", "**"} else root.joinpath(*selector)
