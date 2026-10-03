@@ -13,6 +13,7 @@ from .state import show as show_state
 from .status import status
 from .sync import sync
 from .upgrade import upgrade
+from .workset import app as workset_app
 
 app = typer.Typer(
     help="Profile-driven project guidance and skill resolution.",
@@ -50,6 +51,7 @@ app.command()(doctor)
 app.add_typer(config_app, name="config")
 app.add_typer(state_app, name="state")
 app.add_typer(resolve_app, name="resolve")
+app.add_typer(workset_app, name="workset")
 
 resolve_app.command(name="skill")(skill)
 resolve_app.command(name="hook")(hook)

@@ -17,3 +17,33 @@ The default directory is a sibling of the original checkout: `<repo>-<branch-tok
 Registration compatibility: the currently supported OpenSpec CLI has `workset list/create` but no supported member-append operation. Adding a first repository works; adding the same repository again is a no-op. Adding another repository to an existing workset reports the missing upstream API without changing membership. Until that API exists, compose multi-repository source worksets with OpenSpec's `workset create --member label=path` options. Powerspec never edits OpenSpec's registry or deletes and recreates worksets.
 
 Successful launch prints `openspec workset open <output> --tool code`. Run that command to open the collection. Powerspec does not launch an editor.
+
+## Stores and changes
+
+Every represented store receives an identity based on its own effective branch: `<original-id>-<branch-token>`. Nested store roots retain their relative locations. The spawned `.openspec-store/store.yaml` changes its `id`, and mapped `store:` fields in spawned OpenSpec configuration point to the spawned IDs. These edits appear in ordinary Git status. Original registrations, source configuration and the global default remain intact. References to stores outside the workset stay unchanged and do not add repositories to the launch. Code-only repositories are not converted to stores.
+
+```sh
+pspec workset launch project --branch feature/payments --change add-payments
+pspec workset launch project --branch feature/payments --change add-payments --store specifications
+pspec workset launch project --branch feature/payments --change add-payments --keep-source
+```
+
+`--change` searches active changes only in represented source roots. If several stores contain that name, choose the original ID with `--store`. Both `--store` and `--keep-source` require `--change`. The complete selected directory moves to the same relative path in its owner's worktree; other repositories receive no copies. Uncommitted planning files are included, but unrelated dirty files and temporary consumer state are not. Partially drafted changes are valid; their schema and configuration still need to resolve at the destination. Links, junctions and special files are rejected.
+
+An existing identical destination is reusable. Any byte difference is a conflict, including a committed older proposal. Preflight accounts for Git checkout filters and line endings; the actual copy is checked again before source removal. Powerspec does not overwrite or merge change directories.
+
+Move is the default. Source cleanup happens only after the copied change resolves, all stores/pointers are ready, and the output workset is registered. `--keep-source` selects a copy instead. No Git index is changed, and Powerspec does not commit or archive the change. Tracked source removals remain unstaged deletions.
+
+## Failure and recovery
+
+Use the same launch command to retry. Existing matching worktrees retain commits and local modifications. Publication conflicts never replace a saved member list. Failure can leave created branches/worktrees, store registrations, metadata/pointer edits, or copied files; the result reports its stage and completed effects. No automatic rollback deletes this work.
+
+Transfer progress is kept under the owning destination's Git administrative directory at `powerspec/transfers/`. Receipts are local and uncommitted. A completed move is recognized even after later destination edits. Missing source files alone are not evidence of success. Interrupted cleanup resumes only when the destination and remaining source entries still match the recorded snapshot. New or edited source files are preserved. `workspace_ready: true` with a cleanup failure means the output can be opened but the move is incomplete.
+
+For a conflict, compare the retained source, destination and reported receipt rather than deleting either blindly. Preserve new work separately and restore the expected snapshot before retrying, or finish the transfer manually and stop using that launch as an automatic move. A different transfer mode or output name does not adopt an unrelated receipt. There is no force, overwrite, or receipt-reset option. Concurrent filesystem writers are detected where possible; cleanup is not an atomic cross-directory transaction.
+
+## Output and prerequisites
+
+`--json` returns one object on stdout, including operational failures and partial outcomes. Diagnostics go to stderr. Exit codes are 0 for success, 1 for operational failure, and 2 for invalid arguments. Human output lists branches, paths, created/reused outcomes, changed metadata, mappings, transfer status and the opening command.
+
+Verified with OpenSpec 1.13.2 and Git 2.55.0.windows.5. Git must support `worktree --porcelain -z` and `--attr-source` checkout filtering. On Windows, the npm OpenSpec CLI is invoked through its public JavaScript entrypoint and Node, avoiding batch-shell expansion of path characters. No editor is required to prepare a workset. The missing upstream append interface remains an explicit compatibility limitation.

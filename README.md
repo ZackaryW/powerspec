@@ -32,6 +32,8 @@ Each command also supports `--help`.
 | `pspec config profile [PROFILE]` | Set the selected profile or clear it to global-only mode |
 | `pspec config edit` | Open committed configuration through `VISUAL` or `EDITOR` |
 | `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
+| `pspec workset add NAME --path PATH [--json]` | Create a Git source workset or confirm an existing member; appending another member awaits a supported OpenSpec API |
+| `pspec workset launch NAME --branch BRANCH [--change CHANGE] [--json]` | Spawn implementation worktrees, register branch-specific stores, optionally move a change, and publish an OpenSpec workset |
 
 Implemented commands report configuration and operation failures with exit **1**.
 Help exits **0**; invalid syntax exits **2**. Skill lookup returns
@@ -43,4 +45,4 @@ See [initialization](docs/initialization.md), [skill resolution](docs/skill-reso
 [context sync](docs/context-sync.md), [runtime hook delivery](docs/hook-delivery.md),
 [remote sources](docs/remote-sources.md), [temporary state](docs/temporary-state.md), and the
 [repository investigation bundle](docs/repository-investigation.md).
-All listed command surfaces are implemented.
+See [worksets](docs/worksets.md) for indexed branch overrides, store routing, change transfer and recovery.

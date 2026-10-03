@@ -5,6 +5,7 @@ import re
 
 from .utils.git_worktrees import (RepositoryInfo, inspect_repository, list_worktrees,
     validate_branch, branch_exists, resolve_commit, add_worktree)
+from .utils.git_worktrees import git_bytes
 from .utils.tree_copy import assert_plain_path
 from .workset_openspec import Member, Workset, validate_name
 
@@ -46,7 +47,7 @@ def branch_token(branch: str) -> str:
 def directory_name(name: str) -> str:
     if (not name or name in (".", "..") or name[-1] in " ." or
         re.search(r'[<>:"/\\|?*\x00-\x1f]', name) or
-        re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?", name)):
+        re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?", name)):
         raise ValueError(f"Unsafe worktree directory name: {name!r}")
     return name
 
@@ -127,6 +128,10 @@ def plan_launch(adapter, source_name: str, branch: str, overrides: dict,
         try:
             target_branch = options.get("branch", branch)
             validate_branch(info.root, target_branch)
+            if "remote" in options:
+                if "/" not in options["remote"]:
+                    raise ValueError("Remote base must name a remote-tracking branch, such as origin/main")
+                git_bytes(info.root, "check-ref-format", "refs/remotes/" + options["remote"])
             component = directory_name(options.get("worktree", f"{info.original.name}-{branch_token(target_branch)}"))
             destination = info.original.parent / component
             assert_plain_path(destination)

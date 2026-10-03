@@ -12,6 +12,7 @@ def git(root, *args):
 def repo(path):
     path.mkdir()
     git(path, "init", "-q", "-b", "main")
+    git(path, "config", "core.autocrlf", "false")
     git(path, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm", "base")
     return path
 

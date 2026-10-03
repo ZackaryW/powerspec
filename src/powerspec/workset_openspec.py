@@ -36,8 +36,19 @@ class OpenSpec:
         executable = shutil.which("openspec", path=self.env.get("PATH"))
         if not executable:
             raise ValueError("OpenSpec is required; install its CLI before using worksets")
+        command = [executable]
+        if os.name == "nt" and Path(executable).suffix.lower() in (".cmd", ".bat"):
+            # npm's batch shim passes through cmd.exe even with shell=False.
+            # Invoke the public CLI entrypoint through Node so paths remain literal.
+            directory = Path(executable).resolve().parent
+            entry = directory / "node_modules/@fission-ai/openspec/bin/openspec.js"
+            node = directory / "node.exe"
+            runtime = str(node) if node.is_file() else shutil.which("node", path=self.env.get("PATH"))
+            if not entry.is_file() or not runtime:
+                raise ValueError("Cannot safely invoke this OpenSpec batch shim; install its npm CLI with Node on PATH")
+            command = [runtime, str(entry)]
         try:
-            process = subprocess.run([executable, *args, "--json"], cwd=cwd or self.cwd,
+            process = subprocess.run([*command, *args, "--json"], cwd=cwd or self.cwd,
                                      env=self.env, capture_output=True, timeout=self.timeout, shell=False)
         except (OSError, subprocess.TimeoutExpired) as error:
             raise ValueError(f"OpenSpec could not complete {args}: {error}") from error
@@ -66,6 +77,9 @@ class OpenSpec:
                 for member in row["members"]:
                     if not isinstance(member["name"], str) or not isinstance(member["path"], str):
                         raise TypeError()
+                    if (not member["name"] or member["name"] in (".", "..") or
+                        any(c in member["name"] for c in "/\\") or not Path(member["path"]).is_absolute()):
+                        raise ValueError("Invalid OpenSpec member label/path")
                     members.append(Member(member["name"], Path(member["path"]).resolve()))
                 if len({m.name for m in members}) != len(members) or row["name"] in result:
                     raise ValueError("Duplicate workset or member names")
@@ -108,7 +122,7 @@ class OpenSpec:
             result = {}
             for row in data["stores"]:
                 validate_name(row["id"])
-                if not isinstance(row["root"], str) or row["id"] in result:
+                if not isinstance(row["root"], str) or not Path(row["root"]).is_absolute() or row["id"] in result:
                     raise TypeError()
                 result[row["id"]] = Path(row["root"]).resolve()
             return result

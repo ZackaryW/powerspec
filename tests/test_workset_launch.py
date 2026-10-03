@@ -37,8 +37,11 @@ def test_launch_dirty_source_dedup_and_repeat(tmp_path):
     target = tmp_path / "source-feature-a"
     assert git(target, "branch", "--show-current") == "feature/A"
     (target / "local").write_text("preserve")
+    git(target, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-qm", "implementation")
+    implementation = git(target, "rev-parse", "HEAD")
     retry = plan_launch(adapter, "base", "feature/A", {1: {"repo": "first", "remote": "missing/ref"}})
     assert execute_repositories(retry)[0]["action"] == "reused"
+    assert git(target, "rev-parse", "HEAD") == implementation
     assert (source / "dirty").read_text() == "keep"
 
 
@@ -135,3 +138,42 @@ def test_adapter_rejects_malformed_output_and_missing_prerequisite(tmp_path, mon
     monkeypatch.setattr(adapter, "call", lambda *a: {"worksets": [{"name": "x", "members": "bad"}]})
     with pytest.raises(ValueError, match="Malformed"):
         adapter.list_worksets()
+
+
+def test_registration_race_preserves_member_order_and_tool(tmp_path, monkeypatch):
+    from powerspec.workset_openspec import OpenSpec, Member, Workset
+    adapter = OpenSpec(tmp_path)
+    workset = Workset("output", (Member("z", tmp_path / "z"), Member("a", tmp_path / "a")), "code")
+    saved = {}
+    calls = []
+    monkeypatch.setattr(adapter, "list_worksets", lambda: saved)
+    def raced(*args):
+        calls.append(args)
+        saved["output"] = workset
+        raise ValueError("duplicate name race")
+    monkeypatch.setattr(adapter, "call", raced)
+    assert adapter.publish(workset) == "reused"
+    assert calls == [("workset", "create", "output", "--member", f"z={tmp_path / 'z'}", "--member", f"a={tmp_path / 'a'}", "--tool", "code")]
+
+
+def test_destination_collision_and_output_conflict(tmp_path):
+    from powerspec.worksets import plan_launch
+    from powerspec.workset_openspec import Member, Workset
+    a, b = repo(tmp_path / "a"), repo(tmp_path / "b")
+    adapter = Registry([Member("a", a), Member("b", b)])
+    with pytest.raises(ValueError, match="collision"):
+        plan_launch(adapter, "base", "topic", {1: {"repo": "a", "worktree": "same"}, 2: {"repo": "b", "worktree": "same"}})
+    adapter.worksets["base-topic"] = Workset("base-topic", (Member("wrong", a),))
+    with pytest.raises(ValueError, match="membership"):
+        plan_launch(adapter, "base", "topic", {})
+    assert git(a, "branch", "--list", "topic") == ""
+
+
+def test_missing_main_requires_explicit_base(tmp_path):
+    from powerspec.worksets import plan_launch
+    from powerspec.workset_openspec import Member
+    source = repo(tmp_path / "source")
+    git(source, "branch", "-m", "master")
+    with pytest.raises(ValueError):
+        plan_launch(Registry([Member("x", source)]), "base", "topic", {})
+    assert not (tmp_path / "source-topic").exists()
