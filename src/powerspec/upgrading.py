@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from zuat.pub import AssetSelector, ZuatRequest, inspect_asset, restore_all, uninstall
 
-from .catalog import Catalog, ConfigurationError
+from .catalog import Catalog, ConfigurationError, git_skill_source, is_git_skill_reference
 from .profiles import compose
 from .provisioning import (
     HookOutcome,
@@ -39,12 +39,12 @@ def _remote_refs(bundle):
         ref
         for profile in bundle.profiles
         for ref in profile.data.get("skills", [])
-        if ref.startswith("@gitsource/")
+        if is_git_skill_reference(ref)
     ))
 
 
 def _source_identity(ref):
-    return ref[1:].split("/", 2)[1]
+    return git_skill_source(ref)
 
 
 def _target(plan):
@@ -120,7 +120,7 @@ def upgrade_consumer(
         )
         old_plans = plan_skills(SimpleNamespace(
             skills=tuple(item for item in old_bundle.skills
-                         if item.resource.ref.startswith("@gitsource/"))
+                         if is_git_skill_reference(item.resource.ref))
         ))
         new_plans = plan_skills(new_bundle)
     except (ConfigurationError, OSError, ValueError) as error:

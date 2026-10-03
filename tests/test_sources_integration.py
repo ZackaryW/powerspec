@@ -54,7 +54,7 @@ def test_powerspec_app_materializes_and_refreshes_declared_recipe():
         assert reusable.get("profile", "@tools/base").name == "base"
         assert ("profile", "@tools/private") not in reusable.resources
         direct = Catalog(gitsources={"tools": observed})
-        assert direct.select("skill", "@gitsource/tools/skills/*")[0].name == "declared-example"
+        assert direct.select("skill", "tools/skills/*")[0].name == "declared-example"
 
         (repo / "resource.txt").write_text("two", encoding="utf-8")
         git(repo, "commit", "-am", "second")
@@ -96,7 +96,7 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
         put(target, "schema: spec-driven\n# user comment\n")
         builtin = root / "builtin"
         put(builtin / "profiles/global.toml",
-            'global=true\nscope="user"\nskills=["@gitsource/tools/skills/*"]\n'
+            'global=true\nscope="user"\nskills=["tools/skills/*"]\n'
             'contexts=["@builtin/base"]\n[[source]]\nid="tools"\nprovider="git"\n'
             f'origin={json.dumps(str(remote))}\nreference="main"\n')
         put(builtin / "contexts/base.toml", '[[attach.context]]\nbody="Lifecycle guidance"\n')

@@ -3,7 +3,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from collections.abc import Mapping
-from .catalog import Catalog, ConfigurationError, Resource, KINDS, reference
+from .catalog import (
+    Catalog,
+    ConfigurationError,
+    Resource,
+    KINDS,
+    git_skill_source,
+    is_git_skill_reference,
+    reference,
+    skill_reference,
+)
 from .utils.dependencies import dependency_order
 
 
@@ -30,7 +39,8 @@ class Bundle:
     def armed(self, kind: str, ref: str) -> bool:
         if not isinstance(kind, str) or kind not in KINDS:
             raise ConfigurationError(f"invalid resource kind: {kind!r}")
-        return (kind, reference(ref, wildcard=kind == "skill")) in self.selection
+        identity = skill_reference(ref, wildcard=True) if kind == "skill" else reference(ref)
+        return (kind, identity) in self.selection
 
 
 def compose(catalog: Catalog, selected: str | None = None, *, agent: str, project_root: Path | None = None,
@@ -47,7 +57,7 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
         raise ConfigurationError("exclude_profiles must be a sequence of qualified references")
     if isinstance(empty_skill_selectors, (str, bytes)):
         raise ConfigurationError("empty_skill_selectors must be a sequence of qualified references")
-    allowed_empty = {reference(item, wildcard=True) for item in empty_skill_selectors}
+    allowed_empty = {skill_reference(item, wildcard=True) for item in empty_skill_selectors}
     selected = selected or None
     root = catalog.get("profile", selected) if selected is not None else None
     excluded = {reference(x) for x in exclude_profiles} | set(root.data.get("exclude-profiles", []) if root else [])
@@ -108,7 +118,12 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
                 destination.setdefault(item.ref, item)
         scope = data.get("scope", "user")
         for ref in data.get("skills", []):
-            if not resolve_skills or (not resolve_remote_skills and ref.startswith("@gitsource/")):
+            source = git_skill_source(ref)
+            if source is not None and source not in sources:
+                raise ConfigurationError(
+                    f"{identity}: missing source declaration for Git source alias: {source}"
+                )
+            if not resolve_skills or (not resolve_remote_skills and is_git_skill_reference(ref)):
                 deferred_skill_refs.append(ref)
                 continue
             if scope == "project" and project_root is None:

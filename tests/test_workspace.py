@@ -48,7 +48,7 @@ def test_workspace_selects_lookup_or_acquisition_without_read_mode_acquisition(t
     put(project / "openspec/.pspec/config.toml", 'profile="@builtin/remote"\n')
     put(
         builtin / "profiles/remote.toml",
-        'skills=["@gitsource/tools/skills/*"]\n'
+        'skills=["tools/skills/*"]\n'
         '[[source]]\nid="tools"\nprovider="git"\norigin="https://example.test/tools"\nreference="main"\n',
     )
     remote = tmp_path / "remote"

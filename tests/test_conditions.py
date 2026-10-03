@@ -74,8 +74,8 @@ def test_compiletime_runtime_timing_and_selection(tmp_path, bundle):
         assert bundle.armed(kind, ref)
     assert not bundle.armed('skill', '@builtin/absent')
     assert not bundle.armed('trait', '@builtin/example')
-    assert not bundle.armed('skill', '@gitsource/missing/skills/unavailable')
-    assert not bundle.armed('skill', '@gitsource/missing/skills/*')
+    assert not bundle.armed('skill', 'missing/skills/unavailable')
+    assert not bundle.armed('skill', 'missing/skills/*')
 
 
 def test_batch_has_no_successful_partial_output(tmp_path, bundle):
@@ -131,7 +131,9 @@ def test_armed_exclusions_shared_descendants_remote_and_fresh_snapshot(tmp_path)
     put(tmp_path, 'profiles/main.toml', 'profiles=["@builtin/child", "@builtin/shared"]')
     put(tmp_path, 'profiles/global.toml', 'global=true\nprofiles=["@builtin/child"]')
     put(tmp_path, 'profiles/child.toml', 'profiles=["@builtin/shared"]\ntraits=["@builtin/never"]')
-    put(tmp_path, 'profiles/shared.toml', 'skills=["@gitsource/external/skills/*"]')
+    put(tmp_path, 'profiles/shared.toml', 'skills=["external/skills/*"]\n'
+        '[[source]]\nid="external"\nprovider="git"\n'
+        'origin="https://example.test/external"\nreference="main"')
     put(tmp_path, 'traits/never.toml', 'hooks=["sessionStart"]\nbody="never"\nwhen="missing()"')
     remote = tmp_path/'remote'
     put(remote, 'skills/tool/SKILL.md', '---\nname: tool\n---\n')
@@ -141,7 +143,7 @@ def test_armed_exclusions_shared_descendants_remote_and_fresh_snapshot(tmp_path)
     assert first.armed('profile', '@builtin/shared')
     assert not first.armed('profile', '@builtin/child')
     assert not first.armed('trait', '@builtin/never')
-    assert first.armed('skill', '@gitsource/external/skills/tool')
+    assert first.armed('skill', 'external/skills/tool')
     assert trait_contributions(first, None, Invocation(tmp_path), matching_refs=['@builtin/never']) == ()
     second = compose(catalog, '@builtin/main', agent='codex')
     assert second.armed('trait', '@builtin/never')
@@ -189,7 +191,12 @@ body="Second."
 def test_trait_compiles_exact_deferred_remote_skill_without_acquisition(tmp_path):
     put(tmp_path, 'profiles/main.toml', '''
 traits=["@builtin/reminder"]
-skills=["@gitsource/external/skills/remote-skill"]
+skills=["external/skills/remote-skill"]
+[[source]]
+id="external"
+provider="git"
+origin="https://example.test/external"
+reference="main"
 ''')
     put(tmp_path, 'traits/reminder.toml', '''
 hooks=["sessionStart"]
@@ -205,7 +212,12 @@ body="Use <skill:remote-skill>."
 def test_trait_compiles_name_covered_by_deferred_remote_wildcard(tmp_path):
     put(tmp_path, 'profiles/main.toml', '''
 traits=["@builtin/reminder"]
-skills=["@gitsource/external/skills/*"]
+skills=["external/skills/*"]
+[[source]]
+id="external"
+provider="git"
+origin="https://example.test/external"
+reference="main"
 ''')
     put(tmp_path, 'traits/reminder.toml', '''
 hooks=["sessionStart"]

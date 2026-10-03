@@ -65,7 +65,7 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     target = put(project / "openspec/config.yaml", 'schema: spec-driven\n')
     catalog = tmp_path / "catalog"
     put(catalog / "profiles/global.toml",
-        'global=true\nskills=["@gitsource/tools/skills/*"]\ncontexts=["@builtin/global"]\n'
+        'global=true\nskills=["tools/skills/*"]\ncontexts=["@builtin/global"]\n'
         '[[source]]\nid="tools"\nprovider="git"\n'
         'origin="https://example.test/tools"\nreference="main"\n')
     put(catalog / "contexts/global.toml", '[[attach.context]]\nbody="Remote-aware guidance"\n')
@@ -112,7 +112,7 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
     before = target.read_bytes()
     catalog = tmp_path / "catalog"
     put(catalog / "profiles/global.toml",
-        'global=true\nskills=["@gitsource/offline/skills/*"]\n'
+        'global=true\nskills=["offline/skills/*"]\n'
         '[[source]]\nid="offline"\nprovider="git"\n'
         'origin="https://example.test/offline"\nreference="main"\n')
 

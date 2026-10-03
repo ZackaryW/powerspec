@@ -66,11 +66,19 @@ def test_conditions_are_only_parsed_and_bodies_are_data(tmp_path):
 def test_materialized_remote_identity(tmp_path):
     write(tmp_path, "skills/folder/SKILL.md", "---\nname: named-skill\n---\n")
     catalog = Catalog(gitsources={"external": tmp_path})
-    skills = catalog.select("skill", "@gitsource/external/skills/*")
+    skills = catalog.select("skill", "external/skills/*")
     assert len(skills) == 1
     assert skills[0].name == "named-skill"
-    assert skills[0].ref == "@gitsource/external/skills/folder"
+    assert skills[0].ref == "external/skills/folder"
     assert catalog.get("skill", skills[0].ref) == skills[0]
+    with pytest.raises(ConfigurationError, match="legacy.*external/skills/\\*"):
+        catalog.select("skill", "@gitsource/external/skills/*")
+
+
+def test_profile_rejects_legacy_git_source_namespace(tmp_path):
+    write(tmp_path, "profiles/legacy.toml", 'skills=["@gitsource/tools/skills/*"]')
+    with pytest.raises(ConfigurationError, match="legacy.*use 'tools/skills/\\*'"):
+        Catalog(builtin=tmp_path)
 
 
 def test_direct_git_selection_is_lazy_deterministic_and_retains_provenance(tmp_path):
@@ -81,10 +89,10 @@ def test_direct_git_selection_is_lazy_deterministic_and_retains_provenance(tmp_p
     binding = SourceBinding("tools", "https://example.test/tools", "main", "a" * 40,
                             "1" * 64, "artifact", tmp_path)
     catalog = Catalog(gitsources={"tools": binding})
-    selected = catalog.select("skill", "@gitsource/tools/skills/*")
+    selected = catalog.select("skill", "tools/skills/*")
     assert [item.name for item in selected] == ["first", "last"]
     assert [item.ref for item in selected] == [
-        "@gitsource/tools/skills/a-first", "@gitsource/tools/skills/z-last"
+        "tools/skills/a-first", "tools/skills/z-last"
     ]
     assert selected[0].provenance == {
         "provider": "git", "source": "tools", "path": "skills/a-first",
@@ -98,9 +106,9 @@ def test_direct_and_recursive_git_selectors_have_explicit_depth(tmp_path):
     write(tmp_path, "skills/one/SKILL.md", "---\nname: one\n---\n")
     write(tmp_path, "skills/group/two/SKILL.md", "---\nname: two\n---\n")
     catalog = Catalog(gitsources={"tools": tmp_path})
-    assert [item.name for item in catalog.select("skill", "@gitsource/tools/skills/*")] == ["one"]
-    assert [item.name for item in catalog.select("skill", "@gitsource/tools/skills/**")] == ["two", "one"]
-    assert catalog.select("skill", "@gitsource/tools/skills/group/two")[0].name == "two"
+    assert [item.name for item in catalog.select("skill", "tools/skills/*")] == ["one"]
+    assert [item.name for item in catalog.select("skill", "tools/skills/**")] == ["two", "one"]
+    assert catalog.select("skill", "tools/skills/group/two")[0].name == "two"
 
 
 def test_git_materialization_is_resolved_lazily_from_declared_recipe(tmp_path):
@@ -117,9 +125,9 @@ def test_git_materialization_is_resolved_lazily_from_declared_recipe(tmp_path):
     catalog = Catalog(git_resolver=resolve)
     catalog.set_git_recipes({"tools": recipe})
     assert calls == []
-    assert catalog.select("skill", "@gitsource/tools/skills/*")[0].name == "one"
+    assert catalog.select("skill", "tools/skills/*")[0].name == "one"
     assert calls == [("tools", recipe)]
-    catalog.select("skill", "@gitsource/tools/skills/one")
+    catalog.select("skill", "tools/skills/one")
     assert calls == [("tools", recipe)]
 
 
@@ -130,17 +138,17 @@ def test_git_selector_rejects_unknown_empty_invalid_duplicate_and_escape(tmp_pat
     (tmp_path / "empty").mkdir()
     catalog = Catalog(gitsources={"tools": tmp_path})
     with pytest.raises(ConfigurationError, match="missing source declaration"):
-        Catalog().select("skill", "@gitsource/unknown/skills/*")
+        Catalog().select("skill", "unknown/skills/*")
     with pytest.raises(ConfigurationError, match="no materialized"):
-        catalog.select("skill", "@gitsource/tools/empty/*")
+        catalog.select("skill", "tools/empty/*")
     with pytest.raises(ConfigurationError, match="missing skill frontmatter"):
-        catalog.select("skill", "@gitsource/tools/invalid/bad")
+        catalog.select("skill", "tools/invalid/bad")
     with pytest.raises(ConfigurationError, match="duplicate selected skill"):
-        catalog.select("skill", "@gitsource/tools/skills/*")
+        catalog.select("skill", "tools/skills/*")
     with pytest.raises(ConfigurationError, match="malformed"):
-        catalog.select("skill", "@gitsource/tools/../outside")
+        catalog.select("skill", "tools/../outside")
     with pytest.raises(ConfigurationError, match="final selector segment"):
-        catalog.select("skill", "@gitsource/tools/*/nested")
+        catalog.select("skill", "tools/*/nested")
 
     outside = tmp_path.parent / "outside-skill"
     write(outside, "SKILL.md", "---\nname: outside\n---\n")
@@ -150,7 +158,7 @@ def test_git_selector_rejects_unknown_empty_invalid_duplicate_and_escape(tmp_pat
     except OSError as error:
         pytest.skip(str(error))
     with pytest.raises(ConfigurationError, match="escapes"):
-        catalog.select("skill", "@gitsource/tools/linked")
+        catalog.select("skill", "tools/linked")
 
 
 def test_multiple_reusable_catalog_roots_share_one_source_namespace(tmp_path):

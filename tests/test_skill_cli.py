@@ -94,7 +94,10 @@ def test_installed_skill_resolution_does_not_require_global_remote_materializati
     put(project / "openspec/.pspec/config.toml", '[vars]\n')
     catalog = tmp_path / "catalog"
     put(catalog / "profiles/global.toml",
-        'global=true\nskills=["@gitsource/offline/skills/*"]\n[vars]\nlanguage="python"\n')
+        'global=true\nskills=["offline/skills/*"]\n'
+        '[[source]]\nid="offline"\nprovider="git"\n'
+        'origin="https://example.test/offline"\nreference="main"\n'
+        '[vars]\nlanguage="python"\n')
     @contextmanager
     def resources():
         yield catalog

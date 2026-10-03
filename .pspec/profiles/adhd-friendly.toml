@@ -1,7 +1,7 @@
 scope = "user"
 global = true
 traits = ["@builtin/adhd-friendly"]
-skills = ["@gitsource/i-have-adhd/skills/i-have-adhd"]
+skills = ["i-have-adhd/skills/i-have-adhd"]
 
 [[source]]
 id = "i-have-adhd"

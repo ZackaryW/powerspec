@@ -24,6 +24,15 @@ def skill(root, folder, name):
     path.write_text(f"---\nname: {name}\n---\n")
 
 
+def source(root, profile_name, identity):
+    path = root / "profiles" / f"{profile_name}.toml"
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(
+            f'\n[[source]]\nid="{identity}"\nprovider="git"\n'
+            f'origin="https://example.test/{identity}"\nreference="main"\n'
+        )
+
+
 def test_global_nested_scope_and_tiers(tmp_path):
     skill(tmp_path, "sk", "test-skill")
     profile(tmp_path, "global", **{"global": True}, profiles=["@builtin/shared"], vars={"mode": "global"})
@@ -114,18 +123,25 @@ def test_empty_selection_composes_globals_and_exclusions(tmp_path, selected):
 def test_runtime_composition_retains_raw_skill_arming_without_materialization(tmp_path):
     path = tmp_path / "profiles/always.toml"
     path.parent.mkdir(parents=True)
-    path.write_text('global=true\nskills=["@gitsource/offline/skills/*"]\n'
+    path.write_text('global=true\nskills=["offline/skills/*"]\n'
                     '[[source]]\nid="offline"\nprovider="git"\n'
                     'origin="https://example.test/offline"\nreference="main"\n'
                     '[vars]\nlanguage="python"\n')
     catalog = Catalog(builtin=tmp_path, git_resolver=lambda *_args: (_ for _ in ()).throw(AssertionError()))
     bundle = compose(catalog, agent="codex", resolve_skills=False)
     assert bundle.skills == ()
-    assert bundle.armed("skill", "@gitsource/offline/skills/*")
+    assert bundle.armed("skill", "offline/skills/*")
     assert bundle.sources == {
         "offline": {"provider": "git", "origin": "https://example.test/offline", "reference": "main"}
     }
     assert bundle.global_defaults["language"] == "python"
+
+
+def test_deferred_composition_rejects_undeclared_git_source_alias(tmp_path):
+    profile(tmp_path, "main", skills=["missing/skills/*"])
+    with pytest.raises(ConfigurationError, match="missing source declaration.*missing"):
+        compose(Catalog(builtin=tmp_path), "@builtin/main", agent="codex",
+                resolve_skills=False)
 
 
 def test_profile_source_recipe_drives_selected_git_alias(tmp_path):
@@ -133,7 +149,7 @@ def test_profile_source_recipe_drives_selected_git_alias(tmp_path):
     skill(remote, "tool", "remote-tool")
     path = builtin / "profiles/main.toml"
     path.parent.mkdir(parents=True)
-    path.write_text('skills=["@gitsource/tools/skills/*"]\n'
+    path.write_text('skills=["tools/skills/*"]\n'
                     '[[source]]\nid="tools"\nprovider="git"\n'
                     'origin="https://example.test/tools"\nreference="main"\n')
     calls = []
@@ -162,8 +178,11 @@ def test_remote_same_name_conflicts_only_when_selected_for_same_target(tmp_path)
     builtin, one, two = tmp_path / "builtin", tmp_path / "one", tmp_path / "two"
     skill(one, "folder-one", "shared")
     skill(two, "folder-two", "shared")
-    profile(builtin, "one", skills=["@gitsource/one/skills/*"])
-    profile(builtin, "both", skills=["@gitsource/one/skills/*", "@gitsource/two/skills/*"])
+    profile(builtin, "one", skills=["one/skills/*"])
+    source(builtin, "one", "one")
+    profile(builtin, "both", skills=["one/skills/*", "two/skills/*"])
+    source(builtin, "both", "one")
+    source(builtin, "both", "two")
     bindings = {
         "one": SourceBinding("one", "https://example.test/one", "main", "a" * 40,
                              "1" * 64, "one", one),
@@ -173,10 +192,11 @@ def test_remote_same_name_conflicts_only_when_selected_for_same_target(tmp_path)
     catalog = Catalog(builtin=builtin, gitsources=bindings)
     selected = compose(catalog, "@builtin/one", agent="codex")
     assert [target.resource.name for target in selected.skills] == ["shared"]
-    with pytest.raises(ConfigurationError, match="skill target conflict.*gitsource/one.*gitsource/two"):
+    with pytest.raises(ConfigurationError, match="skill target conflict.*one/skills.*two/skills"):
         compose(catalog, "@builtin/both", agent="codex")
 
-    profile(builtin, "project", scope="project", skills=["@gitsource/two/skills/*"])
+    profile(builtin, "project", scope="project", skills=["two/skills/*"])
+    source(builtin, "project", "two")
     profile(builtin, "scoped", profiles=["@builtin/one", "@builtin/project"])
     scoped = compose(Catalog(builtin=builtin, gitsources=bindings), "@builtin/scoped",
                      agent="codex", project_root=tmp_path)

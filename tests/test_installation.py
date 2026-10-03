@@ -17,7 +17,7 @@ def setup(tmp_path):
     builtin = tmp_path / "builtin"
     put(
         builtin / "profiles/main.toml",
-        'scope="user"\nskills=["@gitsource/tools/skills/*"]\n'
+        'scope="user"\nskills=["tools/skills/*"]\n'
         '[[source]]\nid="tools"\nprovider="git"\n'
         'origin="https://example.test/tools"\nreference="main"\n',
     )

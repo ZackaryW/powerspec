@@ -157,7 +157,11 @@ def test_remote_skill_provisions_complete_tree_with_declared_name_and_provenance
     project.mkdir()
     profile = catalog_root / "profiles/remote.toml"
     profile.parent.mkdir(parents=True)
-    profile.write_text('scope="user"\nskills=["@gitsource/tools/skills/*"]\n')
+    profile.write_text(
+        'scope="user"\nskills=["tools/skills/*"]\n'
+        '[[source]]\nid="tools"\nprovider="git"\n'
+        'origin="https://example.test/tools"\nreference="main"\n'
+    )
     entry = remote / "skills/folder-name/SKILL.md"
     entry.parent.mkdir(parents=True)
     entry.write_text("---\nname: declared-name\ndescription: Remote.\n---\n\nUse references when selected.\n")

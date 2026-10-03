@@ -26,13 +26,7 @@ def reference(value: str, *, wildcard: bool = False) -> str:
         raise ConfigurationError(f"malformed resource reference: {value!r}")
     if not NAME.fullmatch(parts[0]) or any(any(c.isspace() for c in p) for p in parts):
         raise ConfigurationError(f"malformed resource reference: {value!r}")
-    if parts[0] == "gitsource":
-        if len(parts) < 3 or not NAME.fullmatch(parts[1]) or parts[1] == "builtin":
-            raise ConfigurationError(f"invalid or reserved Git source: {value}")
-        wildcard_parts = [index for index, part in enumerate(parts) if part in {"*", "**"}]
-        if wildcard_parts and (not wildcard or wildcard_parts != [len(parts) - 1]):
-            raise ConfigurationError(f"Git source wildcard must be the final selector segment: {value}")
-    elif len(parts) != 2 or not NAME.fullmatch(parts[1]):
+    if len(parts) != 2 or not NAME.fullmatch(parts[1]):
         raise ConfigurationError(f"invalid resource name: {value}")
     for part in parts:
         if any(c in part for c in "*?[]") and not (wildcard and part in {"*", "**"}):
@@ -40,6 +34,48 @@ def reference(value: str, *, wildcard: bool = False) -> str:
         if ":" in part or "\x00" in part:
             raise ConfigurationError(f"invalid reference segment: {value!r}")
     return value
+
+
+def skill_reference(value: str, *, wildcard: bool = False) -> str:
+    """Validate one catalog-qualified or declared Git-source skill identity."""
+    if isinstance(value, str) and value.startswith("@gitsource/"):
+        replacement = value.removeprefix("@gitsource/")
+        raise ConfigurationError(
+            f"legacy Git source reference {value!r}; use {replacement!r}"
+        )
+    if isinstance(value, str) and value.startswith("@"):
+        return reference(value, wildcard=wildcard)
+    if not isinstance(value, str) or "\\" in value:
+        raise ConfigurationError(f"malformed Git skill reference: {value!r}")
+    parts = value.split("/")
+    if (len(parts) < 2 or not NAME.fullmatch(parts[0])
+            or parts[0] == "builtin"
+            or any(not part or part in {".", ".."} for part in parts)):
+        raise ConfigurationError(f"malformed Git skill reference: {value!r}")
+    wildcard_parts = [index for index, part in enumerate(parts) if part in {"*", "**"}]
+    if wildcard_parts and (not wildcard or wildcard_parts != [len(parts) - 1]):
+        raise ConfigurationError(
+            f"Git source wildcard must be the final selector segment: {value}"
+        )
+    for part in parts:
+        if any(character.isspace() for character in part):
+            raise ConfigurationError(f"malformed Git skill reference: {value!r}")
+        if any(character in part for character in "*?[]") and not (
+                wildcard and part in {"*", "**"}):
+            raise ConfigurationError(f"wildcard is not an exact reference: {value}")
+        if ":" in part or "\x00" in part:
+            raise ConfigurationError(f"invalid reference segment: {value!r}")
+    return value
+
+
+def is_git_skill_reference(value: str) -> bool:
+    """Return whether a validated skill identity uses a declared Git source."""
+    return isinstance(value, str) and not value.startswith("@")
+
+
+def git_skill_source(value: str) -> str | None:
+    """Return the source alias from a validated direct-Git skill identity."""
+    return value.split("/", 1)[0] if is_git_skill_reference(value) else None
 
 
 def read_toml(path: Path) -> dict:
@@ -76,7 +112,10 @@ def validate(kind: str, data: dict) -> None:
     if isinstance(parsed, Profile):
         for field in ("profiles", "contexts", "traits", "skills", "exclude_profiles"):
             for item in getattr(parsed, field):
-                reference(item, wildcard=field == "skills")
+                if field == "skills":
+                    skill_reference(item, wildcard=True)
+                else:
+                    reference(item)
 
 
 @dataclass(frozen=True)
@@ -103,8 +142,8 @@ class Catalog:
         self._fixed_gitsources = set()
         self.git_resolver = git_resolver
         sources, gitsources = dict(sources or {}), dict(gitsources or {})
-        if "builtin" in sources or "builtin" in gitsources or "gitsource" in sources:
-            raise ConfigurationError("builtin and gitsource are reserved source namespaces")
+        if "builtin" in sources or "builtin" in gitsources:
+            raise ConfigurationError("builtin is a reserved source namespace")
         if builtin is not None:
             self._catalog("builtin", Path(builtin))
         for source, root in sources.items():
@@ -187,8 +226,11 @@ class Catalog:
     def get(self, kind, ref):
         if kind not in KINDS:
             raise ConfigurationError(f"unknown resource kind: {kind}")
-        reference(ref)
-        if kind == "skill" and ref.startswith("@gitsource/"):
+        if kind == "skill":
+            skill_reference(ref)
+        else:
+            reference(ref)
+        if kind == "skill" and is_git_skill_reference(ref):
             return self._select_git(ref)[0]
         try:
             return self.resources[kind, ref]
@@ -196,13 +238,16 @@ class Catalog:
             raise ConfigurationError(f"missing {kind}: {ref}") from None
 
     def select(self, kind, ref, *, allow_empty=False):
-        reference(ref, wildcard=kind == "skill")
-        if kind == "skill" and ref.startswith("@gitsource/"):
+        if kind == "skill":
+            skill_reference(ref, wildcard=True)
+        else:
+            reference(ref)
+        if kind == "skill" and is_git_skill_reference(ref):
             return self._select_git(ref, allow_empty=allow_empty)
         if "*" not in ref:
             return (self.get(kind, ref),)
         prefix, pattern = ref.rsplit("/", 1)
-        if pattern not in {"*", "**"} or not ref.startswith("@gitsource/") or "*" in prefix:
+        if pattern not in {"*", "**"} or "*" in prefix:
             raise ConfigurationError(f"unsupported selector: {ref}")
         matched = tuple(r for (k, identity), r in self.resources.items()
                         if k == kind and identity.startswith(prefix + "/")
@@ -212,8 +257,8 @@ class Catalog:
         return matched
 
     def _select_git(self, ref, *, allow_empty=False):
-        parts = ref[1:].split("/")
-        source, selector = parts[1], parts[2:]
+        parts = ref.split("/")
+        source, selector = parts[0], parts[1:]
         try:
             root, materialization = self.gitsources[source]
         except KeyError:
@@ -255,7 +300,7 @@ class Catalog:
                     f"{entry}: duplicate selected skill name {name}; already declared by {names[name]}"
                 )
             names[name] = entry
-            identity = reference(f"@gitsource/{source}/{relative}")
+            identity = skill_reference(f"{source}/{relative}")
             provenance = {
                 "provider": "git",
                 "source": source,

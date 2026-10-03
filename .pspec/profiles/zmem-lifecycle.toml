@@ -2,7 +2,7 @@ scope = "user"
 global = true
 contexts = ["@builtin/incremental-checkpoints"]
 traits = ["@builtin/zmem-lifecycle"]
-skills = ["@gitsource/zmem/skills/*"]
+skills = ["zmem/skills/*"]
 
 [[source]]
 id = "zmem"

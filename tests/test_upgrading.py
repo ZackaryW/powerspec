@@ -57,7 +57,7 @@ def fixture(tmp_path, *, empty=False, malformed=False):
     registry = tmp_path / "registry"
     project.mkdir()
     put(builtin / "profiles/main.toml",
-        'scope="user"\nskills=["@builtin/helper","@gitsource/tools/skills/*"]\n'
+        'scope="user"\nskills=["@builtin/helper","tools/skills/*"]\n'
         '[[source]]\nid="tools"\nprovider="git"\n'
         'origin="https://example.test/tools"\nreference="main"\n')
     skill(builtin, "helper", "helper", "bundled helper")

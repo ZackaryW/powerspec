@@ -10,10 +10,10 @@ Successful release checks are cached for 24 hours. A fresh matching check avoids
 
 ## Profile recipe and Saucepan application contract
 
-The source identity in `@gitsource/<identity>/<selector>` is a profile-owned alias. The same effective profile graph declares its recipe:
+The first segment in `<identity>/<selector>` is a profile-owned source alias. The same effective profile graph declares its recipe:
 
 ```toml
-skills = ["@gitsource/zmem/skills/*"]
+skills = ["zmem/skills/*"]
 
 [[source]]
 id = "zmem"
@@ -55,9 +55,9 @@ Reusable catalogs are discovered from `.pspec` directories inside the materializ
 
 Direct skill references do not require `.pspec`. Their selectors are source-relative:
 
-- `@gitsource/tools/skills/example` selects that one skill root;
-- `@gitsource/tools/skills/*` selects immediate child skill roots;
-- `@gitsource/tools/skills/**` explicitly selects skill roots recursively.
+- `tools/skills/example` selects that one skill root;
+- `tools/skills/*` selects immediate child skill roots;
+- `tools/skills/**` explicitly selects skill roots recursively.
 
 Only directories containing `SKILL.md` participate. Selected declarations are validated together, ordered by source-relative path, and retain the complete skill directory. Absolute paths, parent traversal, canonical or symlink escapes, empty initial matches, and duplicate selected declared names are errors. The installed name comes from `SKILL.md`, not the source identity or folder name.
 
