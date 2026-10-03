@@ -11,11 +11,6 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
-PLACEHOLDER_COMMANDS = ("flush",)
-VALID_INVOCATIONS = [
-    ["flush"],
-    ["flush", "--change", "example"],
-]
 
 
 def invoke(args):
@@ -60,45 +55,10 @@ def test_installed_aliases_show_help(name, args, tmp_path):
 def test_command_help_does_not_require_arguments(command):
     result = invoke([command, "--help"])
     assert result.exit_code == 0
-    if command in PLACEHOLDER_COMMANDS:
-        assert "placeholder" in result.stdout.lower()
-    else:
-        assert "placeholder" not in result.stdout.lower()
+    assert "placeholder" not in result.stdout.lower()
     assert result.stderr == ""
     if command == "skill":
         assert all(option in result.stdout for option in ("NAME", "--agent", "--change", "--selected", "--json"))
-
-
-def snapshot(root):
-    return {
-        path.relative_to(root).as_posix(): path.read_bytes() if path.is_file() else None
-        for path in root.rglob("*")
-    }
-
-
-@pytest.mark.parametrize("args", VALID_INVOCATIONS)
-def test_placeholders_fail_without_output_or_state_changes(args, tmp_path, monkeypatch):
-    project = tmp_path / "project"
-    state = project / "openspec" / ".pspec"
-    state.mkdir(parents=True)
-    (state / "config.toml").write_text('[vars]\nlanguage = "python"\n')
-    (state / "current.toml").write_text('[_change.example]\nlanguage = "rust"\n')
-    agent_home = tmp_path / "home"
-    agent_home.mkdir()
-    (agent_home / "settings.json").write_text('{"existing": true}\n')
-    monkeypatch.setenv("HOME", str(agent_home))
-    monkeypatch.setenv("USERPROFILE", str(agent_home))
-    monkeypatch.setenv("CODEX_HOME", str(agent_home / ".codex"))
-    monkeypatch.chdir(project)
-    before = snapshot(tmp_path)
-
-    result = invoke(args)
-
-    assert result.exit_code == 1
-    assert result.stdout == ""
-    assert args[0] in result.stderr
-    assert "not implemented" in result.stderr.lower()
-    assert snapshot(tmp_path) == before
 
 
 def test_init_does_not_create_a_project(tmp_path, monkeypatch):
@@ -120,6 +80,7 @@ def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch
     ["unknown"], ["--unknown"], ["skill"],
     ["skill", "pspec-tdd"], ["skill", "--agent", "codex"],
     ["skill", "pspec-tdd", "--agent"], ["hook"], ["hook", "sessionStart"],
+    ["flush", "--change"],
     ["sync", "--unknown"],
     ["upgrade"], ["upgrade", "--unknown"],
 ])
@@ -140,6 +101,24 @@ def test_installed_aliases_report_upgrade_without_consumer(name, tmp_path):
     assert result.stdout == ""
     assert "no owning" in result.stderr.lower()
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", ["pspec", "powerspec"])
+def test_installed_aliases_flush_one_change(name, tmp_path):
+    project = tmp_path / "project"
+    state = project / "openspec/.pspec"
+    state.mkdir(parents=True)
+    subprocess.run(["git", "init", "--quiet", str(project)], check=True)
+    (state / "config.toml").write_text("[vars]\npersistent = true\n")
+    (state / "current.toml").write_text(
+        '[vars]\nshared = "keep"\n[_change.example]\nanswer = "clear"\n'
+    )
+    result = run_process([console(name), "flush", "--change", "example"], project)
+    assert result.returncode == 0 and result.stderr == ""
+    assert result.stdout.startswith("updated:")
+    rendered = (state / "current.toml").read_text()
+    assert 'shared = "keep"' in rendered and "_change" not in rendered
+    assert 'persistent = true' in (state / "config.toml").read_text()
 
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])

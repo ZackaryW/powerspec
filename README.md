@@ -23,7 +23,7 @@ Each command also supports `--help`.
 | `pspec skill NAME --agent AGENT [--change CHANGE] [--json]` | Resolve an installed skill's selected content |
 | `pspec hook EVENT --agent AGENT [--change CHANGE]` | Resolve runtime traits from a native hook payload on stdin |
 | `pspec sync` | Reconcile OpenSpec configuration |
-| `pspec flush [--change CHANGE]` | Placeholder for clearing temporary variables |
+| `pspec flush [--change CHANGE]` | Clear all temporal values or one change-specific layer |
 | `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
 
 Implemented commands report configuration and operation failures with exit **1**.
@@ -33,6 +33,6 @@ not-implemented diagnostic and perform no domain work. Skill lookup returns
 
 See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),
 [context sync](docs/context-sync.md), [runtime hook delivery](docs/hook-delivery.md),
-[remote sources](docs/remote-sources.md), and the
+[remote sources](docs/remote-sources.md), [temporary state](docs/temporary-state.md), and the
 [repository investigation bundle](docs/repository-investigation.md).
-Temporary-state cleanup remains active implementation work.
+All listed command surfaces are implemented.

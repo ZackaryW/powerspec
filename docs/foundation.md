@@ -47,7 +47,7 @@ test_command = "uv run pytest tests/test_output.py"
 
 `runtime_values(consumer, bundle, change="fix-output", defaults={})` returns values and their winning origins. From low to high precedence: caller skill defaults, global profiles, selected profiles, config shared, config matching change, current shared, current matching change. Omitting `change` uses shared layers only. No change is inferred and no other change table contributes.
 
-For compilation use `discover_consumer(cwd, runtime=False)` and `context_values(resource, consumer, bundle)`. This ignores even a malformed `current.toml`; only declaration defaults, global/selected defaults, and persistent shared values participate. Invalid supplied values fail instead of falling back; required missing values never prompt. These functions create no state files, write no configuration, and perform no archive cleanup.
+For compilation use `discover_consumer(cwd, runtime=False)` and `context_values(resource, consumer, bundle)`. This ignores even a malformed `current.toml`; only declaration defaults, global/selected defaults, and persistent shared values participate. Invalid supplied values fail instead of falling back; required missing values never prompt. These functions create no state files and write no configuration. Archive cleanup is an explicit later `pspec flush --change <name>` operation against `current.toml`; it never participates in value resolution.
 
 ## Guidance conditions
 

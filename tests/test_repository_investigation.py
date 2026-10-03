@@ -48,7 +48,7 @@ def test_global_bundle_composes_once_and_excludes_only_its_contributions():
         assert [item.ref for item in selected.traits].count(
             "@builtin/repository-investigation") == 1
         assert {item.name for item in selected.contexts} == {
-            "python-simple-cli", "utility-plan", "utility-apply",
+            "archive-temporary-state", "python-simple-cli", "utility-plan", "utility-apply",
         }
         assert "pspec-bdd" not in {item.resource.name for item in selected.skills}
 

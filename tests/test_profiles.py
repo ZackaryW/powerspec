@@ -87,7 +87,9 @@ def test_reviewed_python_bundle(tmp_path):
     catalog = Catalog(builtin=root)
     bundle = compose(catalog, "@builtin/python-simple-cli", agent="codex",
                      exclude_profiles=["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"])
-    assert {r.name for r in bundle.contexts} == {"python-simple-cli", "utility-plan", "utility-apply"}
+    assert {r.name for r in bundle.contexts} == {
+        "archive-temporary-state", "python-simple-cli", "utility-plan", "utility-apply",
+    }
     names = [t.resource.name for t in bundle.skills]
     assert names.count("pspec-tdd") == 1 and "pspec-bdd" not in names
     assert "pspec-plan-utilities" in names and "pspec-skill-bootstrap" in names

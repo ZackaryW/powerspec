@@ -16,6 +16,7 @@ def test_builtin_catalog_contains_complete_skill_inputs():
         assert "pspec-repo-investigation" in skills
         assert (root / "profiles/repository-investigation.toml").is_file()
         assert (root / "traits/repository-investigation.toml").is_file()
+        assert (root / "contexts/archive-temporary-state.toml").is_file()
         assert (root / "skills/pspec_tdd/pspec.toml").is_file()
         assert (root / "skills/pspec_tdd/languages/python.md").is_file()
         assert (root / "skills/UPSTREAM_LICENSE.txt").is_file()
@@ -41,5 +42,6 @@ def test_built_wheel_has_no_checkout_paths(tmp_path):
         names = archive.namelist()
     assert "powerspec/_resources/catalog/profiles/builtin.toml" in names
     assert "powerspec/_resources/catalog/skills/pspec-repo-investigation/SKILL.md" in names
+    assert "powerspec/_resources/catalog/contexts/archive-temporary-state.toml" in names
     assert "powerspec/_resources/catalog/skills/pspec_tdd/languages/python.md" in names
     assert not any(".cache" in name or "Documents/GitHub" in name for name in names)
