@@ -34,7 +34,7 @@ class Bundle:
 
 def compose(catalog: Catalog, selected: str | None = None, *, agent: str, project_root: Path | None = None,
             exclude_profiles=(), resolve_skills: bool = True,
-            resolve_remote_skills: bool = True) -> Bundle:
+            resolve_remote_skills: bool = True, empty_skill_selectors=()) -> Bundle:
     """Compose the selected root and globals after explicit exclusions.
 
     Only consumer and selected-root exclusions apply. Scope stays with each
@@ -44,6 +44,9 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
         raise ConfigurationError("an explicit target agent is required")
     if isinstance(exclude_profiles, (str, bytes)):
         raise ConfigurationError("exclude_profiles must be a sequence of qualified references")
+    if isinstance(empty_skill_selectors, (str, bytes)):
+        raise ConfigurationError("empty_skill_selectors must be a sequence of qualified references")
+    allowed_empty = {reference(item, wildcard=True) for item in empty_skill_selectors}
     selected = selected or None
     root = catalog.get("profile", selected) if selected is not None else None
     excluded = {reference(x) for x in exclude_profiles} | set(root.data.get("exclude-profiles", []) if root else [])
@@ -98,7 +101,7 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
             if scope == "project" and project_root is None:
                 raise ConfigurationError(f"{identity}: project scope requires explicit project_root")
             target_root = Path(project_root).resolve() if scope == "project" else None
-            for item in catalog.select("skill", ref):
+            for item in catalog.select("skill", ref, allow_empty=ref in allowed_empty):
                 destination = (agent, scope, target_root, item.name)
                 if destination in names and names[destination] != item.ref:
                     raise ConfigurationError(f"skill target conflict: {names[destination]} and {item.ref} at {destination}")

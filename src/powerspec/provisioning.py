@@ -3,7 +3,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Mapping
 
-from zuat.pub import SUPPORTED_AGENTS, AssetInput, ZuatRequest, inspect_asset, install, locate_skill
+from zuat.pub import (
+    SUPPORTED_AGENTS, AssetInput, ZuatRequest, inspect_asset, install, locate_skill,
+    update_asset,
+)
 
 from .catalog import ConfigurationError
 
@@ -39,7 +42,7 @@ class ProvisionResult:
 
     @property
     def ok(self):
-        return all(item.status in {"installed", "reused"} for item in self.items)
+        return all(item.status in {"installed", "reused", "updated"} for item in self.items)
 
 
 def plan_skills(bundle) -> tuple[SkillPlan, ...]:
@@ -81,6 +84,13 @@ def provision_skills(plans, *, home: Path | None = None,
             observed = inspect_asset(plan.asset(), **context)
             if observed.classification == "current" and observed.owned and observed.source_matches:
                 outcomes.append(SkillOutcome(plan.ref, "reused", plan))
+                continue
+            if (observed.owned and observed.observed_fingerprint is not None
+                    and observed.observed_fingerprint == observed.baseline_fingerprint):
+                result = update_asset(plan.asset(), **context)
+                outcomes.append(SkillOutcome(plan.ref, "updated" if result.ok else "failed", plan,
+                    tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                    result.operation_id))
                 continue
             if observed.classification in {"unsupported", "unowned", "conflict"}:
                 outcomes.append(SkillOutcome(plan.ref, "failed", plan,

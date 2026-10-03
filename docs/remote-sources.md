@@ -50,3 +50,21 @@ catalog = Catalog(sources=catalogs.sources(), gitsources={"team-tools": binding}
 ```
 
 The registration step only validates and exposes resources. It does not provision a skill.
+
+## Upgrade success boundary
+
+Run `pspec upgrade --agent <agent>` from inside the owning Git repository. Upgrade processes every remote skill selector in the consumer's effective profile bundle:
+
+1. resolve the previously materialized selections without fetching;
+2. refresh every referenced Saucepan app source;
+3. validate all replacement selectors and target collisions;
+4. provision every selected complete replacement through ZuAT;
+5. identify obsolete copies only from the prior verified selection and current ZuAT ownership;
+6. submit all obsolete copies in one recoverable ZuAT removal operation;
+7. verify their absence before reporting success.
+
+No removal begins until all refresh, validation, collision, and provisioning work succeeds. A failed or unknown source does not establish absence. An empty replacement is accepted only for a selector that previously resolved successfully.
+
+If removal or final verification fails, Powerspec asks ZuAT to restore the removal operation's complete before-state. The command reports failure after successful restoration and reports a partial result if ZuAT cannot restore it. Source caches and already completed non-removal updates are outside this rollback boundary.
+
+Saucepan's current public API does not expose source deregistration evidence. A missing app therefore remains an unavailable-source error and preserves installed copies; Powerspec does not infer an intentional deletion from that error.

@@ -29,6 +29,9 @@ def reference(value: str, *, wildcard: bool = False) -> str:
     if parts[0] == "gitsource":
         if len(parts) < 3 or not NAME.fullmatch(parts[1]) or parts[1] == "builtin":
             raise ConfigurationError(f"invalid or reserved Git source: {value}")
+        wildcard_parts = [index for index, part in enumerate(parts) if part in {"*", "**"}]
+        if wildcard_parts and (not wildcard or wildcard_parts != [len(parts) - 1]):
+            raise ConfigurationError(f"Git source wildcard must be the final selector segment: {value}")
     elif len(parts) != 2 or not NAME.fullmatch(parts[1]):
         raise ConfigurationError(f"invalid resource name: {value}")
     for part in parts:
@@ -177,10 +180,10 @@ class Catalog:
         except KeyError:
             raise ConfigurationError(f"missing {kind}: {ref}") from None
 
-    def select(self, kind, ref):
+    def select(self, kind, ref, *, allow_empty=False):
         reference(ref, wildcard=kind == "skill")
         if kind == "skill" and ref.startswith("@gitsource/"):
-            return self._select_git(ref)
+            return self._select_git(ref, allow_empty=allow_empty)
         if "*" not in ref:
             return (self.get(kind, ref),)
         prefix, pattern = ref.rsplit("/", 1)
@@ -193,7 +196,7 @@ class Catalog:
             raise ConfigurationError(f"no materialized resources for selector: {ref}")
         return matched
 
-    def _select_git(self, ref):
+    def _select_git(self, ref, *, allow_empty=False):
         parts = ref[1:].split("/")
         source, selector = parts[1], parts[2:]
         try:
@@ -220,6 +223,8 @@ class Catalog:
             entries = [resolved_prefix / "SKILL.md"]
         entries = [path for path in entries if path.is_file()]
         if not entries:
+            if allow_empty:
+                return ()
             raise ConfigurationError(f"no materialized resources for selector: {ref}")
         resources, names = [], {}
         for entry in entries:

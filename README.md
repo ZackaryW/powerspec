@@ -24,7 +24,7 @@ Each command also supports `--help`.
 | `pspec hook EVENT` | Placeholder for runtime hook guidance |
 | `pspec sync` | Reconcile OpenSpec configuration |
 | `pspec flush [--change CHANGE]` | Placeholder for clearing temporary variables |
-| `pspec upgrade` | Placeholder for explicit remote resource upgrades |
+| `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
 
 Implemented commands report configuration and operation failures with exit **1**.
 Help exits **0**; invalid syntax exits **2**. Placeholder commands emit an explicit

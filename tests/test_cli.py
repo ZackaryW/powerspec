@@ -11,10 +11,9 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
-PLACEHOLDER_COMMANDS = ("hook", "flush", "upgrade")
+PLACEHOLDER_COMMANDS = ("hook", "flush")
 VALID_INVOCATIONS = [
     ["hook", "sessionStart"],
-    ["upgrade"],
     ["flush"],
     ["flush", "--change", "example"],
 ]
@@ -122,7 +121,7 @@ def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch
     ["unknown"], ["--unknown"], ["skill"],
     ["skill", "pspec-tdd"], ["skill", "--agent", "codex"],
     ["skill", "pspec-tdd", "--agent"], ["hook"], ["sync", "--unknown"],
-    ["upgrade", "--unknown"],
+    ["upgrade"], ["upgrade", "--unknown"],
 ])
 def test_invalid_syntax_is_a_usage_error(args):
     result = invoke(args)
@@ -133,17 +132,13 @@ def test_invalid_syntax_is_a_usage_error(args):
 
 
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
-@pytest.mark.parametrize("args", [
-    ["upgrade"],
-])
-def test_installed_aliases_fail_honestly(name, args, tmp_path):
+def test_installed_aliases_report_upgrade_without_consumer(name, tmp_path):
     result = run_process(
-        [console(name), *args], tmp_path,
+        [console(name), "upgrade", "--agent", "codex"], tmp_path,
     )
     assert result.returncode == 1
     assert result.stdout == ""
-    assert args[0] in result.stderr
-    assert "not implemented" in result.stderr.lower()
+    assert "no owning" in result.stderr.lower()
     assert list(tmp_path.iterdir()) == []
 
 

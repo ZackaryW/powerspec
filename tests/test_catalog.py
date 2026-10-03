@@ -133,6 +133,8 @@ def test_git_selector_rejects_unknown_empty_invalid_duplicate_and_escape(tmp_pat
         catalog.select("skill", "@gitsource/tools/skills/*")
     with pytest.raises(ConfigurationError, match="malformed"):
         catalog.select("skill", "@gitsource/tools/../outside")
+    with pytest.raises(ConfigurationError, match="final selector segment"):
+        catalog.select("skill", "@gitsource/tools/*/nested")
 
     outside = tmp_path.parent / "outside-skill"
     write(outside, "SKILL.md", "---\nname: outside\n---\n")
