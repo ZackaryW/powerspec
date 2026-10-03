@@ -9,7 +9,14 @@ from zuat.pub import AssetSelector, ZuatRequest, inspect_asset, restore_all, uni
 
 from .catalog import Catalog, ConfigurationError
 from .profiles import compose
-from .provisioning import ProvisionResult, SkillPlan, plan_skills, provision_skills
+from .provisioning import (
+    HookOutcome,
+    ProvisionResult,
+    SkillPlan,
+    plan_skills,
+    provision_hooks,
+    provision_skills,
+)
 from .sources import SaucepanSources, SourceBinding
 
 
@@ -18,6 +25,7 @@ class UpgradeResult:
     status: str
     refreshed: tuple[SourceBinding, ...] = ()
     provisioning: ProvisionResult = ProvisionResult(())
+    hooks: HookOutcome | None = None
     removed: tuple[SkillPlan, ...] = ()
     diagnostics: tuple[str, ...] = ()
 
@@ -75,6 +83,7 @@ def upgrade_consumer(
     home: Path | None = None,
     registry: Path | None = None,
     provision=provision_skills,
+    reconcile_hooks=provision_hooks,
     inspect=inspect_asset,
     remove=uninstall,
     restore=_restore,
@@ -95,9 +104,6 @@ def upgrade_consumer(
         )
         old_bundle = compose(old_catalog, **compose_args)
         refs = _remote_refs(old_bundle)
-        if not refs:
-            return UpgradeResult("success")
-
         refreshed = {}
         for identity in dict.fromkeys(map(_source_identity, refs)):
             refreshed[identity] = store.acquire(identity, old_bundle.sources[identity])
@@ -116,18 +122,24 @@ def upgrade_consumer(
             skills=tuple(item for item in old_bundle.skills
                          if item.resource.ref.startswith("@gitsource/"))
         ))
-        new_plans = plan_skills(SimpleNamespace(
-            skills=tuple(item for item in new_bundle.skills
-                         if item.resource.ref.startswith("@gitsource/"))
-        ))
+        new_plans = plan_skills(new_bundle)
     except (ConfigurationError, OSError, ValueError) as error:
         return UpgradeResult("failed", diagnostics=(str(error),))
 
     provisioned = provision(new_plans, home=home, registry=registry)
     if not provisioned.ok:
         return UpgradeResult(
-            "failed", tuple(refreshed.values()), provisioned,
-            diagnostics=("selected remote provisioning did not complete; obsolete copies were preserved",),
+            "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+            diagnostics=("selected skill provisioning did not complete; obsolete copies were preserved",),
+        )
+    hooked = reconcile_hooks(agent, home=home, registry=registry)
+    if not hooked.ok:
+        return UpgradeResult(
+            "failed",
+            refreshed=tuple(refreshed.values()),
+            provisioning=provisioned,
+            hooks=hooked,
+            diagnostics=(*hooked.diagnostics, "hook reconciliation did not complete; obsolete copies were preserved"),
         )
 
     selected_targets = {
@@ -136,7 +148,12 @@ def upgrade_consumer(
     }
     obsolete = tuple(plan for plan in old_plans if _target(plan) not in selected_targets)
     if not obsolete:
-        return UpgradeResult("success", tuple(refreshed.values()), provisioned)
+        return UpgradeResult(
+            "success",
+            refreshed=tuple(refreshed.values()),
+            provisioning=provisioned,
+            hooks=hooked,
+        )
 
     context = dict(root=registry, home=home, project_root=consumer.git_root)
     asset_refs = []
@@ -152,7 +169,8 @@ def upgrade_consumer(
             asset_refs.append(observed.asset_ref.id)
     if diagnostics:
         return UpgradeResult(
-            "failed", tuple(refreshed.values()), provisioned,
+            "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+            hooks=hooked,
             diagnostics=tuple(diagnostics) + ("obsolete copies were preserved",),
         )
 
@@ -164,12 +182,14 @@ def upgrade_consumer(
             restored = restore(removal.operation_id, agent, **context)
             if not restored.ok:
                 return UpgradeResult(
-                    "partial", tuple(refreshed.values()), provisioned,
+                    "partial", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+                    hooks=hooked,
                     diagnostics=tuple(removal.diagnostics) + tuple(restored.diagnostics)
                     + ("ZuAT could not restore the failed removal operation",),
                 )
         return UpgradeResult(
-            "failed", tuple(refreshed.values()), provisioned,
+            "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+            hooks=hooked,
             diagnostics=tuple(removal.diagnostics) + ("obsolete copies were restored or never removed",),
         )
 
@@ -180,13 +200,19 @@ def upgrade_consumer(
         if restored is None or not restored.ok:
             extra = tuple(restored.diagnostics) if restored is not None else ()
             return UpgradeResult(
-                "partial", tuple(refreshed.values()), provisioned,
+                "partial", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+                hooks=hooked,
                 diagnostics=(str(error), *extra, "ZuAT could not restore removal after finalization failed"),
             )
         return UpgradeResult(
-            "failed", tuple(refreshed.values()), provisioned,
+            "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
+            hooks=hooked,
             diagnostics=(str(error), "removal finalization failed; obsolete copies were restored"),
         )
     return UpgradeResult(
-        "success", tuple(refreshed.values()), provisioned, obsolete
+        "success",
+        refreshed=tuple(refreshed.values()),
+        provisioning=provisioned,
+        hooks=hooked,
+        removed=obsolete,
     )

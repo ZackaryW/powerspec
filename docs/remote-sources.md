@@ -24,9 +24,9 @@ reference = "main"
 
 Identical declarations can be shared across selected profiles. Different recipes for the same alias are a composition error. `builtin` remains reserved.
 
-All recipes are materialized through one Saucepan application named `powerspec`. Powerspec creates the Saucepan store and registers that application lazily during `pspec init` when a selected recipe is missing. Repeating init reuses a matching current materialization without refreshing it. Powerspec uses the application view, source history, and artifact path to locate exact recipe matches; one application may therefore contain many sources.
+All recipes are materialized through one Saucepan application named `powerspec`. Powerspec creates the Saucepan store and registers that application lazily during `pspec install` when a selected recipe is missing. Repeating install reuses a matching current materialization without refreshing it. Powerspec uses the application view, source history, and artifact path to locate exact recipe matches; one application may therefore contain many sources.
 
-Initialization and explicit upgrade submit the profile's Git origin and reference, request the complete repository, and retain:
+Installation and explicit upgrade submit the profile's Git origin and reference, request the complete repository, and retain:
 
 - the Powerspec alias and Saucepan canonical source ID;
 - the recorded repository origin and requested Git reference;
@@ -44,7 +44,7 @@ Recipe declaration, materialization, selection, installation, synchronization, a
 - Saucepan owns source acquisition and retained content;
 - ZuAT owns native agent installation and installation provenance.
 - `pspec sync` reuses existing materializations and does not fetch, install, or remove skills.
-- `pspec init` may acquire a selected recipe only when it is missing;
+- `pspec install` may acquire a selected recipe only when it is missing;
 - explicit upgrade is the only Powerspec operation that refreshes an existing selected recipe.
 
 An unavailable Powerspec app during read-only lookup, ambiguous matching source, missing full-root artifact, failed acquisition, or invalid replacement produces a source-specific diagnostic. Such failure does not turn an earlier valid binding into a successful replacement.
@@ -79,12 +79,13 @@ Run `pspec upgrade --agent <agent>` from inside the owning Git repository. Upgra
 1. resolve the previously materialized selections without fetching;
 2. refresh every referenced profile recipe through the Powerspec Saucepan app;
 3. validate all replacement selectors and target collisions;
-4. provision every selected complete replacement through ZuAT;
-5. identify obsolete copies only from the prior verified selection and current ZuAT ownership;
-6. submit all obsolete copies in one recoverable ZuAT removal operation;
-7. verify their absence before reporting success.
+4. reconcile every selected bundled, local, and refreshed skill through ZuAT;
+5. reconcile the generic hook dispatcher for the target agent;
+6. identify obsolete copies only from the prior verified remote selection and current ZuAT ownership;
+7. submit all obsolete copies in one recoverable ZuAT removal operation;
+8. verify their absence before reporting success.
 
-No removal begins until all refresh, validation, collision, and provisioning work succeeds. A failed or unknown source does not establish absence. An empty replacement is accepted only for a selector that previously resolved successfully.
+No removal begins until all refresh, validation, collision, skill provisioning, and hook reconciliation work succeeds. A failed or unknown source does not establish absence. An empty replacement is accepted only for a selector that previously resolved successfully.
 
 If removal or final verification fails, Powerspec asks ZuAT to restore the removal operation's complete before-state. The command reports failure after successful restoration and reports a partial result if ZuAT cannot restore it. Source caches and already completed non-removal updates are outside this rollback boundary.
 

@@ -35,6 +35,10 @@ def upgrade(
             typer.echo(f"{item.status}: {item.ref} ({item.plan.agent}/{item.plan.scope})")
             for diagnostic in item.diagnostics:
                 typer.echo(f"  {diagnostic}", err=True)
+        if result.hooks is not None:
+            typer.echo(f"{result.hooks.status}: Powerspec hook dispatcher ({result.hooks.agent}/user)")
+            for diagnostic in result.hooks.diagnostics:
+                typer.echo(f"  {diagnostic}", err=True)
         for item in result.removed:
             typer.echo(f"removed: {item.ref} ({item.agent}/{item.scope})")
         for diagnostic in result.diagnostics:

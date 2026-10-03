@@ -47,7 +47,7 @@ def test_global_contexts_sync_without_a_selected_profile(tmp_path, monkeypatch):
     @contextmanager
     def resources():
         yield catalog
-    monkeypatch.setattr(importlib.import_module("powerspec.cli.sync"), "builtin_catalog_root", resources)
+    monkeypatch.setattr(importlib.import_module("powerspec.workspace"), "builtin_catalog_root", resources)
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
@@ -86,7 +86,7 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     def resources():
         yield catalog
 
-    monkeypatch.setattr(module, "builtin_catalog_root", resources)
+    monkeypatch.setattr(importlib.import_module("powerspec.workspace"), "builtin_catalog_root", resources)
     monkeypatch.setattr(module, "SaucepanSources", Sources)
     monkeypatch.chdir(project)
     result = invoke(["sync"])
@@ -106,6 +106,7 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
     put(project / "openspec/.pspec/config.toml", '[vars]\n')
     target = put(project / "openspec/config.yaml", 'schema: spec-driven\ncontext: Keep me.\n')
     publish(target, [contribution("context", "Obsolete managed guidance", "@builtin/old/context/1")])
+    before = target.read_bytes()
     catalog = tmp_path / "catalog"
     put(catalog / "profiles/global.toml",
         'global=true\nskills=["@gitsource/offline/skills/*"]\n'
@@ -120,13 +121,27 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
     def resources():
         yield catalog
 
-    monkeypatch.setattr(module, "builtin_catalog_root", resources)
+    import powerspec.workspace as workspace
+    monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
     monkeypatch.setattr(module, "SaucepanSources", Sources)
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 1 and "unavailable" in result.stderr
-    text = target.read_text()
-    assert "Keep me" in text and "Obsolete managed guidance" not in text
+    assert target.read_bytes() == before
+
+
+def test_sync_uses_consumer_local_profile_and_context(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    (project / ".git").mkdir(parents=True)
+    local = project / "openspec/.pspec"
+    put(local / "config.toml", 'profile="@local/private"\n')
+    put(local / "profiles/private.toml", 'contexts=["@local/private"]\n')
+    put(local / "contexts/private.toml", '[[attach.context]]\nbody="Private local guidance"\n')
+    target = put(project / "openspec/config.yaml", "schema: spec-driven\n")
+    monkeypatch.chdir(project)
+    result = invoke(["sync"])
+    assert result.exit_code == 0, result.output
+    assert "Private local guidance" in target.read_text(encoding="utf-8")
 
 
 def test_reconcile_preserves_user_content_and_replaces_managed_entries():

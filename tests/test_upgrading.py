@@ -6,7 +6,7 @@ import pytest
 from powerspec.catalog import Catalog, ConfigurationError
 from powerspec.models import ConsumerConfig
 from powerspec.profiles import compose
-from powerspec.provisioning import ProvisionResult, SkillOutcome, plan_skills, provision_skills
+from powerspec.provisioning import HookOutcome, ProvisionResult, SkillOutcome, plan_skills, provision_skills
 from powerspec.sources import SourceBinding
 from powerspec.upgrading import upgrade_consumer
 
@@ -57,9 +57,10 @@ def fixture(tmp_path, *, empty=False, malformed=False):
     registry = tmp_path / "registry"
     project.mkdir()
     put(builtin / "profiles/main.toml",
-        'scope="user"\nskills=["@gitsource/tools/skills/*"]\n'
+        'scope="user"\nskills=["@builtin/helper","@gitsource/tools/skills/*"]\n'
         '[[source]]\nid="tools"\nprovider="git"\n'
         'origin="https://example.test/tools"\nreference="main"\n')
+    skill(builtin, "helper", "helper", "bundled helper")
     skill(old, "a-folder", "a", "old a")
     skill(old, "b-folder", "b", "old b")
     (new / "skills").mkdir(parents=True)
@@ -138,6 +139,21 @@ def test_late_provisioning_failure_does_not_start_obsolete_removal(tmp_path):
     result = run_upgrade(data, provision=fail)
     assert not result.ok and result.removed == ()
     assert (data.home / ".codex/skills/b").is_dir()
+
+
+def test_hook_failure_preserves_obsolete_skills_after_full_skill_reconciliation(tmp_path):
+    data = fixture(tmp_path)
+    seen = []
+
+    def provision(plans, **context):
+        seen.extend(plan.name for plan in plans)
+        return provision_skills(plans, **context)
+
+    failed = HookOutcome("codex", "failed", ("controlled hook failure",))
+    result = run_upgrade(data, provision=provision, reconcile_hooks=lambda *a, **kw: failed)
+    assert not result.ok and result.hooks == failed
+    assert set(seen) == {"helper", "a"}
+    assert result.removed == () and (data.home / ".codex/skills/b").is_dir()
 
 
 def test_removal_finalization_failure_restores_complete_before_state(tmp_path):
