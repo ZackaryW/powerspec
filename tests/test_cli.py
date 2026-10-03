@@ -11,9 +11,8 @@ from typer.testing import CliRunner
 
 
 COMMANDS = ("init", "skill", "hook", "sync", "flush", "upgrade")
-PLACEHOLDER_COMMANDS = ("hook", "flush")
+PLACEHOLDER_COMMANDS = ("flush",)
 VALID_INVOCATIONS = [
-    ["hook", "sessionStart"],
     ["flush"],
     ["flush", "--change", "example"],
 ]
@@ -120,7 +119,8 @@ def test_sync_without_consumer_reports_configuration_error(tmp_path, monkeypatch
 @pytest.mark.parametrize("args", [
     ["unknown"], ["--unknown"], ["skill"],
     ["skill", "pspec-tdd"], ["skill", "--agent", "codex"],
-    ["skill", "pspec-tdd", "--agent"], ["hook"], ["sync", "--unknown"],
+    ["skill", "pspec-tdd", "--agent"], ["hook"], ["hook", "sessionStart"],
+    ["sync", "--unknown"],
     ["upgrade"], ["upgrade", "--unknown"],
 ])
 def test_invalid_syntax_is_a_usage_error(args):

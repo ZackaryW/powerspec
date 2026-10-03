@@ -12,7 +12,10 @@ from .catalog import ConfigurationError, read_toml, reference
 from .consumer import find_git_root
 from .models import ConsumerConfig
 from .profiles import compose
-from .provisioning import SkillPlan, ProvisionResult, plan_skills, provision_skills
+from .provisioning import (
+    SkillPlan, ProvisionResult, HookOutcome, plan_skills, provision_skills,
+    provision_hooks,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +24,7 @@ class InitializationPlan:
     config_path: Path
     profile: str | None
     skills: tuple[SkillPlan, ...]
+    agent: str
     config_bytes: bytes | None
 
 
@@ -28,6 +32,7 @@ class InitializationPlan:
 class InitializationResult:
     root: Path
     provisioning: ProvisionResult
+    hooks: HookOutcome
     warnings: tuple[str, ...]
 
 
@@ -56,7 +61,7 @@ def plan_initialization(cwd: Path, *, agent: str | None, catalog, profile=None):
     selected = config.profile or profile or None
     bundle = compose(catalog, selected, agent=agent, project_root=root,
                      exclude_profiles=config.exclude_profiles)
-    return InitializationPlan(root, config_path, selected, plan_skills(bundle), original)
+    return InitializationPlan(root, config_path, selected, plan_skills(bundle), agent, original)
 
 
 def bootstrap_openspec(root: Path):
@@ -116,4 +121,6 @@ def initialize(plan: InitializationPlan, *, home=None, registry=None) -> Initial
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", "openspec/.pspec/current.toml"],
                              cwd=root, capture_output=True, timeout=15)
     warnings = ("current.toml is already tracked; adding an ignore rule does not untrack it",) if tracked.returncode == 0 else ()
-    return InitializationResult(root, provision_skills(plan.skills, home=home, registry=registry), warnings)
+    skills = provision_skills(plan.skills, home=home, registry=registry)
+    hooks = provision_hooks(plan.agent, home=home, registry=registry)
+    return InitializationResult(root, skills, hooks, warnings)

@@ -19,9 +19,9 @@ Each command also supports `--help`.
 
 | Command | Current behavior |
 | --- | --- |
-| `pspec init --agent AGENT [--profile PROFILE]` | Initialize Git-root configuration and provision selected skills |
+| `pspec init --agent AGENT [--profile PROFILE]` | Initialize Git-root configuration and provision selected skills and supported user hooks |
 | `pspec skill NAME --agent AGENT [--change CHANGE] [--json]` | Resolve an installed skill's selected content |
-| `pspec hook EVENT` | Placeholder for runtime hook guidance |
+| `pspec hook EVENT --agent AGENT [--change CHANGE]` | Resolve runtime traits from a native hook payload on stdin |
 | `pspec sync` | Reconcile OpenSpec configuration |
 | `pspec flush [--change CHANGE]` | Placeholder for clearing temporary variables |
 | `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
@@ -32,6 +32,6 @@ not-implemented diagnostic and perform no domain work. Skill lookup returns
 `null` only for an installed skill without a Powerspec manifest.
 
 See [initialization](docs/initialization.md), [skill resolution](docs/skill-resolution.md),
-and [context sync](docs/context-sync.md). Remote source integration, hook delivery,
-and temporary-state cleanup remain active implementation work. In particular,
-missing selected remote resources are diagnosed until source integration lands.
+[context sync](docs/context-sync.md), [runtime hook delivery](docs/hook-delivery.md),
+and [remote sources](docs/remote-sources.md). Temporary-state cleanup remains
+active implementation work.

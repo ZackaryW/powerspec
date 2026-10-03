@@ -184,3 +184,35 @@ body="Second."
     bundle.contexts[0].data['attach']['context'][0]['body'] = '<skill:missing>'
     with pytest.raises(ConfigurationError, match='missing'):
         context_contributions(bundle, None, Invocation(tmp_path))
+
+
+def test_trait_compiles_exact_deferred_remote_skill_without_acquisition(tmp_path):
+    put(tmp_path, 'profiles/main.toml', '''
+traits=["@builtin/reminder"]
+skills=["@gitsource/external/skills/remote-skill"]
+''')
+    put(tmp_path, 'traits/reminder.toml', '''
+hooks=["sessionStart"]
+body="Use <skill:remote-skill>."
+''')
+    selected = compose(Catalog(builtin=tmp_path), '@builtin/main', agent='codex',
+                       resolve_remote_skills=False)
+    result = trait_contributions(selected, None, Invocation(tmp_path),
+                                 matching_refs=['@builtin/reminder'])
+    assert result[0].body == 'Use remote-skill.'
+
+
+def test_trait_compiles_name_covered_by_deferred_remote_wildcard(tmp_path):
+    put(tmp_path, 'profiles/main.toml', '''
+traits=["@builtin/reminder"]
+skills=["@gitsource/external/skills/*"]
+''')
+    put(tmp_path, 'traits/reminder.toml', '''
+hooks=["sessionStart"]
+body="Use <skill:remote-skill>."
+''')
+    selected = compose(Catalog(builtin=tmp_path), '@builtin/main', agent='codex',
+                       resolve_remote_skills=False)
+    result = trait_contributions(selected, None, Invocation(tmp_path),
+                                 matching_refs=['@builtin/reminder'])
+    assert result[0].body == 'Use remote-skill.'

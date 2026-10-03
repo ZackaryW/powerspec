@@ -85,10 +85,21 @@ ATTACHMENT_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
 def _compile_body(body, resource, values, bundle):
     declared = {item['id'] for item in resource.data.get('compiletime', [])}
     skills = {target.resource.name for target in bundle.skills}
+    # Runtime dispatch may intentionally defer remote skill materialization.
+    # Exact selected references still establish the authored skill identity;
+    # wildcards do not fabricate names or trigger acquisition.
+    selected_skill_refs = [ref for kind, ref in bundle.selection if kind == 'skill']
+    skills.update(
+        ref.rsplit('/', 1)[-1]
+        for ref in selected_skill_refs
+        if ref.rsplit('/', 1)[-1] not in {'*', '**'}
+    )
+    selected_wildcard = any(ref.rsplit('/', 1)[-1] in {'*', '**'}
+                            for ref in selected_skill_refs)
     def replace(match):
         skill, variable = match.groups()
         if skill is not None:
-            if skill not in skills:
+            if skill not in skills and not selected_wildcard:
                 raise ConfigurationError(f"{resource.path}: unknown selected skill reference {skill}")
             return skill
         return str(values[variable]) if variable in declared else match.group(0)
@@ -131,6 +142,7 @@ def trait_contributions(bundle, consumer, invocation, *, matching_refs, change=N
     for resource in bundle.traits:
         if resource.ref in matching and evaluate(resource.data.get('when'), values=values,
                 bundle=bundle, invocation=invocation, location=f"{resource.path}#when"):
-            result.append(Contribution(resource, None, resource.data['body'],
+            result.append(Contribution(resource, None,
+                                       _compile_body(resource.data['body'], resource, values, bundle),
                                        MappingProxyType(values), MappingProxyType(origins)))
     return tuple(result)

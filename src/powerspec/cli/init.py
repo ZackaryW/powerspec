@@ -33,9 +33,12 @@ def init(
             typer.echo(f"{item.status}: {item.ref} ({item.plan.agent}/{item.plan.scope})")
             for diagnostic in item.diagnostics:
                 typer.echo(f"  {diagnostic}", err=True)
+        typer.echo(f"{result.hooks.status}: Powerspec hook dispatcher ({result.hooks.agent}/user)")
+        for diagnostic in result.hooks.diagnostics:
+            typer.echo(f"  {diagnostic}", err=True)
         for warning in result.warnings:
             typer.echo(f"Warning: {warning}", err=True)
-        if not result.provisioning.ok:
+        if not result.provisioning.ok or not result.hooks.ok:
             typer.echo("Initialization incomplete; successful installations remain available. Resolve failures and rerun init.", err=True)
             raise typer.Exit(1)
         typer.echo("Consumer initialized; selected skills are available. Run pspec sync to publish contexts.")

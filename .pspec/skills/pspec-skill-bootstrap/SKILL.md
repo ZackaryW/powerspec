@@ -40,4 +40,4 @@ Rerun after relevant inputs change. Retry a failed lookup after correcting its c
 
 ## Return to the selected workflow
 
-Use the selected skill within its own scope and the user's task. Successful lookup is not evidence that the skill ran or its checks passed. This bootstrap is an instruction convention; its installation does not establish a host-enforced hook.
+Use the selected skill within its own scope and the user's task. Successful lookup is not evidence that the skill ran or its checks passed. Installing this skill alone does not establish native delivery; `pspec init --agent <current-agent>` separately provisions supported user-level hook registrations through ZuAT.

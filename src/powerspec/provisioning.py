@@ -2,6 +2,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Mapping
+from tempfile import TemporaryDirectory
+import json
 
 from zuat.pub import (
     SUPPORTED_AGENTS, AssetInput, ZuatRequest, inspect_asset, install, locate_skill,
@@ -9,6 +11,7 @@ from zuat.pub import (
 )
 
 from .catalog import ConfigurationError
+from .hooks import native_document
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,18 @@ class ProvisionResult:
     @property
     def ok(self):
         return all(item.status in {"installed", "reused", "updated"} for item in self.items)
+
+
+@dataclass(frozen=True)
+class HookOutcome:
+    agent: str
+    status: str
+    diagnostics: tuple[str, ...] = ()
+    operation_id: str | None = None
+
+    @property
+    def ok(self):
+        return self.status in {"installed", "reused", "updated"}
 
 
 def plan_skills(bundle) -> tuple[SkillPlan, ...]:
@@ -116,3 +131,43 @@ def provision_skills(plans, *, home: Path | None = None,
         except (OSError, ValueError) as error:
             outcomes.append(SkillOutcome(plan.ref, "failed", plan, (str(error),)))
     return ProvisionResult(tuple(outcomes))
+
+
+def provision_hooks(agent: str, *, home: Path | None = None,
+                    registry: Path | None = None) -> HookOutcome:
+    """Provision the generic user-level dispatcher as one semantic hook asset."""
+    try:
+        document = native_document(agent)
+    except ConfigurationError as error:
+        return HookOutcome(agent, "unsupported", (str(error),))
+    context = dict(root=registry, home=home, project_root=None)
+    try:
+        with TemporaryDirectory(prefix="powerspec-hooks-") as temporary:
+            source = Path(temporary) / "powerspec.json"
+            source.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n",
+                              encoding="utf-8")
+            asset = AssetInput(agent=agent, kind="hook", scope="user", source=str(source))
+            observed = inspect_asset(asset, **context)
+            if observed.classification == "current" and observed.owned and observed.source_matches:
+                return HookOutcome(agent, "reused")
+            if (observed.owned and observed.observed_fingerprint is not None
+                    and observed.observed_fingerprint == observed.baseline_fingerprint):
+                result = update_asset(asset, **context)
+                return HookOutcome(
+                    agent, "updated" if result.ok else "failed",
+                    tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                    result.operation_id,
+                )
+            if observed.classification in {"unsupported", "unowned", "conflict"}:
+                return HookOutcome(
+                    agent, "failed",
+                    observed.diagnostics or (f"native hook target is {observed.classification}",),
+                )
+            result = install(ZuatRequest(agents=(agent,), assets=(asset,)), **context)
+            return HookOutcome(
+                agent, "installed" if result.ok else "failed",
+                tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                result.operation_id,
+            )
+    except (OSError, ValueError) as error:
+        return HookOutcome(agent, "failed", (str(error),))

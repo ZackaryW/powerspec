@@ -20,23 +20,31 @@ agent skills. Existing OpenSpec configuration, source resources, variables, and
 native skills are preserved. A selected project-scoped profile can separately
 install its skills into the repository through ZuAT.
 
+For Codex and Claude, initialization also provisions the generic Powerspec
+runtime dispatcher into the agent's user-level hook settings through ZuAT. Hook
+scope is independent from profile skill scope. Kimi and Pi currently report an
+unsupported runtime-delivery surface because no context-capable mapping has been
+verified. See [runtime hook delivery](hook-delivery.md).
+
 The consumer's `.gitignore` covers `current.toml`, while `config.toml` remains
 trackable. A tracked current file is reported; initialization does not untrack it.
 Existing shared `[vars]` and change-specific `[_change.<name>]` values remain in
 place. Repeating initialization reuses matching managed installations.
 
-The command reports each skill's source, profile, agent, scope, and outcome.
+The command reports each skill's source, profile, agent, scope, and outcome, plus
+the hook dispatcher outcome.
 Successful actions remain available after a partial failure. Resolve the stated
 conflicts and rerun the command. It never forces replacement of unmanaged or
 edited copies. See [skill installation](skill-installation.md).
 
-This milestone establishes skill availability. It does not publish contexts into
-`config.yaml`, execute skills, or prove an agent followed them. Run `pspec sync`
-to publish configured contexts. Hook delivery is tracked separately.
+Initialization establishes skill availability and supported native hook
+registrations. It does not publish contexts into `config.yaml`, execute skills,
+or prove an agent followed delivered guidance. Run `pspec sync` to publish
+configured contexts.
 
 The bundled zmem and ADHD-friendly profiles reference external Saucepan sources.
-Until the remote-source integration is available, initialization reports missing
-selected external resources. A bundled-only trial can explicitly exclude those
+If their registered materializations are unavailable, initialization reports the
+missing selected resources. A bundled-only trial can explicitly exclude those
 profiles in the consumer configuration:
 
 ```toml
