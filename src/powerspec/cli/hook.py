@@ -33,8 +33,12 @@ def hook(
                 sources=sources,
                 git_resolver=SaucepanSources(manage_binary=False).lookup,
             )
+            diagnostics = []
             guidance = dispatch(logical_event=event, agent=agent, payload=payload,
-                                catalog=catalog, change=change)
+                                catalog=catalog, change=change,
+                                diagnostics=diagnostics)
+        for diagnostic in diagnostics:
+            typer.echo(f"Warning: {diagnostic}", err=True)
         output = serialize(agent, event, guidance)
         if output is not None:
             typer.echo(output)

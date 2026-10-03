@@ -1,10 +1,6 @@
-# Trait Hook Delivery Specification
+# Trait Hook Delivery Delta
 
-## Purpose
-
-Deliver trait-owned guidance through portable logical hook selection and verified native callbacks using each event's current consumer configuration.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Bootstrap discovery uses runtime trait guidance
 
@@ -17,21 +13,6 @@ The global builtin profile SHALL reference a runtime trait directing the agent t
 #### Scenario: Ordinary prompt does not bootstrap again
 - **WHEN** an established Codex or Claude conversation submits another ordinary prompt
 - **THEN** Powerspec does not invoke sessionStart merely to repeat the bootstrap reminder
-### Requirement: Hook dispatch resolves the invoking consumer
-
-Hook dispatch SHALL use the event's working directory and the nearest owning OpenSpec consumer within its enclosing Git boundary, including worktrees. It SHALL select matching runtime traits from that consumer's effective profiles and return guidance in a form supported by the invoking agent. Dispatcher plumbing SHALL NOT publish context attachments, resolve unrelated skill inputs, prompt for skill choices, execute skills, or mutate project/installation state. Trusted condition calls SHALL follow the separate capability contract without a claim of isolation or rollback. An absent consumer or no matching active trait SHALL yield no guidance. Malformed nearest configuration SHALL be diagnosed rather than falling through to another consumer.
-
-#### Scenario: Shared dispatcher serves different projects
-- **WHEN** the same user-level dispatcher is invoked from two consumers with different effective hook traits
-- **THEN** each receives guidance selected from its own configuration without reinstalling hooks
-
-#### Scenario: Global bootstrap profile is excluded
-- **WHEN** the invoking consumer excludes the global profile and no other active trait supplies bootstrap guidance
-- **THEN** the shared hook registration remains installed but emits no bootstrap guidance for that consumer
-
-#### Scenario: Environment-only session
-- **WHEN** a matching bootstrap hook fires during environment maintenance
-- **THEN** it supplies the bootstrap instruction without activating TDD, BDD, or their input questions
 
 ### Requirement: Hook guidance uses fresh Python conditions
 
@@ -62,6 +43,7 @@ Results SHALL be fresh at each matched Powerspec lifecycle boundary without pers
 #### Scenario: Ineligible event
 - **WHEN** a trait is excluded from the invoked callback or no Powerspec callback is mapped to the native event
 - **THEN** its condition is not executed and other guidance remains eligible at their own matched boundaries
+
 ### Requirement: Powerspec owns portable hook selection
 
 Powerspec SHALL define logical hook selectors, agent-qualified native selectors, and exclusions prefixed with ~ on runtime traits. Powerspec SHALL own their mapping to native callbacks and agent response serialization; ZuAT SHALL manage the generated native assets. A supported context-delivery mapping SHALL require that the selected callback can actually deliver guidance to the agent. Unsupported mappings SHALL be reported rather than fabricated. For each trait, positive selectors SHALL be expanded before exclusions are applied. An agent-qualified negative selector SHALL exclude only the named native callback for that trait. It SHALL NOT suppress other traits, other callbacks for the same logical event, or the generic dispatcher registration.
@@ -96,6 +78,7 @@ Codex sessionStart SHALL map only to native SessionStart sources startup and cle
 #### Scenario: Bootstrap guidance after compaction
 - **WHEN** a supported compact context-delivery callback fires for that consumer
 - **THEN** the dispatcher returns its bootstrap reminder again using the current effective consumer configuration
+
 ### Requirement: Provision generic user-level hook dispatchers through ZuAT
 
 Powerspec provisioning SHALL install generic `pspec resolve hook` command registrations on the explicitly selected agent's supported user-level hook surfaces through ZuAT. Every generated advisory command handler SHALL carry an explicit timeout of no more than five seconds and a concise status message. Registrations SHALL carry the native context needed to select guidance at invocation rather than embedding one consumer's profile or trait body, and SHALL NOT return a blocking host decision. Unsupported surfaces SHALL be reported without guessing native events or falling back to repository-local installation.

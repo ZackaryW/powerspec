@@ -13,6 +13,7 @@ from .profiles import compose
 
 
 LOGICAL_EVENTS = frozenset({"sessionStart", "afterCompaction"})
+HOOK_RUN_JSON_TIMEOUT = 2.0
 
 
 @dataclass(frozen=True)
@@ -37,11 +38,11 @@ class NativeCallback:
 # deliberately uses SessionStart with source=compact.
 CALLBACKS = (
     NativeCallback("codex", "sessionStart", "SessionStart", "source",
-                   frozenset({"startup", "resume", "clear"}), "startup|resume|clear"),
+                   frozenset({"startup", "clear"}), "startup|clear"),
     NativeCallback("codex", "afterCompaction", "SessionStart", "source",
                    frozenset({"compact"}), "compact"),
     NativeCallback("claude", "sessionStart", "SessionStart", "source",
-                   frozenset({"startup", "resume", "clear", "fork"}), "startup|resume|clear|fork"),
+                   frozenset({"startup", "clear", "fork"}), "startup|clear|fork"),
     NativeCallback("claude", "afterCompaction", "SessionStart", "source",
                    frozenset({"compact"}), "compact"),
 )
@@ -119,7 +120,8 @@ def validate_payload(callback: NativeCallback, payload: object) -> Path:
 
 
 def dispatch(*, logical_event: str, agent: str, payload: object, catalog: Catalog,
-             change: str | None = None, env=None) -> str | None:
+             change: str | None = None, env=None,
+             diagnostics: list[str] | None = None) -> str | None:
     """Resolve and evaluate one native callback without writing any state."""
     callback = callback_for(agent, logical_event)
     cwd = validate_payload(callback, payload)
@@ -140,9 +142,11 @@ def dispatch(*, logical_event: str, agent: str, payload: object, catalog: Catalo
     contributions = trait_contributions(
         bundle,
         consumer,
-        Invocation(cwd, env=env),
+        Invocation(cwd, env=env, run_json_timeout=HOOK_RUN_JSON_TIMEOUT),
         matching_refs=matching,
         change=change,
+        isolate_probe_failures=True,
+        diagnostics=diagnostics,
     )
     bodies = [item.body for item in contributions if item.body]
     return "\n\n".join(bodies) if bodies else None
@@ -170,7 +174,16 @@ def native_document(agent: str) -> dict:
     entries = []
     for callback in callbacks:
         command = f"pspec resolve hook {callback.logical_event} --agent {agent}"
-        handler = {"type": "command", "command": command}
+        handler = {
+            "type": "command",
+            "command": command,
+            "timeout": 5,
+            "statusMessage": (
+                "Restoring Powerspec guidance"
+                if callback.logical_event == "afterCompaction"
+                else "Loading Powerspec guidance"
+            ),
+        }
         if agent == "codex":
             handler["additionalContextLimit"] = 5000
         entries.append({"matcher": callback.matcher, "hooks": [handler]})

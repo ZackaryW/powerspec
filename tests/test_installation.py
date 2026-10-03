@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
+import json
 
 from powerspec.installation import install_consumer
 from powerspec.sources import SourceBinding
@@ -43,14 +44,21 @@ def test_install_acquires_then_reuses_selected_skills_and_dispatcher(tmp_path, m
 
     monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
     context = dict(home=tmp_path / "home", registry=tmp_path / "registry", source_store=Sources())
+    hooks_path = context["home"] / ".codex/hooks.json"
+    put(hooks_path, '{"unrelated":{"keep":true}}\n')
     first = install_consumer(project, agent="codex", **context)
     assert first.ok and first.provisioning.items[0].status == "installed"
     assert first.hooks.status == "installed"
     assert (tmp_path / "home/.codex/skills/example/SKILL.md").is_file()
+    first_hooks = hooks_path.read_bytes()
     second = install_consumer(project, agent="codex", **context)
     assert second.ok and second.provisioning.items[0].status == "reused"
     assert second.hooks.status == "reused"
     assert len(calls) == 2
+    assert hooks_path.read_bytes() == first_hooks
+    hooks = json.loads(first_hooks)
+    assert hooks["unrelated"] == {"keep": True}
+    assert len(hooks["hooks"]["SessionStart"]) == 2
 
 
 def test_install_reports_partial_skill_failure_without_removing_successes(tmp_path, monkeypatch):

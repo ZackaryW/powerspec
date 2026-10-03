@@ -1,5 +1,6 @@
 import json
 import subprocess
+from copy import deepcopy
 
 import pytest
 from typer.testing import CliRunner
@@ -132,6 +133,18 @@ def test_dispatch_restores_after_compaction_through_context_capable_session_star
                  payload=payload(project, source="startup"), catalog=configured)
 
 
+@pytest.mark.parametrize(("agent", "source"), [
+    ("codex", "resume"),
+    ("claude", "resume"),
+])
+def test_session_start_rejects_resume_payloads(agent, source, tmp_path):
+    project = consumer(tmp_path)
+    _, configured = catalog(tmp_path)
+    with pytest.raises(ConfigurationError, match="does not match"):
+        dispatch(logical_event="sessionStart", agent=agent,
+                 payload=payload(project, source=source), catalog=configured)
+
+
 def test_no_consumer_or_no_match_is_silent_and_does_not_evaluate_condition(tmp_path):
     root, configured = catalog(
         tmp_path, 'hooks=["afterCompaction"]\nbody="never"\nwhen="missing()"',
@@ -159,6 +172,37 @@ def test_eligible_condition_failure_returns_no_successful_partial_guidance(tmp_p
     assert result is None
 
 
+@pytest.mark.parametrize("kind", ["timeout", "exit", "json", "object"])
+def test_operational_probe_failure_omits_only_owning_trait(kind, tmp_path, monkeypatch):
+    from powerspec.utils.processes import ProcessJSONError
+    import powerspec.conditions as conditions
+
+    project = consumer(tmp_path)
+    root = tmp_path / "catalog"
+    put(root, "profiles/main.toml",
+        'traits=["@builtin/bootstrap", "@builtin/zmem", "@builtin/adhd"]\n')
+    put(root, "traits/bootstrap.toml", 'hooks=["sessionStart"]\nbody="bootstrap"')
+    put(root, "traits/zmem.toml",
+        'hooks=["sessionStart"]\nbody="zmem"\n'
+        'when="run_json([\'zmem\', \'service\', \'doctor\']).get(\'ok\') is True"')
+    put(root, "traits/adhd.toml", 'hooks=["sessionStart"]\nbody="adhd"')
+    seen = []
+    def probe(argv, **options):
+        seen.append((argv, options))
+        raise ProcessJSONError(kind, f"controlled {kind}")
+    monkeypatch.setattr(conditions, "run_json_object", probe)
+    diagnostics = []
+
+    result = dispatch(logical_event="sessionStart", agent="codex",
+                      payload=payload(project), catalog=Catalog(builtin=root),
+                      diagnostics=diagnostics)
+
+    assert result == "bootstrap\n\nadhd"
+    assert len(diagnostics) == 1
+    assert "zmem.toml" in diagnostics[0] and f"controlled {kind}" in diagnostics[0]
+    assert seen[0][1]["timeout"] == 2
+
+
 def test_malformed_nearest_consumer_is_diagnostic_without_parent_fallback(tmp_path):
     project = consumer(tmp_path)
     nested = project / "child"
@@ -172,10 +216,22 @@ def test_malformed_nearest_consumer_is_diagnostic_without_parent_fallback(tmp_pa
 def test_native_documents_use_verified_context_delivery_callback():
     codex = native_document("codex")["hooks"]["SessionStart"]
     claude = native_document("claude")["hooks"]["SessionStart"]
-    assert [entry["matcher"] for entry in codex] == ["startup|resume|clear", "compact"]
-    assert [entry["matcher"] for entry in claude] == ["startup|resume|clear|fork", "compact"]
+    assert [entry["matcher"] for entry in codex] == ["startup|clear", "compact"]
+    assert [entry["matcher"] for entry in claude] == ["startup|clear|fork", "compact"]
     assert "PostCompact" not in json.dumps({"codex": codex, "claude": claude})
-    assert all("pspec resolve hook" in entry["hooks"][0]["command"] for entry in (*codex, *claude))
+    assert set(native_document("codex")["hooks"]) == {"SessionStart"}
+    assert set(native_document("claude")["hooks"]) == {"SessionStart"}
+    handlers = [entry["hooks"][0] for entry in (*codex, *claude)]
+    assert all("pspec resolve hook" in handler["command"] for handler in handlers)
+    assert all(handler["timeout"] == 5 for handler in handlers)
+    assert all(handler["statusMessage"] for handler in handlers)
+    assert all("resume" not in entry["matcher"] for entry in (*codex, *claude))
+    forbidden = {
+        "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest",
+        "Stop", "SubagentStart", "SubagentStop", "SessionEnd",
+    }
+    assert forbidden.isdisjoint(native_document("codex")["hooks"])
+    assert forbidden.isdisjoint(native_document("claude")["hooks"])
 
 
 @pytest.mark.parametrize(("agent", "settings"), [
@@ -192,6 +248,30 @@ def test_hook_provisioning_preserves_unrelated_settings_and_reuses(agent, settin
     document = json.loads(native.read_text(encoding="utf-8"))
     assert document["unrelated"] == {"keep": True}
     assert len(document["hooks"]["SessionStart"]) == 2
+
+
+def test_hook_provisioning_updates_safely_owned_legacy_dispatchers(tmp_path, monkeypatch):
+    import powerspec.provisioning as provisioning
+
+    home, registry = tmp_path / "home", tmp_path / "registry"
+    current = native_document("codex")
+    legacy = deepcopy(current)
+    legacy_entries = legacy["hooks"]["SessionStart"]
+    legacy_entries[0]["matcher"] = "startup|resume|clear"
+    for entry in legacy_entries:
+        handler = entry["hooks"][0]
+        handler["command"] = handler["command"].replace("pspec ", "powerspec ")
+        handler.pop("timeout")
+        handler.pop("statusMessage")
+
+    monkeypatch.setattr(provisioning, "native_document", lambda _agent: legacy)
+    assert provision_hooks("codex", home=home, registry=registry).status == "installed"
+    monkeypatch.setattr(provisioning, "native_document", lambda _agent: current)
+    assert provision_hooks("codex", home=home, registry=registry).status == "updated"
+    assert provision_hooks("codex", home=home, registry=registry).status == "reused"
+
+    installed = json.loads((home / ".codex/hooks.json").read_text(encoding="utf-8"))
+    assert installed["hooks"]["SessionStart"] == current["hooks"]["SessionStart"]
 
 
 def test_unsupported_hook_host_is_reported_without_native_writes(tmp_path):

@@ -128,6 +128,23 @@ def test_timeout_diagnostic_and_literal_argv(tmp_path, bundle):
                     values={'literal': literal}, bundle=bundle, invocation=Invocation(tmp_path), location='literal')
 
 
+def test_invocation_accepts_a_smaller_probe_timeout(tmp_path, bundle):
+    calls = []
+    def probe(argv, **options):
+        calls.append((argv, options))
+        return {'ok': True}
+    invocation = Invocation(tmp_path, probe=probe, run_json_timeout=2)
+    assert evaluate("run_json(['probe']).get('ok') is True", values={}, bundle=bundle,
+                    invocation=invocation, location='bounded-trait')
+    assert calls[0][1]['timeout'] == 2
+
+
+@pytest.mark.parametrize('timeout', [0, -1, 5.1, float('inf'), float('nan'), True, '2'])
+def test_invocation_rejects_invalid_probe_timeout(tmp_path, timeout):
+    with pytest.raises(ValueError, match='run_json_timeout'):
+        Invocation(tmp_path, run_json_timeout=timeout)
+
+
 def test_armed_exclusions_shared_descendants_remote_and_fresh_snapshot(tmp_path):
     put(tmp_path, 'profiles/main.toml', 'profiles=["@builtin/child", "@builtin/shared"]')
     put(tmp_path, 'profiles/global.toml', 'global=true\nprofiles=["@builtin/child"]')
