@@ -84,3 +84,16 @@ def test_config_edit_launches_literal_editor_arguments(tmp_path, monkeypatch):
     path = configuration.edit_configuration(project, environment={"EDITOR": "editor --wait"})
     assert path == project / "openspec/.pspec/config.toml"
     assert calls == [(["editor", "--wait", str(path)], {"cwd": project.resolve()})]
+
+
+def test_windows_editor_arguments_remove_grouping_quotes():
+    from powerspec.configuration import _editor_argv
+
+    assert _editor_argv(
+        '"C:\\Program Files\\Editor\\editor.exe" "C:\\tools\\edit.py" --wait',
+        windows=True,
+    ) == [
+        "C:\\Program Files\\Editor\\editor.exe",
+        "C:\\tools\\edit.py",
+        "--wait",
+    ]

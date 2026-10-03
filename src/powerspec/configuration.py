@@ -30,6 +30,20 @@ class ConfigurationUpdate:
     profile: str | None
 
 
+def _editor_argv(editor: str, *, windows: bool | None = None) -> list[str]:
+    """Parse EDITOR while removing Windows-only grouping quotes."""
+    windows = os.name == "nt" if windows is None else windows
+    argv = shlex.split(editor, posix=not windows)
+    if windows:
+        argv = [
+            item[1:-1]
+            if len(item) >= 2 and item.startswith('"') and item.endswith('"')
+            else item
+            for item in argv
+        ]
+    return argv
+
+
 def _consumer(cwd: Path):
     consumer = discover_consumer(Path(cwd), runtime=False)
     if consumer is None:
@@ -75,7 +89,7 @@ def edit_configuration(cwd: Path, *, environment=None) -> Path:
     editor = values.get("VISUAL") or values.get("EDITOR")
     if not editor:
         raise ConfigurationError("set VISUAL or EDITOR before running config edit")
-    argv = shlex.split(editor, posix=os.name != "nt")
+    argv = _editor_argv(editor)
     if not argv:
         raise ConfigurationError("VISUAL or EDITOR is empty")
     try:
