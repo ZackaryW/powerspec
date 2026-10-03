@@ -25,10 +25,13 @@ def console(name):
     return str(Path(sysconfig.get_path("scripts")) / (name + suffix))
 
 
-def run_process(args, cwd):
+def run_process(args, cwd, *, home=None):
+    environment = {**os.environ, "NO_COLOR": "1", "TERM": "dumb"}
+    if home is not None:
+        environment.update(HOME=str(home), USERPROFILE=str(home))
     return subprocess.run(
         args, cwd=cwd, capture_output=True, text=True, timeout=15,
-        env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
+        env=environment,
     )
 
 
@@ -125,6 +128,7 @@ def test_installed_aliases_flush_one_change(name, tmp_path):
 def test_installed_aliases_report_missing_skill(name, tmp_path):
     result = run_process(
         [console(name), "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
+        home=tmp_path / "empty-home",
     )
     assert result.returncode == 1
     assert result.stdout == ""
