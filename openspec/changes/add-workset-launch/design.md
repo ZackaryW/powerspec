@@ -20,9 +20,9 @@ The installed OpenSpec workset model contains a name, ordered `{name, path}` mem
 
 `add` creates or appends to the named OpenSpec source workset. `launch` reads that collection and creates a separate output collection after all Git work completes. Use a narrow feature-owned OpenSpec adapter to validate JSON and preserve native errors. Do not import private Node modules or edit its global YAML.
 
-Appending is an upstream prerequisite: implement against a supported OpenSpec member-update interface once available. The operation needs lock-scoped append, duplicate detection, and preservation of members, order, and tool preference. Its exact command spelling belongs to OpenSpec. On older installations, creating a new source workset can work, while appending returns an explicit compatibility error. Launching an existing source workset remains independently implementable. Updating the OpenSpec repository is outside this change's edit scope.
+Appending uses a user-selected remove/create sequence through the existing supported CLI. Retain the original definition, recheck it immediately before removal, run `openspec workset remove <name> --yes --json`, and recreate the same name with the added member last and the same preferred tool. Verify the resulting full definition. This does not remove repository folders or perform Git mutations.
 
-Alternative considered: a Powerspec registry would duplicate membership and complicate import precedence. Delete-and-recreate through the present CLI would risk losing a workset between operations. Neither is selected.
+On an operation failure, inspect saved state first: an exact intended definition means creation succeeded despite the error; an intact original needs no restoration. If the name is free, attempt to recreate and verify the original definition. Leave any different definition untouched. If recovery fails or cannot be verified, include the original definition in the error for manual recreation. The sequence is not atomic and cannot eliminate races between separate CLI calls or recover automatically from abrupt termination. A Powerspec registry would duplicate membership and is not selected; no upstream changes are required.
 
 ### 2. Separate parsing, planning, execution, and publication
 
@@ -104,7 +104,7 @@ For transfer, add only portable tree snapshot and verified-copy mechanics under 
 
 ## Risks / Trade-offs
 
-- OpenSpec lacks member append today -> make it an explicit upstream prerequisite; test the unsupported-version path and do not claim full `add` support until compatible integration evidence exists.
+- OpenSpec lacks an atomic member append -> use the agreed remove/create sequence with a pre-removal recheck, recreation verification and best-effort original-definition restoration. Document the non-atomic gap and preserve concurrent replacement definitions.
 - Multi-repository changes cannot be atomic -> preflight, sequential execution, precise partial outcomes, and reuse on retry.
 - Concurrent Git operations can invalidate observations -> recheck before effects, let Git enforce locks, and report conflicts rather than forcing operations.
 - Name normalization can merge distinct branch spellings -> detect actual destination/workset conflicts; accept explicit names to disambiguate.
@@ -117,6 +117,6 @@ For transfer, add only portable tree snapshot and verified-copy mechanics under 
 
 ## Migration Plan
 
-This adds commands and requires no migration of existing consumer profiles. Implement Git and transfer helpers with focused tests, then the OpenSpec adapter and planner, then store mapping, transfer, execution/publication, and CLI integration. Gate append integration on a supported upstream API. Validate launches and transfer retries in an isolated OpenSpec data directory, including per-repository store IDs and ambiguous change names. Do not alter the user's saved worksets during verification.
+This adds commands and requires no migration of existing consumer profiles. Implement Git and transfer helpers with focused tests, then the OpenSpec adapter and planner, then store mapping, transfer, execution/publication, and CLI integration. Verify append through OpenSpec remove/create, including restoration and conflicts. Validate launches and transfer retries in an isolated OpenSpec data directory, including per-repository store IDs and ambiguous change names. Do not alter the user's saved worksets during verification.
 
 Rolling back Powerspec leaves standard Git worktrees, registered stores, OpenSpec collections, and transferred files intact. A completed move does not automatically return the change to the source. Users retain the verified destination and any cleanup receipt; no automatic deletion or reversal is part of rollback. Coordinate `cli/app.py` with the separate simplification change without making either depend on the other's manifest or packaging changes.

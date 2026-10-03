@@ -9,8 +9,8 @@
 ## 2. OpenSpec workset adapter and source registration
 
 - [x] 2.1 Add a feature-owned adapter for OpenSpec JSON listing and creation using existing process/presentation mechanics where suitable; verify malformed output, missing prerequisites, Windows executable invocation, preserved member order/tool, duplicate-name races, and isolated registry creation.
-- [x] 2.2 Implement source repository validation, new-workset creation, repeated-add no-op behavior, and the unsupported-append diagnostic; document current compatibility requirements and verify invalid inputs and unsupported versions leave source worksets untouched.
-- [ ] 2.3 Integrate a supported upstream OpenSpec member-update operation once available; verify locked append preserves existing members/order/tool and handles concurrent updates and duplicate labels. Record the required supported interface/version and evidence in command documentation. Keep this task incomplete until the upstream prerequisite and its integration checks are satisfied; do not edit OpenSpec's registry or use delete-and-recreate as a substitute.
+- [x] 2.2 Implement source repository validation, new-workset creation and repeated-add no-op behavior; verify invalid inputs and duplicate labels leave source worksets untouched.
+- [x] 2.3 Append through the user-selected OpenSpec remove/create sequence; preserve existing members/order/tool, recheck the original before removal, verify recreation, restore the original on failure when the name is free, and preserve concurrent replacements. Verify failure/recovery paths and real installed CLI append. Document the non-atomic gap and manual recovery evidence without editing OpenSpec's private registry.
 - [x] 2.4 Extend the adapter to discover represented stores, register spawned roots through OpenSpec, and inspect effective change/root resolution; verify metadata-ID mismatches, repeated same-root registration, conflicting IDs, and exclusion of unrelated global defaults using an isolated OpenSpec registry.
 
 ## 3. Launch planning and validation
@@ -35,12 +35,12 @@
 ## 6. Product command surface
 
 - [x] 6.1 Register `pspec workset add` and `pspec workset launch` with `--change`, `--store`, and `--keep-source`, human/JSON results, exit codes, store mappings, partial-error stages, and the OpenSpec opening command; verify dependent option validation, help without effects, operation outside a consumer, existing CLI-group regressions, and no editor spawn.
-- [x] 6.2 Add user documentation for registration, indexed overrides, naming, all-store registration, pointer updates, default move/copy fallback, source-store disambiguation, cleanup/retry, and OpenSpec opening; verify documented commands against isolated workflows and retain the explicit upstream append dependency until fulfilled.
+- [x] 6.2 Add user documentation for registration, indexed overrides, naming, all-store registration, pointer updates, default move/copy fallback, source-store disambiguation, cleanup/retry, and OpenSpec opening; verify documented commands against isolated workflows and explain remove/create append recovery.
 
 ## 7. End-to-end evidence
 
 - [x] 7.1 Exercise the installed CLI with real Git repositories and an isolated OpenSpec registry: mixed target branches, remote bases, multiple stores, nested store roots, ambiguous changes, explicit source selection, move and keep-source, repeat after source removal, partial creation/registration/cleanup failures, and retries; record outputs and verify only the selected change is removed from source, original registrations remain intact, and the user's real worksets are untouched.
-- [x] 7.2 Run the full `uv run pytest` suite after integration, validate this change with `openspec validate add-workset-launch --strict`, and review scenario coverage against the spec; record any unsupported upstream prerequisite without marking the corresponding tasks complete.
+- [x] 7.2 Run the full `uv run pytest` suite after integration, validate this change with `openspec validate add-workset-launch --strict`, and review scenario coverage against the spec; verify later behavior revisions with focused tests and record their evidence.
 
 ## Verification evidence
 
@@ -48,4 +48,6 @@
 - Installed `pspec` tests used disposable real Git repositories and isolated `XDG_CONFIG_HOME` / `XDG_DATA_HOME` registries. Verified mixed branches, remote bases, nested stores, ambiguity selection, move/copy, completed retries, unchanged advisory checkouts and exclusion of unrelated temporal files.
 - Failure injection covered worktree creation, store/output registration, copy interruption, source edits and partial cleanup. Receipt validation and destination edits preserved user work; tracked source removals did not change the Git index.
 - `openspec validate add-workset-launch --strict` passed. Environment: OpenSpec 1.13.2, Git 2.55.0.windows.5, Windows, Python 3.12.
-- Task 2.3 remains pending: `openspec workset --help` exposes create/list/open/remove, with no supported member-append API. The implementation reports this limitation and preserves existing worksets. No private registry editing or delete-and-recreate fallback was added.
+- User revision: task 2.3 now uses supported `workset remove --yes` followed by `workset create`, with original-definition restoration on failure. The former upstream append prerequisite has been removed. Verification covers order/tool preservation, retries, label conflicts, concurrent replacements, lost responses, failed removal and failed restoration, plus actual CLI append in an isolated registry.
+
+- Append revision checks: 37 targeted tests passed (append recovery, launch planning, CLI parsing, and installed add); strict OpenSpec validation passed.

@@ -6,7 +6,7 @@ OpenSpec worksets collect local folders but do not prepare Git branches or linke
 
 ## What Changes
 
-- Add `pspec workset add <name> --path <path>` for creating or extending an OpenSpec source workset with validated Git repositories. Appending requires a supported OpenSpec member-update operation.
+- Add `pspec workset add <name> --path <path>` for creating or extending an OpenSpec source workset with validated Git repositories. Appending uses OpenSpec's supported remove/create commands while retaining the original definition for recovery.
 - Add `pspec workset launch <name> --branch <branch>`, with optional `--name` and unlimited numbered `--repoN`, `--branchN`, `--remoteN`, and `--worktreeN` override groups.
 - Launch every source repository. Keep original checkouts available for advisory use and create or reuse standard linked Git worktrees for implementation.
 - Default new branches to local `main`, allow explicit remote starting refs, preserve existing branches, and reject incompatible reuse.
@@ -33,5 +33,5 @@ None. This adds a command group without changing existing consumer lifecycle req
 - Reuse Git for repository identity, refs, and worktree operations, and OpenSpec's workset interface for member discovery and final registration. No GitHub API or GitHub Desktop installation is required.
 - Add isolated Git integration tests, CLI contract tests, OpenSpec adapter tests, and command documentation.
 - Update store identity metadata and recognized configuration pointers in spawned worktrees. Track change-transfer progress locally for retry after source removal; leave original store registrations and unrelated source files intact.
-- The installed OpenSpec CLI currently supports create/list/open/remove but cannot append a member. Treat that as an explicit integration constraint rather than replacing OpenSpec's registry or silently deleting and recreating worksets.
+- Append members by reading the existing definition, removing it through OpenSpec, and recreating it with the additional member. Preserve existing order/tool and attempt restoration on recreation failure. This user-selected approach uses the supported CLI without a private registry, but is not atomic.
 - This change is independent of `simplify-implementation-and-deployment`; coordinate only the shared CLI registration file.

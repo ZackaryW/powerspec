@@ -32,7 +32,7 @@ Each command also supports `--help`.
 | `pspec config profile [PROFILE]` | Set the selected profile or clear it to global-only mode |
 | `pspec config edit` | Open committed configuration through `VISUAL` or `EDITOR` |
 | `pspec upgrade --agent <agent>` | Refresh selected remote skills and remove confirmed obsolete managed copies through recoverable ZuAT operations |
-| `pspec workset add NAME --path PATH [--json]` | Create a Git source workset or confirm an existing member; appending another member awaits a supported OpenSpec API |
+| `pspec workset add NAME --path PATH [--json]` | Create a Git source workset or append a repository by recreating its saved definition; repeated members are unchanged |
 | `pspec workset launch NAME --branch BRANCH [--change CHANGE] [--json]` | Spawn implementation worktrees, register branch-specific stores, optionally move a change, and publish an OpenSpec workset |
 
 Implemented commands report configuration and operation failures with exit **1**.

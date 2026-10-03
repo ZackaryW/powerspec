@@ -79,9 +79,9 @@ def test_adapter_real_isolated_registry(tmp_path, monkeypatch):
     assert add_source(adapter, "demo", source)["action"] == "created"
     assert add_source(adapter, "demo", source)["action"] == "reused"
     other = repo(tmp_path / "other")
-    with pytest.raises(ValueError, match="append"):
-        add_source(adapter, "demo", other)
-    assert adapter.list_worksets()["demo"].members == (Member("source", source),)
+    assert add_source(adapter, "demo", other)["action"] == "appended"
+    assert adapter.list_worksets()["demo"].members == (Member("source", source), Member("other", other))
+    assert add_source(adapter, "demo", other)["action"] == "reused"
     adapter.publish(Workset("copy", (Member("source", source),), None))
     adapter.publish(Workset("copy", (Member("source", source),), None))
     with pytest.raises(ValueError, match="membership"):

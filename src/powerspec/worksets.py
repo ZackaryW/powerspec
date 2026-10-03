@@ -84,7 +84,8 @@ def add_source(adapter, name: str, path: Path) -> dict:
                 return {"name": name, "action": "reused", "path": repository.root}
         if any(m.name == repository.root.name for m in existing.members):
             raise ValueError(f"Member label conflict: {repository.root.name}")
-        raise ValueError("This OpenSpec version has no supported member append API; existing workset preserved")
+        action = adapter.append_member(existing, Member(repository.root.name, repository.root))
+        return {"name": name, "action": action, "path": repository.root}
     action = adapter.publish(Workset(name, (Member(repository.root.name, repository.root),)))
     return {"name": name, "action": action, "path": repository.root}
 

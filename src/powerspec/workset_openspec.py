@@ -7,6 +7,8 @@ import re
 import shutil
 import subprocess
 
+from .presentation import json_text
+
 
 @dataclass(frozen=True)
 class Member:
@@ -128,6 +130,41 @@ class OpenSpec:
             return result
         except (KeyError, TypeError) as error:
             raise ValueError("Malformed OpenSpec store listing") from error
+
+    def append_member(self, original: Workset, member: Member) -> str:
+        """Replace a saved definition through OpenSpec; restore it on failure.
+
+        The remove/create pair is not atomic. Never remove a definition observed
+        after the initial removal, since another writer may have created it.
+        """
+        if self.list_worksets().get(original.name) != original:
+            raise ValueError(f"Workset {original.name} changed before append; retry with its current definition")
+        updated = Workset(original.name, (*original.members, member), original.tool)
+        try:
+            self.call("workset", "remove", original.name, "--yes")
+            self.publish(updated)
+            if self.list_worksets().get(original.name) != updated:
+                raise ValueError("Recreated workset does not match the intended members and tool")
+            return "appended"
+        except (ValueError, OSError) as error:
+            definition = f"Original definition: {json_text(original)}"
+            try:
+                observed = self.list_worksets().get(original.name)
+            except (ValueError, OSError) as inspection_error:
+                raise ValueError(f"Append failed: {error}. Cannot inspect recovery state: {inspection_error}. {definition}") from error
+            if observed == updated:
+                return "appended"  # Creation completed despite a lost response.
+            if observed == original:
+                raise ValueError(f"Append failed; original workset preserved: {error}") from error
+            if observed is not None:
+                raise ValueError(f"Append failed; a different workset now uses {original.name}; left untouched. {definition}") from error
+            try:
+                self.publish(original)
+                if self.list_worksets().get(original.name) != original:
+                    raise ValueError("Restored definition could not be verified")
+            except (ValueError, OSError) as recovery_error:
+                raise ValueError(f"Append failed: {error}. Could not restore original workset: {recovery_error}. {definition}") from error
+            raise ValueError(f"Append failed; original workset restored: {error}") from error
 
     def register_store(self, root: Path, identity: str) -> None:
         prior = self.list_stores().get(identity)

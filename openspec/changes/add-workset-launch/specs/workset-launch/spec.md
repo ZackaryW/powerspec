@@ -8,19 +8,27 @@ Prepare a group of Git repositories as implementation worktrees and publish thei
 
 ### Requirement: Add registers a Git source through OpenSpec
 
-`pspec workset add <name> --path <path>` SHALL validate the given local Git checkout and create or append to the named OpenSpec source workset, using the repository root's directory name as its default member label. Repeated addition of the same repository SHALL be unchanged. An existing label bound to a different repository SHALL produce a conflict. Existing members, order, and preferred opener SHALL be preserved. The operation SHALL NOT create branches, worktrees, or a second Powerspec member registry. It SHALL use a supported OpenSpec mutation interface. If the installed OpenSpec version cannot append a member, Powerspec SHALL report that compatibility limitation and leave the existing workset untouched; it SHALL NOT remove and recreate the workset or edit OpenSpec's internal registry directly.
+`pspec workset add <name> --path <path>` SHALL validate the given local Git checkout and create or append to the named OpenSpec source workset, using the repository root's directory name as its default member label. Repeated addition of the same repository SHALL be unchanged. An existing label bound to a different repository SHALL produce a conflict. Existing members, order, and preferred opener SHALL be preserved. The operation SHALL NOT create branches, worktrees, or a second Powerspec member registry. To append, Powerspec SHALL retain and recheck the original definition, remove the saved workset through OpenSpec, recreate it with the additional member last, and verify the resulting definition. It SHALL NOT delete member folders or edit OpenSpec's internal registry directly. This sequence SHALL NOT be represented as atomic.
 
 #### Scenario: Create a source workset
 - **WHEN** `pspec workset add delivery --path C:\repos\backend` identifies a valid repository and `delivery` does not exist
 - **THEN** it creates an OpenSpec workset containing backend's repository root
 
 #### Scenario: Append or repeat a source member
-- **WHEN** a compatible OpenSpec installation supports member updates and another repository is added to `delivery`
+- **WHEN** another repository is added to existing workset `delivery`
 - **THEN** it appends that repository while preserving existing members and tool preference, and repeating the same addition is unchanged
 
-#### Scenario: Installed OpenSpec cannot append
-- **WHEN** the source workset exists and OpenSpec exposes no supported member-update operation
-- **THEN** Powerspec reports the missing prerequisite without removing, rewriting, or duplicating the workset
+#### Scenario: Recreation fails after removal
+- **WHEN** appending removes the saved definition but recreation fails and its name is still free
+- **THEN** Powerspec attempts to restore and verify the original definition, reports append failure, and supplies the original definition if recovery fails or cannot be verified
+
+#### Scenario: Concurrent definition changes
+- **WHEN** the saved definition differs at the pre-removal recheck, or a different definition appears after removal
+- **THEN** Powerspec reports the conflict and leaves the observed definition untouched rather than deleting it for recovery
+
+#### Scenario: Creation succeeds despite a lost response
+- **WHEN** recreation reports an error but inspection finds the exact intended members and preferred tool
+- **THEN** Powerspec reports the append as successful without another removal
 
 ### Requirement: Launch uses every source repository
 

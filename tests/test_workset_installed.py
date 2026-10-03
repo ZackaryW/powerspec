@@ -69,5 +69,9 @@ def test_installed_add_and_usage_output(tmp_path, adapter):
     assert process.returncode == 0 and result["action"] == "created"
     again, repeated = cli(["add", "demo", "--path", str(source)], tmp_path)
     assert again.returncode == 0 and repeated["action"] == "reused"
+    other = repo(tmp_path / "other")
+    appended, updated = cli(["add", "demo", "--path", str(other)], tmp_path)
+    assert appended.returncode == 0 and updated["action"] == "appended", updated
+    assert [m.path for m in adapter.list_worksets()["demo"].members] == [source, other]
     missing, error = cli(["launch", "demo"], tmp_path)
     assert missing.returncode == 2 and error["stage"] == "arguments"
