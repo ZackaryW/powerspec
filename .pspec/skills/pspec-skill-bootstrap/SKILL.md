@@ -12,7 +12,7 @@ Follow this bootstrap directly; do not resolve `pspec-skill-bootstrap` through i
 From the current task's working directory, run:
 
 ```text
-pspec skill <name> --agent <current-agent>
+pspec resolve skill <name> --agent <current-agent>
 ```
 
 When the calling workflow has an active OpenSpec change, append `--change <name>` and retain it on reruns. Otherwise omit it; do not infer an active change from available variable tables.
@@ -40,4 +40,4 @@ Rerun after relevant inputs change. Retry a failed lookup after correcting its c
 
 ## Return to the selected workflow
 
-Use the selected skill within its own scope and the user's task. Successful lookup is not evidence that the skill ran or its checks passed. Installing this skill alone does not establish native delivery; `pspec init --agent <current-agent>` separately provisions supported user-level hook registrations through ZuAT.
+Use the selected skill within its own scope and the user's task. Successful lookup is not evidence that the skill ran or its checks passed. Installing this skill alone does not establish native delivery; `pspec install --agent <current-agent>` separately provisions supported user-level hook registrations through ZuAT.
