@@ -161,7 +161,7 @@ refreshes selected sources and reconciles managed skill installations.
 | `pspec state show\|clear` | Inspect or clear temporary global or change-specific values |
 | `pspec resolve skill NAME --agent AGENT` | Return the applicable content for an installed skill |
 | `pspec resolve hook EVENT --agent AGENT` | Resolve runtime trait guidance for a native callback |
-| `pspec upgrade --agent AGENT` | Refresh selected remote sources and reconcile managed agent assets |
+| `pspec upgrade --agent AGENT [--force]` | Refresh sources and reconcile agent assets, optionally replacing selected conflicts |
 | `pspec workset add NAME --path PATH` | Add a Git repository to an OpenSpec source workset |
 | `pspec workset launch NAME --branch BRANCH` | Create implementation worktrees, stores, and an output OpenSpec workset |
 

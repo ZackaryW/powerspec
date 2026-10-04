@@ -82,6 +82,7 @@ def upgrade_consumer(
     source_store=None,
     home: Path | None = None,
     registry: Path | None = None,
+    force: bool = False,
     provision=provision_skills,
     reconcile_hooks=provision_hooks,
     inspect=inspect_asset,
@@ -126,7 +127,9 @@ def upgrade_consumer(
     except (ConfigurationError, OSError, ValueError) as error:
         return UpgradeResult("failed", diagnostics=(str(error),))
 
-    provisioned = provision(new_plans, home=home, registry=registry)
+    provisioned = provision(
+        new_plans, home=home, registry=registry, force=force
+    )
     if not provisioned.ok:
         return UpgradeResult(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,

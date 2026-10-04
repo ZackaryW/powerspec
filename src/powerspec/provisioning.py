@@ -85,12 +85,15 @@ def plan_skills(bundle) -> tuple[SkillPlan, ...]:
 
 
 def provision_skills(plans, *, home: Path | None = None,
-                     registry: Path | None = None) -> ProvisionResult:
+                     registry: Path | None = None,
+                     force: bool = False) -> ProvisionResult:
     """Keep successful actions and report failures without deleting shared skills.
 
     Inspection can be indeterminate when native plugin inventory is unavailable.
     In that case ZuAT's non-forced install still performs its locked preflight;
-    inspection alone never grants permission to overwrite a target.
+    inspection alone never grants permission to overwrite a target. ``force``
+    permits recoverable replacement only after complete inspection identifies
+    an unowned or locally modified target.
     """
     outcomes = []
     for plan in plans:
@@ -106,6 +109,38 @@ def provision_skills(plans, *, home: Path | None = None,
                 outcomes.append(SkillOutcome(plan.ref, "updated" if result.ok else "failed", plan,
                     tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
                     result.operation_id))
+                continue
+            if (observed.classification == "unowned"
+                    and observed.completeness == "complete"
+                    and observed.source_matches is True):
+                # A complete source-relative inspection proves that the native
+                # bytes are already the selected resource. ZuAT's non-forced
+                # install records ownership without rewriting those bytes.
+                result = install(
+                    ZuatRequest(agents=(plan.agent,), assets=(plan.asset(),)),
+                    **context,
+                )
+                outcomes.append(SkillOutcome(
+                    plan.ref, "reused" if result.ok else "failed", plan,
+                    tuple(result.diagnostics)
+                    or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                    result.operation_id,
+                ))
+                continue
+            if (force and observed.completeness == "complete"
+                    and observed.classification in {"unowned", "conflict"}):
+                result = install(
+                    ZuatRequest(
+                        agents=(plan.agent,), assets=(plan.asset(),), force=True,
+                    ),
+                    **context,
+                )
+                outcomes.append(SkillOutcome(
+                    plan.ref, "updated" if result.ok else "failed", plan,
+                    tuple(result.diagnostics)
+                    or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                    result.operation_id,
+                ))
                 continue
             if observed.classification in {"unsupported", "unowned", "conflict"}:
                 outcomes.append(SkillOutcome(plan.ref, "failed", plan,

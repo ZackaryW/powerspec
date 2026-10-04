@@ -141,6 +141,19 @@ def test_late_provisioning_failure_does_not_start_obsolete_removal(tmp_path):
     assert (data.home / ".codex/skills/b").is_dir()
 
 
+def test_upgrade_passes_explicit_force_only_to_selected_skill_provisioning(tmp_path):
+    data = fixture(tmp_path)
+    seen = []
+
+    def provision(plans, **context):
+        seen.append(context["force"])
+        return provision_skills(plans, **context)
+
+    result = run_upgrade(data, force=True, provision=provision)
+
+    assert result.ok and seen == [True]
+
+
 def test_hook_failure_preserves_obsolete_skills_after_full_skill_reconciliation(tmp_path):
     data = fixture(tmp_path)
     seen = []

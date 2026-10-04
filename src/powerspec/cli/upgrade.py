@@ -12,6 +12,13 @@ from ..upgrading import upgrade_consumer
 
 def upgrade(
     agent: Annotated[str, typer.Option(help="Target agent identifier.")],
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Replace selected unowned or locally modified skills through ZuAT.",
+        ),
+    ] = False,
 ) -> None:
     """Refresh selected remote skills and safely remove confirmed obsolete copies."""
     try:
@@ -28,6 +35,7 @@ def upgrade(
                 consumer=consumer,
                 agent=agent,
                 source_store=SaucepanSources(),
+                force=force,
             )
         for binding in result.refreshed:
             typer.echo(f"refreshed: {binding.identity} at {binding.resolved_revision}")

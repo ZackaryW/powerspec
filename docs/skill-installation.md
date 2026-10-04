@@ -12,10 +12,16 @@ application profile can coexist. The host agent chooses which installed copy it
 uses at runtime.
 
 Powerspec inspects each target before installing. Matching managed copies are
-reused. Unmanaged or edited copies and unsupported scopes produce failures with
-diagnostics. When plugin inventory prevents complete inspection, read-only native
+reused, and a completely inspected byte-identical unowned copy is adopted without
+rewriting it. Differing unmanaged or edited copies and unsupported scopes produce
+failures with diagnostics. When plugin inventory prevents complete inspection, read-only native
 lookup must establish that no copy at the requested scope is being adopted;
 ZuAT then performs its own non-forced installation checks.
+
+`pspec upgrade --agent <agent> --force` explicitly permits ZuAT to archive and
+replace selected differing unowned or locally modified skills. Force applies only
+to selected skill provisioning. It does not bypass incomplete inspection, change
+hook ownership, or weaken obsolete-skill removal checks.
 
 Provisioning returns a result for every planned skill. Successful earlier actions
 remain installed if a later action fails. Resolve the reported conflicts and rerun

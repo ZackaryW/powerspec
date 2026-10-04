@@ -66,6 +66,70 @@ def test_foreign_and_modified_skills_are_preserved(tmp_path):
     assert local.entrypoint.read_text().endswith("Local edits")
 
 
+def test_identical_unowned_skill_is_adopted_without_replacement(tmp_path):
+    import shutil
+
+    from powerspec.provisioning import plan_skills, provision_skills
+
+    plan = plan_skills(bundle(tmp_path))[:1]
+    home = tmp_path / "home"
+    destination = home / ".codex/skills/shared"
+    shutil.copytree(plan[0].source, destination)
+    before = {
+        path.relative_to(destination): path.read_bytes()
+        for path in destination.rglob("*")
+        if path.is_file()
+    }
+
+    result = provision_skills(
+        plan, home=home, registry=tmp_path / "registry"
+    )
+
+    assert result.ok and result.items[0].status == "reused"
+    assert {
+        path.relative_to(destination): path.read_bytes()
+        for path in destination.rglob("*")
+        if path.is_file()
+    } == before
+    from zuat.pub import inspect_asset
+    observed = inspect_asset(
+        plan[0].asset(),
+        root=tmp_path / "registry",
+        home=home,
+        project_root=plan[0].project_root,
+    )
+    assert observed.classification == "current"
+    assert observed.owned and observed.source_matches
+
+
+def test_force_replaces_unowned_and_modified_skills(tmp_path):
+    from powerspec.provisioning import plan_skills, provision_skills
+
+    plans = plan_skills(bundle(tmp_path))
+    home = tmp_path / "home"
+    registry = tmp_path / "registry"
+    shared = home / ".codex/skills/shared/SKILL.md"
+    shared.parent.mkdir(parents=True)
+    shared.write_text("---\nname: shared\n---\nForeign content")
+    first = provision_skills(plans, home=home, registry=registry)
+    assert not first.ok
+
+    from powerspec.installed import installed_skill
+    local = installed_skill(
+        "codex", "local", cwd=tmp_path / "project", home=home
+    ).entrypoint
+    local.write_text("---\nname: local\n---\nLocal edits")
+
+    forced = provision_skills(
+        plans, home=home, registry=registry, force=True
+    )
+
+    assert forced.ok
+    assert {item.status for item in forced.items} == {"updated"}
+    assert shared.read_text().endswith("Body")
+    assert local.read_text().endswith("Body")
+
+
 def test_invalid_targets_fail_before_adapter_calls(tmp_path):
     from powerspec.provisioning import plan_skills
     selected = bundle(tmp_path)

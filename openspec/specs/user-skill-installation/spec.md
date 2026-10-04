@@ -61,6 +61,8 @@ ZuAT provisioning SHALL preserve the skill entrypoint, pspec.toml when present, 
 
 Matching installed resources SHALL be reused. Conflicting unmanaged or locally modified targets SHALL be reported rather than silently overwritten. Repeated initialization SHALL preserve project configuration and unrelated user-level resources. Partial provisioning failures SHALL identify completed and failed actions without claiming rollback or successful completion of the whole bundle. Skill lookup SHALL never perform repair installation implicitly.
 
+An explicit `pspec upgrade --force` SHALL permit ZuAT to recoverably replace selected unowned or locally modified skill targets after complete inspection. It SHALL NOT bypass incomplete inspection, unsupported targets, source validation, hook ownership checks, or obsolete-skill removal safeguards. Without `--force`, an exact unowned copy MAY be adopted without rewriting its bytes, while a differing unowned or modified copy SHALL remain a conflict.
+
 #### Scenario: Repeated initialization
 - **WHEN** the selected skills at their declared scopes already match the requested versions
 - **THEN** initialization avoids redundant replacement and preserves project values
@@ -68,6 +70,11 @@ Matching installed resources SHALL be reused. Conflicting unmanaged or locally m
 #### Scenario: Partial installation
 - **WHEN** OpenSpec skill provisioning succeeds but a profile skill fails
 - **THEN** the result reports both outcomes and does not claim the bundle is ready or undo unrelated installations
+
+#### Scenario: Explicit replacement during upgrade
+- **WHEN** a selected skill already exists with differing unowned content and the user runs `pspec upgrade --agent <agent> --force`
+- **THEN** Powerspec asks ZuAT to archive and replace that selected target and reports the resulting action
+- **AND** ordinary upgrade continues to preserve the same target as a conflict
 
 ### Requirement: Bundle a pinned OpenSpec skill snapshot for local provisioning
 

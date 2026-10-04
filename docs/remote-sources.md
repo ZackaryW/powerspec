@@ -74,7 +74,7 @@ The registration step only validates and exposes resources. It does not provisio
 
 ## Upgrade success boundary
 
-Run `pspec upgrade --agent <agent>` from inside the owning Git repository. Upgrade processes every remote skill selector in the consumer's effective profile bundle:
+Run `pspec upgrade --agent <agent>` from inside the owning Git repository. Add `--force` only when selected unowned or locally modified skill targets should be archived and replaced through ZuAT. Upgrade processes every remote skill selector in the consumer's effective profile bundle:
 
 1. resolve the previously materialized selections without fetching;
 2. refresh every referenced profile recipe through the Powerspec Saucepan app;
