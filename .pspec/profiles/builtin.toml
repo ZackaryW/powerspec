@@ -4,6 +4,7 @@ contexts = ["@builtin/archive-temporary-state"]
 traits = ["@builtin/skill-bootstrap"]
 skills = [
   "@builtin/pspec-skill-bootstrap",
+  "@builtin/pspec-workset",
   "@builtin/openspec-apply-change",
   "@builtin/openspec-archive-change",
   "@builtin/openspec-bulk-archive-change",

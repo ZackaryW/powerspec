@@ -13,6 +13,7 @@ def test_builtin_catalog_contains_complete_skill_inputs():
         assert "openspec-apply-change" in skills
         assert "openspec-verify-change" in skills
         assert "pspec-skill-bootstrap" in skills
+        assert "pspec-workset" in skills
         assert "pspec-repo-investigation" in skills
         assert (root / "profiles/repository-investigation.toml").is_file()
         assert (root / "traits/repository-investigation.toml").is_file()

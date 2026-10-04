@@ -103,6 +103,7 @@ def test_reviewed_python_bundle(tmp_path):
     names = [t.resource.name for t in bundle.skills]
     assert names.count("pspec-tdd") == 1 and "pspec-bdd" not in names
     assert "pspec-plan-utilities" in names and "pspec-skill-bootstrap" in names
+    assert "pspec-workset" in names
     assert bundle.selected_defaults["test_command"] == "uv run pytest"
     assert list(tmp_path.iterdir()) == []
 
