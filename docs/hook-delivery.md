@@ -2,8 +2,8 @@
 
 `pspec init --agent codex` and `pspec init --agent claude` install one generic
 user-level hook asset through ZuAT. The asset contains commands only. It does not
-contain a consumer profile, trait body, or repository path. At invocation, the
-host sends JSON on stdin and Powerspec uses its absolute `cwd` to discover the
+contain a consumer profile, trait body, or repository path. At invocation,
+Powerspec uses the command process working directory to discover the
 nearest `openspec/.pspec/config.toml` within the current Git or worktree boundary.
 
 The verified mappings are:
@@ -75,36 +75,44 @@ supported context-delivery selector.
 
 ## Dispatch
 
-Native registrations call one of these commands and pass the native payload on
-stdin:
+Native registrations call one of these commands from the session project directory.
+The commands also work directly, without piped input:
 
 ```console
 pspec resolve hook sessionStart --agent codex
 pspec resolve hook afterCompaction --agent codex
 ```
 
-`pspec` and `powerspec` expose the same command. The dispatcher validates the
-native event, source, and absolute event `cwd`; discovers the consumer; composes
-the current effective bundle after profile exclusions; selects only matching
-traits; and evaluates their optional `when` expressions from a fresh runtime
+`pspec` and `powerspec` expose the same command. Native registration matchers
+select startup/clear/fork/compact and exclude resume; the dispatcher validates
+the logical event and agent arguments and discovers the consumer from process cwd.
+It composes the current effective bundle after profile exclusions, selects only
+matching traits, and evaluates their optional `when` expressions from a fresh runtime
 snapshot. An explicit `--change NAME` enables that change's scoped values.
 Powerspec never infers a change from ambient state.
 
 No consumer, no matching trait, or all false conditions produces no stdout.
 Successful guidance is returned using the host's native JSON context shape. A
 malformed nearest consumer, invalid selector, authored expression error,
-non-Boolean condition, or invalid payload writes a diagnostic to stderr and
+or non-Boolean condition writes a diagnostic to stderr and
 exits nonzero without a partial guidance object. An operational `run_json`
 failure is different: the dispatcher reports the resource-specific diagnostic,
 omits that optional trait, and still returns successfully resolved independent
 guidance. Dispatch does not publish contexts, install assets, prompt for skill
 variables, execute skills, or write consumer state.
 
+The command never reads, parses, polls, or waits for stdin. Any host-supplied
+payload is ignored, including its cwd. Callers that previously selected a
+repository through payload cwd must instead run the process from that repository.
+If guidance requests a user decision, the request is returned as additional
+context for the agent to present; the hook neither collects an answer nor writes
+variables. Configuration failures remain diagnostics, not invented defaults.
+
 Conditions are trusted Python rules evaluated through Zuu case18. They can read
 `vars`, call `armed(kind, ref)`, use `which(name)`, inspect `git_root`, and invoke
 `run_json(argv)`. `armed` means selected in the effective bundle after exclusions;
 it does not mean installed, event-matched, or condition-true. `run_json` uses the
-event cwd and environment, requires an exit-zero JSON object, and has a five-second
+invocation process cwd and environment, requires an exit-zero JSON object, and has a five-second
 default subprocess timeout. Hook delivery lowers that timeout below its native
 five-second deadline. These capabilities are not a sandbox and their external
 effects are not rolled back.

@@ -30,11 +30,6 @@ def consumer(tmp_path, *, excluded=()):
     return project
 
 
-def payload(project, source="startup"):
-    return {"session_id": "test", "cwd": str(project.resolve()),
-            "hook_event_name": "SessionStart", "source": source}
-
-
 def test_global_bundle_composes_once_and_excludes_only_its_contributions():
     excluded = ["@builtin/zmem-lifecycle", "@builtin/adhd-friendly"]
     with builtin_catalog_root() as root:
@@ -78,7 +73,7 @@ body = "must not appear"
     put(project, "openspec/.pspec/config.toml",
         'profile = "@builtin/standalone"\n')
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(project), catalog=Catalog(builtin=root)) is None
+                    cwd=project, catalog=Catalog(builtin=root)) is None
 
 
 def test_generic_hooks_deliver_reminder_without_starting_other_workflows(tmp_path):
@@ -89,9 +84,9 @@ def test_generic_hooks_deliver_reminder_without_starting_other_workflows(tmp_pat
     with builtin_catalog_root() as root:
         catalog = Catalog(builtin=root)
         start = dispatch(logical_event="sessionStart", agent="codex",
-                         payload=payload(project), catalog=catalog)
+                         cwd=project, catalog=catalog)
         compact = dispatch(logical_event="afterCompaction", agent="codex",
-                           payload=payload(project, "compact"), catalog=catalog)
+                           cwd=project, catalog=catalog)
     for guidance in (start, compact):
         assert guidance is not None
         assert "pspec-repo-investigation" in guidance
@@ -110,7 +105,7 @@ def test_exclusion_changes_runtime_selection_without_removing_registration(tmp_p
     ])
     with builtin_catalog_root() as root:
         guidance = dispatch(logical_event="afterCompaction", agent="claude",
-                            payload=payload(project, "compact"),
+                            cwd=project,
                             catalog=Catalog(builtin=root))
     assert guidance is not None
     assert "pspec-repo-investigation" not in guidance

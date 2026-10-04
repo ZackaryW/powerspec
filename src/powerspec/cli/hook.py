@@ -1,13 +1,11 @@
 from typing import Annotated
 from pathlib import Path
-import json
-import sys
 
 import typer
 
 from ..catalog import Catalog, ConfigurationError
 from ..consumer import discover_consumer
-from ..hooks import dispatch, serialize
+from ..hooks import callback_for, dispatch, serialize
 from ..resources import builtin_catalog_root
 from ..sources import SaucepanSources
 
@@ -17,14 +15,11 @@ def hook(
     agent: Annotated[str, typer.Option(help="Invoking native agent identifier.")],
     change: Annotated[str | None, typer.Option(help="Explicit active change name.")] = None,
 ) -> None:
-    """Return current consumer trait guidance for one native callback."""
+    """Return hook guidance from the current directory without reading stdin."""
     try:
-        try:
-            payload = json.load(sys.stdin)
-        except (json.JSONDecodeError, UnicodeError) as error:
-            raise ConfigurationError(f"invalid native hook JSON input: {error}") from error
-        cwd = payload.get("cwd") if isinstance(payload, dict) else None
-        consumer = discover_consumer(Path(cwd)) if isinstance(cwd, str) else None
+        callback_for(agent, event)
+        cwd = Path.cwd()
+        consumer = discover_consumer(cwd)
         with builtin_catalog_root() as root:
             sources = ({"local": consumer.config_path.parent}
                        if consumer is not None and consumer.config_path.parent.is_dir() else {})
@@ -34,7 +29,7 @@ def hook(
                 git_resolver=SaucepanSources(manage_binary=False).lookup,
             )
             diagnostics = []
-            guidance = dispatch(logical_event=event, agent=agent, payload=payload,
+            guidance = dispatch(logical_event=event, agent=agent, cwd=cwd,
                                 catalog=catalog, change=change,
                                 diagnostics=diagnostics)
         for diagnostic in diagnostics:

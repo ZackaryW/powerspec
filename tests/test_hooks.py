@@ -1,5 +1,7 @@
 import json
 import subprocess
+import re
+import sys
 from copy import deepcopy
 
 import pytest
@@ -36,11 +38,6 @@ def catalog(tmp_path, trait='hooks=["sessionStart", "afterCompaction"]\nbody="gu
     return root, Catalog(builtin=root)
 
 
-def payload(cwd, source="startup", event="SessionStart"):
-    return {"session_id": "test", "cwd": str(cwd.resolve()),
-            "hook_event_name": event, "source": source}
-
-
 def test_logical_selectors_expand_before_per_trait_native_exclusions():
     selected = selected_callbacks([
         "sessionStart", "afterCompaction", "~claude:SessionStart",
@@ -66,7 +63,7 @@ def test_one_trait_exclusion_does_not_suppress_other_traits_or_callbacks(tmp_pat
     assert matching_traits(bundle.traits, compact) == ("@builtin/b",)
 
 
-def test_dispatch_uses_event_cwd_nearest_consumer_and_current_values(tmp_path):
+def test_dispatch_uses_invocation_cwd_nearest_consumer_and_current_values(tmp_path):
     project = consumer(tmp_path)
     nested = project / "src/package"
     nested.mkdir(parents=True)
@@ -78,14 +75,24 @@ def test_dispatch_uses_event_cwd_nearest_consumer_and_current_values(tmp_path):
     # data for conditions rather than becoming executable text templates.
     put(project, "openspec/.pspec/current.toml", '[vars]\nmode="first"\n')
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(nested), catalog=configured) == "mode=<mode>"
+                    cwd=nested, catalog=configured) == "mode=<mode>"
     put(root, "traits/guide.toml", 'hooks=["sessionStart"]\nbody="fresh"\nwhen="vars[\'mode\'] == \'second\'"')
     configured = Catalog(builtin=root)
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(nested), catalog=configured) is None
+                    cwd=nested, catalog=configured) is None
     put(project, "openspec/.pspec/current.toml", '[vars]\nmode="second"\n')
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(nested), catalog=configured) == "fresh"
+                    cwd=nested, catalog=configured) == "fresh"
+
+    command = [sys.executable, "-c",
+               "import json, pathlib; print(json.dumps({'name': pathlib.Path.cwd().name}))"]
+    expression = f"run_json({command!r}).get('name') == 'package'"
+    put(root, "traits/guide.toml",
+        'hooks=["sessionStart"]\nbody="nested cwd"\nwhen=' + json.dumps(expression))
+    assert dispatch(logical_event="sessionStart", agent="codex",
+                    cwd=nested, catalog=Catalog(builtin=root)) == "nested cwd"
+    assert dispatch(logical_event="sessionStart", agent="codex",
+                    cwd=project, catalog=Catalog(builtin=root)) is None
 
 
 def test_dispatch_uses_explicit_change_only_and_worktree_boundary(tmp_path):
@@ -103,9 +110,9 @@ mode="change"
     put(root, "profiles/main.toml", 'traits=["@builtin/guide"]\n[vars]\nmode="global"\n')
     configured = Catalog(builtin=root)
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(project), catalog=configured) is None
+                    cwd=project, catalog=configured) is None
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(project), catalog=configured,
+                    cwd=project, catalog=configured,
                     change="selected") == "selected"
 
     worktree = tmp_path / "worktree"
@@ -115,34 +122,19 @@ mode="change"
                    cwd=project, check=True, capture_output=True)
     put(worktree, "openspec/.pspec/config.toml", 'profile="@builtin/main"\n')
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(worktree), catalog=configured) is None
+                    cwd=worktree, catalog=configured) is None
 
 
 def test_dispatch_restores_after_compaction_through_context_capable_session_start(tmp_path):
     project = consumer(tmp_path)
     _, configured = catalog(tmp_path)
     guidance = dispatch(logical_event="afterCompaction", agent="claude",
-                        payload=payload(project, source="compact"), catalog=configured)
+                        cwd=project, catalog=configured)
     assert guidance == "guide"
     result = json.loads(serialize("claude", "afterCompaction", guidance))
     assert result == {"hookSpecificOutput": {
         "hookEventName": "SessionStart", "additionalContext": "guide",
     }}
-    with pytest.raises(ConfigurationError, match="does not match"):
-        dispatch(logical_event="afterCompaction", agent="claude",
-                 payload=payload(project, source="startup"), catalog=configured)
-
-
-@pytest.mark.parametrize(("agent", "source"), [
-    ("codex", "resume"),
-    ("claude", "resume"),
-])
-def test_session_start_rejects_resume_payloads(agent, source, tmp_path):
-    project = consumer(tmp_path)
-    _, configured = catalog(tmp_path)
-    with pytest.raises(ConfigurationError, match="does not match"):
-        dispatch(logical_event="sessionStart", agent=agent,
-                 payload=payload(project, source=source), catalog=configured)
 
 
 def test_no_consumer_or_no_match_is_silent_and_does_not_evaluate_condition(tmp_path):
@@ -153,10 +145,10 @@ def test_no_consumer_or_no_match_is_silent_and_does_not_evaluate_condition(tmp_p
     repo.mkdir()
     subprocess.run(["git", "init", "--quiet", str(repo)], check=True)
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(repo), catalog=configured) is None
+                    cwd=repo, catalog=configured) is None
     project = consumer(tmp_path / "with-consumer")
     assert dispatch(logical_event="sessionStart", agent="codex",
-                    payload=payload(project), catalog=configured) is None
+                    cwd=project, catalog=configured) is None
 
 
 def test_eligible_condition_failure_returns_no_successful_partial_guidance(tmp_path):
@@ -168,7 +160,7 @@ def test_eligible_condition_failure_returns_no_successful_partial_guidance(tmp_p
     result = None
     with pytest.raises(ConfigurationError, match="bad.toml"):
         result = dispatch(logical_event="sessionStart", agent="codex",
-                          payload=payload(project), catalog=Catalog(builtin=root))
+                          cwd=project, catalog=Catalog(builtin=root))
     assert result is None
 
 
@@ -194,7 +186,7 @@ def test_operational_probe_failure_omits_only_owning_trait(kind, tmp_path, monke
     diagnostics = []
 
     result = dispatch(logical_event="sessionStart", agent="codex",
-                      payload=payload(project), catalog=Catalog(builtin=root),
+                      cwd=project, catalog=Catalog(builtin=root),
                       diagnostics=diagnostics)
 
     assert result == "bootstrap\n\nadhd"
@@ -210,7 +202,7 @@ def test_malformed_nearest_consumer_is_diagnostic_without_parent_fallback(tmp_pa
     _, configured = catalog(tmp_path)
     with pytest.raises(ConfigurationError, match="config.toml"):
         dispatch(logical_event="sessionStart", agent="codex",
-                 payload=payload(nested), catalog=configured)
+                 cwd=nested, catalog=configured)
 
 
 def test_native_documents_use_verified_context_delivery_callback():
@@ -232,6 +224,19 @@ def test_native_documents_use_verified_context_delivery_callback():
     }
     assert forbidden.isdisjoint(native_document("codex")["hooks"])
     assert forbidden.isdisjoint(native_document("claude")["hooks"])
+
+
+@pytest.mark.parametrize("agent", ["codex", "claude"])
+@pytest.mark.parametrize("source", ["startup", "clear", "fork", "compact", "resume"])
+def test_native_matchers_select_only_intended_commands(agent, source):
+    entries = native_document(agent)["hooks"]["SessionStart"]
+    commands = [item["hooks"][0]["command"] for item in entries
+                if re.search(item["matcher"], source)]
+    if source == "resume" or (source == "fork" and agent == "codex"):
+        assert commands == []
+    else:
+        event = "afterCompaction" if source == "compact" else "sessionStart"
+        assert commands == [f"pspec resolve hook {event} --agent {agent}"]
 
 
 @pytest.mark.parametrize(("agent", "settings"), [
@@ -294,7 +299,7 @@ def test_modified_owned_hook_is_reported_without_overwrite(tmp_path):
     assert native.read_bytes() == changed
 
 
-def test_hook_cli_reads_native_payload_and_emits_only_structured_guidance(tmp_path, monkeypatch):
+def test_hook_cli_emits_only_structured_guidance_without_input(tmp_path, monkeypatch):
     from powerspec.cli import app
     import powerspec.cli.hook as cli
     project = consumer(tmp_path)
@@ -317,7 +322,6 @@ def test_hook_cli_reads_native_payload_and_emits_only_structured_guidance(tmp_pa
     monkeypatch.chdir(project)
     result = CliRunner().invoke(
         app, ["resolve", "hook", "sessionStart", "--agent", "codex"],
-        input=json.dumps(payload(project)),
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"] == "guide"
