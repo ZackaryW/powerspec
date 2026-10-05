@@ -228,7 +228,7 @@ def test_malformed_manifest_is_error_without_success_payload(tmp_path, monkeypat
 
 def test_authored_python_tdd_profile_resolves_complete_document(tmp_path, monkeypatch):
     home, project = environment(tmp_path, monkeypatch)
-    source = Path(__file__).resolve().parents[1] / ".pspec/skills/pspec_tdd"
+    source = Path(__file__).resolve().parents[1] / ".pspec/skills/pspec-tdd"
     installed_root = home / ".codex/skills/pspec-tdd"
     shutil.copytree(source, installed_root)
     (project / ".git").mkdir()

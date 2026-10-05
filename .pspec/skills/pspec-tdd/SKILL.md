@@ -9,7 +9,7 @@ Use the project's established test tools for one selected development segment.
 
 When pspec-skill-bootstrap supplies resolved content, follow it in order. [pspec.toml](pspec.toml) declares language-specific additions and where they belong in this shared procedure. Follow bootstrap's handling of pending choices and errors; neither means permission to bypass resolution.
 
-For direct use without bootstrap, consult the manifest's dynamic entries: section names the destination in this document, pos specifies placement, and source_section optionally selects part of the source path. Read the selected content at that placement. Establish the language and any inputs required by the selected additions from configuration or accepted scope; ask only for unresolved choices. Substitute those values into the selected text before following it. Report missing resources rather than silently omitting an addition.
+For direct use without bootstrap, consult [pspec.toml](pspec.toml) version 2: `section` names an exact destination heading in this document, `pos = "after"` adds content after that section and its descendants, and `source_section` selects a heading and its descendants in the source file. `pos = "replace"` replaces the entire destination section. Establish the language and any inputs required by the selected additions from configuration or accepted scope; ask only for unresolved choices. Substitute declared values once into the selected text before following it. The bundled language resource currently covers Python; report a missing selected language resource rather than inventing a branch or silently omitting it.
 
 ## Scope and expected behavior
 

@@ -11,7 +11,7 @@ Do not treat the source workset or its main-branch checkouts as implementation d
 
 ## Establish the source workset
 
-Inspect the current saved worksets through OpenSpec when membership or labels are unclear. Add a repository with:
+Inspect the current saved worksets with `openspec workset list --json` when membership or labels are unclear. Add a repository with:
 
 ```text
 pspec workset add <name> --path <repository-or-subfolder> --json
@@ -41,7 +41,7 @@ Before launch, resolve any unclear member label, target branch, base ref, or des
 
 ## Transfer an active change
 
-Append `--change <name>` only when the user wants an active OpenSpec change copied into the launched workspace. Powerspec searches represented source stores. If the name is ambiguous, select the original source store with `--store <id>`.
+Append `--change <name>` when the user wants an active OpenSpec change transferred into the launched workspace. Powerspec searches represented source stores. If the name is ambiguous, select the original source store with `--store <id>`.
 
 Change transfer is a move by default: source cleanup occurs only after the destination resolves, spawned stores and pointers are ready, and the output workset is published. Use `--keep-source` only when the user wants a copy. Both `--store` and `--keep-source` require `--change`.
 
@@ -54,10 +54,14 @@ Prefer `--json` so partial outcomes remain explicit. Treat these fields separate
 - `ok`: the requested operation completed.
 - `workspace_ready`: the output workset is usable even if later source cleanup failed.
 - `stage` and `errors`: where execution stopped and what needs attention.
-- `members`, `stores`, `effects`, and `transfer`: created or reused state that must be preserved.
+- `members` and `effects`: completed actions that must be preserved.
+- `stores`: planned source-to-spawned mappings; a listed mapping alone does not prove registration succeeded.
+- `transfer`: source, destination, and action, which may still be pending or cleanup-incomplete.
 - `opening_command`: the OpenSpec command the user can run to open the completed output workset.
 
 On success, report the output workset, member branches and paths, transferred-change outcome, and opening command. Do not claim the editor was opened.
+
+Worktree directories default to siblings named `<repo>-<branch-token>`. Each spawned store uses `<original-store-id>-<effective-branch-token>`, including per-repository branch overrides. The output workset name uses the shared branch token. Resolve subsequent change work through the spawned store and worktree; keep the original checkout as the source/advisory workspace.
 
 On failure, do not roll back branches, worktrees, stores, pointer edits, copied files, or receipts. Powerspec intentionally preserves completed effects. Correct the reported conflict and retry the same launch command; matching work is reused. For transfer conflicts, compare the retained source, destination, and receipt before changing either side. Do not invent a force, overwrite, or receipt-reset procedure.
 

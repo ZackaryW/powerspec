@@ -8,7 +8,7 @@ Give agents one explicit pre-skill lookup convention with clear unsupported, pen
 
 ### Requirement: Bootstrap performs explicit skill lookup
 
-The pspec-skill-bootstrap skill SHALL instruct the agent to run `pspec skill <name> --agent <current-agent>` before following another skill's procedure. When the calling workflow has an active change, the agent SHALL also pass --change <name> and retain it on reruns; otherwise it SHALL omit the selector instead of guessing. When the host reports the exact installed copy it selected, the agent MAY pass its directory or SKILL.md through `--selected PATH`; Powerspec SHALL validate that evidence against the target agent's installed candidates. The name SHALL identify the intended skill and the agent argument SHALL identify the actual invoking agent. Missing or unsupported agent identity SHALL be diagnosed rather than guessed from shell or installation order. Bootstrap itself SHALL be exempt from its own lookup requirement. The command SHALL NOT activate or execute the requested skill.
+The pspec-skill-bootstrap skill SHALL instruct the agent to run `pspec resolve skill <name> --agent <current-agent>` before following another skill's procedure. When the calling workflow has an active change, the agent SHALL also pass --change <name> and retain it on reruns; otherwise it SHALL omit the selector instead of guessing. When the host reports the exact installed copy it selected, the agent MAY pass its directory or SKILL.md through `--selected PATH`; Powerspec SHALL validate that evidence against the target agent's installed candidates. The name SHALL identify the intended skill and the agent argument SHALL identify the actual invoking agent. Missing or unsupported agent identity SHALL be diagnosed rather than guessed from shell or installation order. Bootstrap itself SHALL be exempt from its own lookup requirement. The command SHALL NOT activate or execute the requested skill.
 
 #### Scenario: Invoke a supported skill
 - **WHEN** an agent following bootstrap selects an installed TDD skill
@@ -57,7 +57,7 @@ A supported lookup SHALL identify whether it is resolved or waiting for input. A
 
 ### Requirement: Skill lookup defaults to Markdown with optional JSON
 
-Without --json, a resolved skill lookup SHALL emit the assembled skill Markdown directly on stdout, without a JSON envelope or outer code fence. A pending lookup SHALL emit clearly labelled Markdown headed Pending choices, with relevant questions and instructions for supplying answers and rerunning; it SHALL withhold procedural skill content. With --json, resolved output SHALL be an object with status resolved and a content string containing the same assembled Markdown; pending output SHALL be an object with status pending and questions. Both formats SHALL use the same resolution outcome and exit-status contract. Unsupported installed skills SHALL return literal null with successful status in either mode. Failures SHALL use nonzero status and stderr diagnostics without emitting a successful result; progress SHALL remain on stderr.
+Without --json, a resolved skill lookup SHALL emit the assembled skill Markdown directly on stdout, without a JSON envelope or outer code fence. A pending lookup SHALL emit clearly labelled Markdown headed `Powerspec skill resolution pending`, with relevant questions and instructions for supplying answers and rerunning; it SHALL withhold procedural skill content. With --json, resolved output SHALL be an object with status resolved and a content string containing the same assembled Markdown; pending output SHALL be an object with status pending and questions. Both formats SHALL use the same resolution outcome and exit-status contract. Unsupported installed skills SHALL return literal null with successful status in either mode. Failures SHALL use nonzero status and stderr diagnostics without emitting a successful result; progress SHALL remain on stderr.
 
 #### Scenario: Default resolved output
 - **WHEN** a supported skill resolves without --json
@@ -69,7 +69,7 @@ Without --json, a resolved skill lookup SHALL emit the assembled skill Markdown 
 
 #### Scenario: Pending default output
 - **WHEN** required skill inputs are unresolved without --json
-- **THEN** stdout clearly presents Pending choices and answer/rerun instructions rather than a skill procedure
+- **THEN** stdout clearly presents `Powerspec skill resolution pending` and answer/rerun instructions rather than a skill procedure
 
 #### Scenario: JSON option preserves unsupported fallback
 - **WHEN** an installed skill without a manifest is requested with or without --json

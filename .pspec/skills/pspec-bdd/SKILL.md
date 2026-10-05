@@ -13,6 +13,8 @@ When bootstrap supplies resolved skill content, follow that content and its hand
 
 Identify the owning OpenSpec root, capability, requirement, and scenarios. Read the canonical specification together with the selected change's accepted delta, relevant user decisions, existing examples, and affected implementation. An accepted delta changes only its stated scope; unrelated canonical behavior remains applicable.
 
+Follow the consumer's OpenSpec store routing, including a spawned workset's branch-specific store. The owning specification may reside outside the implementation repository. Do not create a second local scenario authority merely because the consumer has no local `openspec/specs` copy; preserve the owning store identity in scenario references.
+
 Distinguish settled behavior from assumptions and unresolved product decisions. Use available evidence and prior answers before asking about material ambiguity. Passing existing tests alone does not make their behavior an accepted requirement.
 
 Keep behavioral scenarios in OpenSpec when adding executable coverage. Do not delete them or replace them with reference-only placeholders pointing to features. Features may concretize data and interactions but may not independently add, weaken, or redefine intended outcomes. If an existing feature has no owning OpenSpec scenario, identify that gap and establish the accepted scenario in OpenSpec within the authorized scope; otherwise report the missing source as pending. Preserve useful tests while reconciling their ownership.

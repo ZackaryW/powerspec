@@ -1,4 +1,5 @@
 from pathlib import Path
+import tomllib
 from zipfile import ZipFile
 
 import pytest
@@ -18,8 +19,8 @@ def test_builtin_catalog_contains_complete_skill_inputs():
         assert (root / "profiles/repository-investigation.toml").is_file()
         assert (root / "traits/repository-investigation.toml").is_file()
         assert (root / "contexts/archive-temporary-state.toml").is_file()
-        assert (root / "skills/pspec_tdd/pspec.toml").is_file()
-        assert (root / "skills/pspec_tdd/languages/python.md").is_file()
+        assert (root / "skills/pspec-tdd/pspec.toml").is_file()
+        assert (root / "skills/pspec-tdd/languages/python.md").is_file()
         assert (root / "skills/UPSTREAM_LICENSE.txt").is_file()
         assert (root / "skills/UPSTREAM_PROVENANCE.md").is_file()
 
@@ -66,7 +67,9 @@ def test_editable_catalog_overlays_live_authored_files_on_packaged_upstream(tmp_
 
 
 def test_built_wheel_has_no_checkout_paths(tmp_path):
-    wheels = list((Path(__file__).resolve().parents[1] / "dist").glob("powerspec-*.whl"))
+    project = Path(__file__).resolve().parents[1]
+    version = tomllib.loads((project / "pyproject.toml").read_text())["project"]["version"]
+    wheels = list((project / "dist").glob(f"powerspec-{version}-*.whl"))
     if not wheels:
         pytest.skip("distribution wheel has not been built")
     with ZipFile(wheels[0]) as archive:
@@ -74,5 +77,5 @@ def test_built_wheel_has_no_checkout_paths(tmp_path):
     assert "powerspec/_resources/catalog/profiles/builtin.toml" in names
     assert "powerspec/_resources/catalog/skills/pspec-repo-investigation/SKILL.md" in names
     assert "powerspec/_resources/catalog/contexts/archive-temporary-state.toml" in names
-    assert "powerspec/_resources/catalog/skills/pspec_tdd/languages/python.md" in names
+    assert "powerspec/_resources/catalog/skills/pspec-tdd/languages/python.md" in names
     assert not any(".cache" in name or "Documents/GitHub" in name for name in names)

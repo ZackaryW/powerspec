@@ -39,7 +39,7 @@ Declared `<name>` values are substituted once after assembly. Values introduced 
 
 ## Command outcomes
 
-Run `pspec resolve skill <name> --agent <agent>` or its `powerspec` alias. Add `--change <name>` only when resolving an explicit OpenSpec change, `--selected <installed-path>` when the host reports which native copy it loaded, and `--json` for structured output. The hidden top-level `skill` form remains a compatibility alias.
+Run `pspec resolve skill <name> --agent <agent>` or its `powerspec` alias. Add `--change <name>` only when resolving an explicit OpenSpec change, `--selected <installed-path>` when the host reports which native copy it loaded, and `--json` for structured output. The removed top-level `pspec skill` form is not supported; use `pspec resolve skill`.
 
 - `null` means ZuAT located the skill selected by that agent and the installed copy has no `pspec.toml`. The agent follows the ordinary installed skill.
 - A pending result contains typed questions, allowed choices, unpersisted suggestions, and the exact shared or change-scoped `current.toml` answer location. It withholds procedural content. Record only a confirmed answer, then rerun the same agent/change/selected-path command.
