@@ -90,7 +90,7 @@ def test_generic_hooks_deliver_reminder_without_starting_other_workflows(tmp_pat
     for guidance in (start, compact):
         assert guidance is not None
         assert "pspec-repo-investigation" in guidance
-        assert "pspec-skill-bootstrap" in guidance
+        assert "Before using another skill" not in guidance
         assert "pspec-smarter-decision" in guidance
         assert "does not start an investigation" in guidance
         assert "Which language" not in guidance
@@ -109,7 +109,7 @@ def test_exclusion_changes_runtime_selection_without_removing_registration(tmp_p
                             catalog=Catalog(builtin=root))
     assert guidance is not None
     assert "pspec-repo-investigation" not in guidance
-    assert "pspec-skill-bootstrap" in guidance
+    assert "Before using another skill" not in guidance
     assert "pspec-smarter-decision" in guidance
 
 
@@ -144,7 +144,7 @@ def test_investigation_skill_is_provisioned_as_an_ordinary_skill(tmp_path, monke
     monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
     monkeypatch.chdir(project)
     resolved = CliRunner().invoke(
-        app, ["resolve", "skill", "pspec-repo-investigation", "--agent", "codex"],
+        app, ["resolve", "skill", "--path", str(home / ".codex/skills/pspec-repo-investigation"), "--agent", "codex"],
     )
     assert resolved.exit_code == 0, resolved.output
     assert resolved.stdout.strip() == "null"

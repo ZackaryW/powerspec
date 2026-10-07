@@ -129,3 +129,21 @@ def test_explicit_source_client_bypasses_managed_binary(monkeypatch):
     )
 
     assert sources.SaucepanSources(client)._client is client
+
+
+def test_readonly_binary_probes_share_budget(tmp_path, monkeypatch):
+    import powerspec.saucepan_tool as module
+    from types import SimpleNamespace
+    clock = [1.0]
+    calls = []
+    destination = tmp_path / 'saucepan.exe'
+    destination.write_bytes(b'fixture')
+    monkeypatch.setattr(module, 'monotonic', lambda: clock[0])
+    def inspect(argv, **options):
+        calls.append((argv[-1], options['timeout']))
+        clock[0] += .3
+        return SimpleNamespace(ok=True, version='0.6.0')
+    monkeypatch.setattr(module, 'inspect_executable', inspect)
+    assert inspect_saucepan_binary(destination, deadline=2) == destination
+    assert [x[0] for x in calls] == ['--version', '--help']
+    assert [x[1] for x in calls] == pytest.approx([1, .7])

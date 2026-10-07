@@ -5,7 +5,7 @@ description: Identify and plan generic helpers that an accepted change needs and
 
 # Plan reusable helpers
 
-Produce the generic helper portion of an accepted design. A utility must be usable in another project without carrying this application's models, configuration layout, or workflow rules with it. When bootstrap supplies resolved content, follow that content and its handling of pending choices or errors.
+Produce the generic helper portion of an accepted design. A utility must be usable in another project without carrying this application's models, configuration layout, or workflow rules with it.
 
 ## Find the reusable mechanics
 

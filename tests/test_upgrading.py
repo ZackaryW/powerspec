@@ -105,6 +105,30 @@ def test_upgrade_refreshes_updates_and_removes_confirmed_obsolete_skill(tmp_path
     assert not (data.home / ".codex/skills/b").exists()
 
 
+def test_upgrade_replaces_owned_bootstrap_guidance_preserving_foreign_assets(tmp_path):
+    from powerspec.resources import builtin_catalog_root
+    data = fixture(tmp_path)
+    # Install the old helper as owned content before supplying the new resource.
+    skill(data.builtin, 'pspec-skill-bootstrap', 'pspec-skill-bootstrap',
+          'Before using another skill, resolve it by name through Powerspec.')
+    profile = data.builtin / 'profiles/main.toml'
+    profile.write_text(profile.read_text().replace('"@builtin/helper",', '"@builtin/helper","@builtin/pspec-skill-bootstrap",'))
+    old = compose(Catalog(builtin=data.builtin, gitsources={'tools': data.old}),
+                  '@builtin/main', agent='codex', project_root=data.consumer.git_root)
+    assert provision_skills(plan_skills(old), home=data.home, registry=data.registry).ok
+    foreign = put(data.home / '.codex/skills/foreign/SKILL.md', 'User-owned instructions')
+    with builtin_catalog_root() as root:
+        revised = (root / 'skills/pspec-skill-bootstrap/SKILL.md').read_text()
+    put(data.builtin / 'skills/pspec-skill-bootstrap/SKILL.md', revised)
+    result = run_upgrade(data)
+    assert result.ok, result.diagnostics
+    installed = data.home / '.codex/skills/pspec-skill-bootstrap/SKILL.md'
+    assert installed.read_text() == revised
+    assert '--path' in installed.read_text()
+    assert 'Before using another skill' not in installed.read_text()
+    assert foreign.read_text() == 'User-owned instructions'
+
+
 def test_successful_empty_refresh_removes_last_wildcard_matches(tmp_path):
     data = fixture(tmp_path, empty=True)
     result = run_upgrade(data)

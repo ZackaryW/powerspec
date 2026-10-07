@@ -31,7 +31,7 @@ def test_builtin_guidance_uses_canonical_cli_surface():
         trait = (root / "traits/skill-bootstrap.toml").read_text(encoding="utf-8")
         archive = (root / "contexts/archive-temporary-state.toml").read_text(encoding="utf-8")
     assert "pspec resolve skill" in bootstrap and "pspec init --agent" in bootstrap
-    assert "pspec resolve skill" in trait
+    assert tomllib.loads(trait)["body"] == ""
     assert "pspec state clear --change" in archive
     assert "pspec install --agent" not in bootstrap
 
@@ -74,6 +74,11 @@ def test_built_wheel_has_no_checkout_paths(tmp_path):
         pytest.skip("distribution wheel has not been built")
     with ZipFile(wheels[0]) as archive:
         names = archive.namelist()
+        prefix = 'powerspec/_resources/catalog/'
+        assert tomllib.loads(archive.read(prefix + 'traits/skill-bootstrap.toml').decode())['body'] == ''
+        assert '@builtin/skill-bootstrap' not in tomllib.loads(archive.read(prefix + 'profiles/builtin.toml').decode())['traits']
+        for skill in ('pspec-skill-bootstrap', 'pspec-tdd', 'pspec-smarter-decision'):
+            assert 'resolve skill --path' in archive.read(prefix + f'skills/{skill}/SKILL.md').decode()
     assert "powerspec/_resources/catalog/profiles/builtin.toml" in names
     assert "powerspec/_resources/catalog/skills/pspec-repo-investigation/SKILL.md" in names
     assert "powerspec/_resources/catalog/contexts/archive-temporary-state.toml" in names

@@ -159,7 +159,7 @@ refreshes selected sources and reconciles managed skill installations.
 | `pspec doctor [--json]` | Check the consumer boundary and required tools without repairing them |
 | `pspec config show\|profile\|edit` | Inspect or update committed consumer configuration |
 | `pspec state show\|clear` | Inspect or clear temporary global or change-specific values |
-| `pspec resolve skill NAME --agent AGENT` | Return the applicable content for an installed skill |
+| `pspec resolve skill --path PATH --agent AGENT` | Assemble content for a native-selected skill |
 | `pspec resolve hook EVENT --agent AGENT` | Resolve runtime trait guidance for a native callback |
 | `pspec upgrade --agent AGENT [--force]` | Refresh sources and reconcile agent assets, optionally replacing selected conflicts |
 | `pspec workset add NAME --path PATH` | Add a Git repository to an OpenSpec source workset |

@@ -33,6 +33,56 @@ def console(name):
     return str(Path(sysconfig.get_path("scripts")) / (name + suffix))
 
 
+def test_dynamic_headings_reconcile_all_destinations_atomically(tmp_path):
+    import pytest
+    from powerspec.catalog import Catalog
+    from powerspec.conditions import Invocation, context_contributions
+    from powerspec.profiles import compose
+    root = tmp_path / 'catalog'
+    put(root / 'profiles/main.toml', 'contexts=["@builtin/guide"]\nskills=["@builtin/a", "@builtin/b", "@builtin/c"]')
+    for name in ('a', 'b', 'c'):
+        put(root / f'skills/{name}/SKILL.md', f'---\nname: {name}\n---\n')
+    a = put(root / 'skills/a/pspec.toml', 'version=2\nentry="SKILL.md"')
+    b = put(root / 'skills/b/pspec.toml', 'version=2\nentry="SKILL.md"')
+    # Selected but unmentioned invalid metadata must not be inspected.
+    put(root / 'skills/c/pspec.toml', 'broken')
+    put(root / 'contexts/guide.toml', '''
+[[attach.context]]
+id="context"
+body="Use <skill:b>, <skill:a>, and <skill:b>."
+[[attach.rules.proposal]]
+body="Use <skill:a>."
+[[attach.operations.apply.guidance]]
+body="Use <skill:b>."
+''')
+    target = put(tmp_path / 'config.yaml', 'schema: spec-driven\ncontext: Handwritten context\nrules:\n  proposal:\n    - Handwritten rule\n')
+    def sync():
+        bundle = compose(Catalog(builtin=root), '@builtin/main', agent='codex')
+        return publish(target, context_contributions(bundle, None, Invocation(tmp_path)))
+    sync()
+    initial = target.read_bytes()
+    rendered = yaml.safe_load(initial)
+    assert 'Skills requiring dynamic resolution: b, a' in rendered['context']
+    assert 'Handwritten context' in rendered['context']
+    assert rendered['rules']['proposal'][0] == 'Handwritten rule'
+    assert 'Skills requiring dynamic resolution: a' in rendered['rules']['proposal'][1]
+    assert 'Skills requiring dynamic resolution: b' in rendered['operations']['apply']['guidance'][0]
+    sync()
+    assert target.read_bytes() == initial
+    b.write_text('version=1')
+    with pytest.raises(ConfigurationError):
+        sync()
+    assert target.read_bytes() == initial
+    a.unlink()
+    b.unlink()
+    sync()
+    assert 'Skills requiring dynamic resolution' not in target.read_text()
+    assert 'Use b, a, and b.' in target.read_text()
+    stable = target.read_bytes()
+    sync()
+    assert target.read_bytes() == stable
+
+
 def test_global_contexts_sync_without_a_selected_profile(tmp_path, monkeypatch):
     from contextlib import contextmanager
     import importlib

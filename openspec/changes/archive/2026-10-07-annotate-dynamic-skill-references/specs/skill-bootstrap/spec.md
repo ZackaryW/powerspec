@@ -1,10 +1,6 @@
-# Skill Bootstrap Specification
+# Spec Delta
 
-## Purpose
-
-Give agents one explicit pre-skill lookup convention with clear unsupported, pending, resolved, and failed outcomes and native selection preserved.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Bootstrap performs explicit skill lookup
 

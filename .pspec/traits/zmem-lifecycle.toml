@@ -2,5 +2,5 @@ hooks = ["sessionStart", "afterCompaction"]
 when = "which('zmem') is not None and run_json(['zmem', 'service', 'doctor']).get('ok') is True"
 
 body = """
-Use <skill:zmem-query-memory> when repository history or prior decisions matter to the current task, and verify recalled guidance against current evidence. At meaningful implementation checkpoints, use <skill:zmem-author-commits> to review the diff and validate focused commit messages; create commits only within the user's existing authorization. Use <skill:zmem-design-extensions> only when the task actually changes zmem extensions. Resolve the selected skill through pspec-skill-bootstrap when that bootstrap is active; do not load or execute every available skill.
+Use <skill:zmem-query-memory> when repository history or prior decisions matter to the current task, and verify recalled guidance against current evidence. At meaningful implementation checkpoints, use <skill:zmem-author-commits> to review the diff and validate focused commit messages; create commits only within the user's existing authorization. Use <skill:zmem-design-extensions> only when the task actually changes zmem extensions. Select the applicable skill through your native integration; do not load or execute every available skill.
 """

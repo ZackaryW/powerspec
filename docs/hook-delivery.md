@@ -40,7 +40,7 @@ Python startup, catalog loading, filesystem access, probes, and serialization.
 Command probes receive a smaller internal timeout so the adapter can diagnose a
 failure and finish before the host deadline.
 
-The native startup path was exercised on 2026-10-02 with Codex CLI 0.159.1 and
+The earlier universal-bootstrap startup path was exercised on 2026-10-02 with Codex CLI 0.159.1 and
 Claude Code 2.1.265 using disposable settings. Both hosts supplied the documented
 `SessionStart` JSON including absolute `cwd`, and both accepted the returned
 `additionalContext`. The Codex walkthrough repeated `pspec-skill-bootstrap` from
@@ -50,6 +50,8 @@ host's installed-skill inventory. That is a successful delivery check and a
 separate adherence failure, not evidence that the skill ran. Automated adapter
 tests cover the same native response with `source = "compact"`, plus ordinary
 skill `null`, pending, answered, and malformed-manifest outcomes.
+The current targeted headings and selected-path chain are covered by automated
+fixtures; that earlier walkthrough does not establish agent adherence to this revision.
 
 ## Trait selectors
 
@@ -57,7 +59,7 @@ A runtime trait selects one or more logical events:
 
 ```toml
 hooks = ["sessionStart", "afterCompaction"]
-body = "Read and follow <skill:pspec-skill-bootstrap> before resolving another skill."
+body = "Use <skill:pspec-smarter-decision> when a task choice needs assessment."
 ```
 
 An agent-qualified selector such as `codex:SessionStart` selects every supported
@@ -108,6 +110,28 @@ If guidance requests a user decision, the request is returned as additional
 context for the agent to present; the hook neither collects an answer nor writes
 variables. Configuration failures remain diagnostics, not invented defaults.
 
+After eligibility, explicit `<skill:name>` mentions receive the same manifest-based
+headings as [generated configuration](context-sync.md). Ordinary skills need no
+Powerspec call. Deferred remote selectors are inspected read-only against declared
+skill names, including wildcard selections. Selector basenames do not establish
+skill identity. No eligible mentions means no remote metadata inspection.
+
+Inspection shares one second per dispatch across executable probes and source
+view/history/path calls. Each blocking operation receives the remaining budget;
+there are no retries, acquisition, repair, native installation lookup, or persistent
+classification caches. The native handler still has its five-second limit.
+
+Missing services/materializations or an exhausted budget produce a separate
+`### Skill metadata unavailable: remote-helper` heading. It tells the agent to
+select the skill natively, inspect that copy for `pspec.toml`, and use the selected
+path for assembly if present. Diagnostics go to stderr; the authored body and
+independent eligible messages remain in the stdout JSON envelope. Unavailable
+selectors may hide duplicate declared names, so incomplete evidence is not treated
+as proof of ordinary behavior. Confirmed dynamic evidence still requires its
+handoff even when another source is unavailable. Later callbacks inspect fresh evidence. Invalid
+readable manifests, missing names after complete inspection, and conflicting known
+classifications remain atomic authored-resource errors.
+
 Conditions are trusted Python rules evaluated through Zuu case18. They can read
 `vars`, call `armed(kind, ref)`, use `which(name)`, inspect `git_root`, and invoke
 `run_json(argv)`. `armed` means selected in the effective bundle after exclusions;
@@ -135,5 +159,7 @@ definition. This host trust decision is separate from ZuAT's ownership record.
 Installation proves only that the registration is present. A successful hook
 process proves only invocation. Native additional-context delivery, the agent's
 subsequent adherence, and execution of a referenced skill are separate outcomes.
-The builtin bootstrap trait supplies a bounded reminder; it does not activate
+Skill reminders are targeted to referenced dynamic skills; they do not activate
 TDD, BDD, or any other workflow by itself.
+
+The universal pre-skill lookup is retired. Native integrations select skills; ordinary skills need no Powerspec call. The former builtin bootstrap trait is an inert compatibility identity. Dynamic entrypoints describe `pspec resolve skill --path "<selected-location>" --agent <agent>` and recognize already-assembled content to avoid recursion.

@@ -7,13 +7,13 @@ the test command contained in the result.
 
 ## Invocation and inputs
 
-Intended invocation: `pspec resolve skill pspec-tdd --agent codex`, from this repository.
+Intended invocation: `pspec resolve skill --path "<native-selected-pspec-tdd>" --agent codex`, from this repository.
 
 - Consumer: `openspec/.pspec/config.toml` selects `@builtin/python-simple-cli`.
 - Selected profile: `.pspec/profiles/python-simple-cli.toml` supplies `language = "python"`, `build_tool = "uv"`, `test_runner = "pytest"`, and `test_command = "uv run pytest"`.
 - The consumer does not override these inputs, and no current.toml exists for this snapshot.
 - The global builtin profile makes bootstrap available; the selected profile makes TDD available. Neither executes a workflow.
-- Skill source: `.pspec/skills/pspec-tdd`, copied to the disposable agent's native user skill directory and located through ZuAT.
+- Skill source: `.pspec/skills/pspec-tdd`, copied to the disposable agent's native user skill directory and supplied by its explicit path.
 - Expected outcome: resolved Markdown on stdout by default; `--json` would return status resolved with the same Markdown in content. Expected pending questions: none. The configured language and Python tooling values bypass their prompts.
 
 ## Dynamic additions
@@ -39,9 +39,7 @@ Relative links retain the installed skill's resource-root meaning.
 
 Use the project's established test tools for one selected development segment.
 
-When pspec-skill-bootstrap supplies resolved content, follow it in order. [pspec.toml](pspec.toml) declares language-specific additions and where they belong in this shared procedure. Follow bootstrap's handling of pending choices and errors; neither means permission to bypass resolution.
-
-For direct use without bootstrap, consult [pspec.toml](pspec.toml) version 2: `section` names an exact destination heading in this document, `pos = "after"` adds content after that section and its descendants, and `source_section` selects a heading and its descendants in the source file. `pos = "replace"` replaces the entire destination section. Establish the language and any inputs required by the selected additions from configuration or accepted scope; ask only for unresolved choices. Substitute declared values once into the selected text before following it. The bundled language resource currently covers Python; report a missing selected language resource rather than inventing a branch or silently omitting it.
+This skill has a dynamic pspec.toml. If you are reading its native entrypoint, request its assembled content before following the procedure: run `pspec resolve skill --path "<this-native-selected-skill-location>" --agent <current-agent>` from the task directory. Include `--change <name>` only for an explicitly active change. Follow pending-answer or error handling from the command. Content already returned by Powerspec is assembled: follow it directly without resolving again or loading every branch.
 
 ## Scope and expected behavior
 
@@ -103,7 +101,7 @@ Return the evidence and remaining work to the user or caller. Completing this se
 
 ## Reviewed outcomes
 
-The shared entrypoint still contains bootstrap and direct-use instructions; they
+The shared entrypoint contains native direct-use instructions; they
 are preserved because the current design retains the shared body. In resolved
 use, its conditional direct-use paragraph does not require a second lookup.
 

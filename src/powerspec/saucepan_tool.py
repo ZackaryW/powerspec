@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+from time import monotonic
 from datetime import timedelta
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from saucepan_sdk.client import shared_executable_path
 from zuu.case16 import GitHubReleaseResolver, parse_version
 from zuu.case17 import FileCheckStateStore, ManagedReleaseBinary, ManagedReleaseBinaryError
 
-from .catalog import ConfigurationError
+from .catalog import ConfigurationError, MetadataUnavailable
 from .utils.inspection import inspect_executable
 
 
@@ -32,25 +33,32 @@ def _saucepan_version(text: str) -> str:
     return output.removeprefix(prefix)
 
 
-def _inspect(path: Path, *arguments: str, parse=None):
+def inspection_remaining(deadline: float) -> float:
+    remaining = deadline - monotonic()
+    if remaining <= 0:
+        raise MetadataUnavailable('skill metadata inspection budget exhausted')
+    return remaining
+
+
+def _inspect(path: Path, *arguments: str, parse=None, deadline=None):
     return inspect_executable(
         [str(path), *arguments],
         cwd=path.parent,
-        timeout=15,
+        timeout=15 if deadline is None else inspection_remaining(deadline),
         parse_version=parse,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
 
 
-def _probe(path: Path) -> str:
-    result = _inspect(path, "--version", parse=_saucepan_version)
+def _probe(path: Path, *, deadline=None) -> str:
+    result = _inspect(path, "--version", parse=_saucepan_version, deadline=deadline)
     if not result.ok:
         raise ValueError(f"Saucepan version inspection failed: {result.kind}")
     return result.version or ""
 
 
-def _validate(path: Path, _tag: str) -> None:
-    result = _inspect(path, "--help")
+def _validate(path: Path, _tag: str, *, deadline=None) -> None:
+    result = _inspect(path, "--help", deadline=deadline)
     if not result.ok:
         raise ValueError(f"Saucepan validation failed: {result.kind}")
 
@@ -83,19 +91,20 @@ def ensure_saucepan_binary(destination: Path | None = None) -> Path:
         raise ConfigurationError(f"cannot install or update Saucepan: {error}") from error
 
 
-def inspect_saucepan_binary(destination: Path | None = None) -> Path:
+def inspect_saucepan_binary(destination: Path | None = None, *, deadline=None) -> Path:
     """Return an existing compatible binary without creating or updating it."""
     target = Path(destination) if destination is not None else shared_executable_path()
     if not target.is_file():
-        raise ConfigurationError(f"Saucepan is not installed at {target}")
+        raise MetadataUnavailable(f"Saucepan is not installed at {target}")
     try:
-        version = _probe(target)
+        options = {} if deadline is None else {'deadline': deadline}
+        version = _probe(target, **options)
         if not _compatible(version):
             raise ValueError(f"unsupported Saucepan version {version}")
-        _validate(target, version)
+        _validate(target, version, **options)
         return target
     except (OSError, subprocess.SubprocessError, ValueError) as error:
-        raise ConfigurationError(f"cannot use existing Saucepan: {error}") from error
+        raise MetadataUnavailable(f"cannot use existing Saucepan: {error}") from error
 
 
 __all__ = ["ensure_saucepan_binary", "inspect_saucepan_binary"]

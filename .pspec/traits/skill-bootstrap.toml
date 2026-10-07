@@ -1,5 +1,3 @@
+# Inert compatibility identity for profiles authored before targeted reminders.
 hooks = ["sessionStart", "afterCompaction"]
-
-body = """
-Before using another skill for the current task, read and follow <skill:pspec-skill-bootstrap>. It explains how to run `pspec resolve skill <name> --agent <current-agent>` from the task's working directory and how to handle resolved content, pending choices, unsupported skills, and errors. Pass `--change <name>` when the calling workflow explicitly supplies an active change. Follow bootstrap directly without resolving it through itself. Resolve only the intended skill; this reminder does not activate every available skill or start TDD, BDD, or another workflow.
-"""
+body = ""

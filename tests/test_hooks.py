@@ -23,6 +23,88 @@ def put(root, relative, content):
     return path
 
 
+@pytest.mark.parametrize('selector', ['remote/skills/folder', 'remote/skills/*'])
+def test_remote_mentions_use_declared_names_fresh_readonly_evidence(tmp_path, selector):
+    from powerspec.catalog import MetadataUnavailable
+    project = consumer(tmp_path)
+    root = tmp_path / 'catalog'
+    remote = tmp_path / 'remote'
+    put(root, 'profiles/main.toml', 'traits=["@builtin/guide", "@builtin/independent"]\n'
+        f'skills=["{selector}"]\n[[source]]\nid="remote"\nprovider="git"\n'
+        'origin="https://example.test/tools"\nreference="main"')
+    put(root, 'traits/guide.toml', 'hooks=["sessionStart"]\nbody="Use <skill:declared> twice: <skill:declared>."')
+    put(root, 'traits/independent.toml', 'hooks=["sessionStart"]\nbody="Independent guidance."')
+    put(remote, 'skills/folder/SKILL.md', '---\nname: declared\n---\n')
+    manifest = put(remote, 'skills/folder/pspec.toml', 'version=2\nentry="SKILL.md"')
+    calls = []
+    available = False
+    def lookup(source, recipe, *, deadline):
+        import time
+        assert 0 < deadline - time.monotonic() <= 1
+        calls.append(source)
+        if not available:
+            raise MetadataUnavailable('service unavailable')
+        return remote
+    configured = Catalog(builtin=root, git_resolver=lookup)
+    diagnostics = []
+    def run():
+        return dispatch(logical_event='sessionStart', agent='codex', cwd=project,
+                        catalog=configured, diagnostics=diagnostics)
+    assert 'Skill metadata unavailable: declared' in run()
+    assert diagnostics == ['service unavailable']
+    available = True
+    output = run()
+    assert 'Skills requiring dynamic resolution: declared\n' in output
+    assert output.endswith('Independent guidance.')
+    assert calls == ['remote', 'remote']
+    manifest.write_text('version=1')
+    with pytest.raises(ConfigurationError, match='manifest version'):
+        run()
+    manifest.unlink()
+    configured.resources['trait', '@builtin/guide'].data['body'] = 'Use <skill:folder>.'
+    with pytest.raises(ConfigurationError, match='unknown selected skill reference folder'):
+        run()
+
+
+def test_ineligible_and_no_reference_traits_never_inspect_remote(tmp_path):
+    project = consumer(tmp_path)
+    root, _ = catalog(tmp_path, 'hooks=["sessionStart"]\nbody="Use <skill:bad>."\nwhen="False"')
+    put(root, 'profiles/main.toml', 'traits=["@builtin/guide"]\nskills=["remote/*"]\n'
+        '[[source]]\nid="remote"\nprovider="git"\norigin="https://example.test/tools"\nreference="main"')
+    configured = Catalog(builtin=root, git_resolver=lambda *a, **kw: pytest.fail('lookup'))
+    assert dispatch(logical_event='sessionStart', agent='codex', cwd=project, catalog=configured) is None
+    configured.resources['trait', '@builtin/guide'].data.update(body='Independent.', when='True')
+    assert dispatch(logical_event='sessionStart', agent='codex', cwd=project, catalog=configured) == 'Independent.'
+
+
+def test_dispatch_budget_exhaustion_does_not_retry_or_suppress_known_guidance(tmp_path, monkeypatch):
+    import powerspec.skill_references as references
+    project = consumer(tmp_path)
+    root = tmp_path / 'catalog'
+    remote = tmp_path / 'remote'
+    put(root, 'profiles/main.toml', 'traits=["@builtin/a", "@builtin/b"]\nskills=["first/*", "second/*"]\n'
+        '[[source]]\nid="first"\nprovider="git"\norigin="https://example.test/first"\nreference="main"\n'
+        '[[source]]\nid="second"\nprovider="git"\norigin="https://example.test/second"\nreference="main"')
+    put(root, 'traits/a.toml', 'hooks=["sessionStart"]\nbody="Use <skill:known> and <skill:unknown>."')
+    put(root, 'traits/b.toml', 'hooks=["sessionStart"]\nbody="Again <skill:unknown>."')
+    put(remote, 'known/SKILL.md', '---\nname: known\n---\n')
+    put(remote, 'known/pspec.toml', 'version=2\nentry="SKILL.md"')
+    clock = [0.0]
+    calls = []
+    monkeypatch.setattr(references, 'monotonic', lambda: clock[0])
+    def lookup(source, recipe, *, deadline):
+        calls.append((source, deadline))
+        clock[0] = deadline
+        return remote
+    diagnostics = []
+    output = dispatch(logical_event='sessionStart', agent='codex', cwd=project,
+                      catalog=Catalog(builtin=root, git_resolver=lookup), diagnostics=diagnostics)
+    assert calls == [('first', 1.0)]
+    assert len(diagnostics) == 1 and 'budget exhausted' in diagnostics[0]
+    assert 'Skills requiring dynamic resolution: known\n' in output
+    assert output.count('Skill metadata unavailable: unknown') == 2
+
+
 def consumer(tmp_path, config='profile="@builtin/main"\n'):
     project = tmp_path / "project"
     project.mkdir(parents=True)

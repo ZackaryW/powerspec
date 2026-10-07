@@ -7,7 +7,7 @@ description: Investigate repository evidence and resolve material feasibility un
 
 Establish the concrete question, the repository boundary, and the evidence needed by the caller. Preserve explicit tool constraints, accepted answers, the active decision policy, and the authority already granted for the task. Use the caller's conversation or artifact for findings; do not create a separate investigation or prototype document by default.
 
-When `pspec-skill-bootstrap` is active, follow its lookup and error handling. A normal installed copy of this skill may return `null` from `pspec resolve skill` because it has no dynamic manifest; in that case, use this skill directly.
+Use this ordinary skill through the agent's native skill integration; no Powerspec lookup is required.
 
 ## Choose an evidence route
 

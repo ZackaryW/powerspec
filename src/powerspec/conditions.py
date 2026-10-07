@@ -10,6 +10,7 @@ from zuu.case18 import RestrictedExecutor
 from .catalog import ConfigurationError, Resource, attachments
 from .consumer import find_git_root, runtime_values, context_values
 from .utils.processes import ProcessJSONError, run_json_object
+from .skill_references import SkillReferences
 
 
 DEFAULT_RUN_JSON_TIMEOUT = 5.0
@@ -104,33 +105,25 @@ PLACEHOLDER = re.compile(r"<skill:([a-z0-9][a-z0-9-]*)>|<([A-Za-z_][A-Za-z0-9_]*
 ATTACHMENT_ID = re.compile(r"[a-z0-9][a-z0-9-]*")
 
 
-def _compile_body(body, resource, values, bundle):
+def _compile_body(body, resource, values, references):
     declared = {item['id'] for item in resource.data.get('compiletime', [])}
-    skills = {target.resource.name for target in bundle.skills}
-    # Runtime dispatch may intentionally defer remote skill materialization.
-    # Exact selected references still establish the authored skill identity;
-    # wildcards do not fabricate names or trigger acquisition.
-    selected_skill_refs = [ref for kind, ref in bundle.selection if kind == 'skill']
-    skills.update(
-        ref.rsplit('/', 1)[-1]
-        for ref in selected_skill_refs
-        if ref.rsplit('/', 1)[-1] not in {'*', '**'}
-    )
-    selected_wildcard = any(ref.rsplit('/', 1)[-1] in {'*', '**'}
-                            for ref in selected_skill_refs)
+    names = dict.fromkeys(match.group(1) for match in PLACEHOLDER.finditer(body) if match.group(1))
     def replace(match):
         skill, variable = match.groups()
         if skill is not None:
-            if skill not in skills and not selected_wildcard:
-                raise ConfigurationError(f"{resource.path}: unknown selected skill reference {skill}")
             return skill
         return str(values[variable]) if variable in declared else match.group(0)
-    return PLACEHOLDER.sub(replace, body).strip()
+    compiled = PLACEHOLDER.sub(replace, body).strip()
+    try:
+        return references.annotate(compiled, names)
+    except ConfigurationError as error:
+        raise ConfigurationError(f"{resource.path}: {error}") from error
 
 
 def context_contributions(bundle, consumer, invocation):
     """Prepare a complete snapshot; rendering/publication belongs to sync."""
     result = []
+    references = SkillReferences(bundle)
     for resource in bundle.contexts:
         values, origins = context_values(resource, consumer, bundle)
         for destination, index, entry in attachments(resource.data):
@@ -143,7 +136,7 @@ def context_contributions(bundle, consumer, invocation):
                 if marker == 'pspec' or any(character.isspace() for character in marker):
                     raise ConfigurationError(f"{location}: invalid generated identifier")
                 result.append(Contribution(
-                    resource, destination, _compile_body(entry['body'], resource, values, bundle),
+                    resource, destination, _compile_body(entry['body'], resource, values, references),
                     MappingProxyType(values), MappingProxyType(origins), marker,
                 ))
     identifiers = [item.identifier for item in result]
@@ -153,7 +146,7 @@ def context_contributions(bundle, consumer, invocation):
 
 
 def trait_contributions(bundle, consumer, invocation, *, matching_refs, change=None,
-                        isolate_probe_failures=False, diagnostics=None):
+                        isolate_probe_failures=False, diagnostics=None, references=None):
     """Evaluate selected traits already event-matched by the delivery caller.
 
     Native callback mapping and output delivery belong to the hook adapter.
@@ -163,6 +156,7 @@ def trait_contributions(bundle, consumer, invocation, *, matching_refs, change=N
     matching = set(matching_refs)
     values, origins = runtime_values(consumer, bundle, change=change)
     result = []
+    references = references or SkillReferences(bundle)
     for resource in bundle.traits:
         if resource.ref not in matching:
             continue
@@ -178,6 +172,6 @@ def trait_contributions(bundle, consumer, invocation, *, matching_refs, change=N
             continue
         if included:
             result.append(Contribution(resource, None,
-                                       _compile_body(resource.data['body'], resource, values, bundle),
+                                       _compile_body(resource.data['body'], resource, values, references),
                                        MappingProxyType(values), MappingProxyType(origins)))
     return tuple(result)

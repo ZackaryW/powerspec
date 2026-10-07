@@ -15,6 +15,10 @@ class ConfigurationError(ValueError):
     """A resource or consumer contract was violated."""
 
 
+class MetadataUnavailable(ConfigurationError):
+    """Read-only remote evidence could not be obtained operationally."""
+
+
 KINDS = {"profile", "context", "trait", "skill"}
 NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
 SAFE_YAML = YAML(typ="safe")
@@ -130,6 +134,22 @@ class Resource:
     provenance: Mapping | None = None
 
 
+def skill_metadata(path: Path, root: Path):
+    Catalog._contained(path, root)
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+        lines = text.splitlines()
+        if not lines or lines[0] != "---":
+            raise ValueError("missing skill frontmatter")
+        end = lines.index("---", 1)
+        data = SAFE_YAML.load("\n".join(lines[1:end]))
+        name = data.get("name") if isinstance(data, dict) else None
+        if not isinstance(name, str) or not NAME.fullmatch(name):
+            raise ValueError("skill name must contain lowercase letters, numbers, and hyphens")
+        return name, data
+    except (OSError, ValueError, YAMLError) as error:
+        raise ConfigurationError(f"{path}: {error}") from error
+
 class Catalog:
     """Inject builtin explicitly; sources and gitsources are already materialized.
 
@@ -193,21 +213,7 @@ class Catalog:
             raise ConfigurationError(f"{resource.path}: duplicate {resource.kind} identity {resource.ref}")
         self.resources[key] = resource
 
-    def _skill(self, path, root):
-        self._contained(path, root)
-        try:
-            text = path.read_text(encoding="utf-8-sig")
-            lines = text.splitlines()
-            if not lines or lines[0] != "---":
-                raise ValueError("missing skill frontmatter")
-            end = lines.index("---", 1)
-            data = SAFE_YAML.load("\n".join(lines[1:end]))
-            name = data.get("name") if isinstance(data, dict) else None
-            if not isinstance(name, str) or not NAME.fullmatch(name):
-                raise ValueError("skill name must contain lowercase letters, numbers, and hyphens")
-            return name, data
-        except (OSError, ValueError, YAMLError) as error:
-            raise ConfigurationError(f"{path}: {error}") from error
+    _skill = staticmethod(skill_metadata)
 
     def _catalog(self, source, root):
         root = root.resolve(strict=True)
@@ -239,13 +245,13 @@ class Catalog:
         except KeyError:
             raise ConfigurationError(f"missing {kind}: {ref}") from None
 
-    def select(self, kind, ref, *, allow_empty=False):
+    def select(self, kind, ref, *, allow_empty=False, deadline=None):
         if kind == "skill":
             skill_reference(ref, wildcard=True)
         else:
             reference(ref)
         if kind == "skill" and is_git_skill_reference(ref):
-            return self._select_git(ref, allow_empty=allow_empty)
+            return self._select_git(ref, allow_empty=allow_empty, deadline=deadline)
         if "*" not in ref:
             return (self.get(kind, ref),)
         prefix, pattern = ref.rsplit("/", 1)
@@ -258,7 +264,7 @@ class Catalog:
             raise ConfigurationError(f"no materialized resources for selector: {ref}")
         return matched
 
-    def _select_git(self, ref, *, allow_empty=False):
+    def _select_git(self, ref, *, allow_empty=False, deadline=None):
         parts = ref.split("/")
         source, selector = parts[0], parts[1:]
         try:
@@ -269,8 +275,9 @@ class Catalog:
             except KeyError:
                 raise ConfigurationError(f"missing source declaration for Git source alias: {source}") from None
             if self.git_resolver is None:
-                raise ConfigurationError(f"Git source alias is not materialized: {source}") from None
-            self._git_source(source, self.git_resolver(source, dict(recipe)))
+                raise MetadataUnavailable(f"Git source alias is not materialized: {source}") from None
+            options = {} if deadline is None else {'deadline': deadline}
+            self._git_source(source, self.git_resolver(source, dict(recipe), **options))
             root, materialization = self.gitsources[source]
         pattern = selector[-1] if selector else None
         prefix = root.joinpath(*selector[:-1]) if pattern in {"*", "**"} else root.joinpath(*selector)

@@ -13,8 +13,8 @@ from urllib.request import url2pathname
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from saucepan_sdk import Saucepan, SaucepanError
 
-from .catalog import ConfigurationError, NAME
-from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary
+from .catalog import ConfigurationError, MetadataUnavailable, NAME
+from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary, inspection_remaining
 
 
 class _WireModel(BaseModel):
@@ -80,15 +80,22 @@ class SaucepanSources:
         self._client = client
         self._manage_binary = manage_binary
 
-    def _client_or_default(self):
+    def _client_or_default(self, *, deadline=None):
         if self._client is None:
             binary = (
                 ensure_saucepan_binary()
-                if self._manage_binary
-                else inspect_saucepan_binary()
+                if self._manage_binary and deadline is None
+                else inspect_saucepan_binary(**({} if deadline is None else {'deadline': deadline}))
             )
             self._client = Saucepan(binary=binary)
         return self._client
+
+    def _read(self, app, method, *args, deadline=None):
+        if deadline is not None:
+            # Construct through the public SDK API for each remaining allowance.
+            app = Saucepan(binary=self._client.binary,
+                           timeout=inspection_remaining(deadline)).for_app(self.APP)
+        return getattr(app, method)(*args)
 
     @staticmethod
     def _identity(identity: str) -> str:
@@ -156,14 +163,14 @@ class SaucepanSources:
         left_remote, right_remote = cls._remote_origin(left.origin), cls._remote_origin(right.origin)
         return left_remote is not None and right_remote is not None and left_remote == right_remote
 
-    def _application(self, *, create: bool):
-        client = self._client_or_default()
+    def _application(self, *, create: bool, deadline=None):
+        client = self._client_or_default(deadline=deadline)
         app = client.for_app(self.APP)
         try:
-            view = _View.model_validate(app.view())
+            view = _View.model_validate(self._read(app, 'view', deadline=deadline))
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
             if not create:
-                raise ConfigurationError(f"Powerspec Saucepan application is unavailable: {error}") from error
+                raise MetadataUnavailable(f"Powerspec Saucepan application is unavailable: {error}") from error
             if any(self._missing(error, message) for message in (
                 "store index is missing", "store secret is missing",
             )):
@@ -195,48 +202,51 @@ class SaucepanSources:
             )
         return app, view
 
-    def _binding(self, identity: str, source: _GitSource, app, view: _View) -> SourceBinding:
+    def _binding(self, identity: str, source: _GitSource, app, view: _View, *, deadline=None) -> SourceBinding:
         matched = [item for item in view.entries.values() if self._same_source(item.source, source)]
         source_ids = {item.source_id for item in matched}
         if not source_ids:
-            raise ConfigurationError(f"Git source {identity!r} has no current materialization in Saucepan")
+            raise MetadataUnavailable(f"Git source {identity!r} has no current materialization in Saucepan")
         if len(source_ids) != 1:
             raise ConfigurationError(
                 f"Git source {identity!r} is ambiguous in Saucepan: found {len(source_ids)} matching sources"
             )
         source_id = next(iter(source_ids))
         try:
-            history = _History.model_validate(app.history(source_id))
+            history = _History.model_validate(self._read(app, 'history', source_id, deadline=deadline))
         except (SaucepanError, ValidationError, OSError, ValueError) as error:
-            raise ConfigurationError(f"cannot inspect Saucepan source {identity!r}: {error}") from error
+            raise MetadataUnavailable(f"cannot inspect Saucepan source {identity!r}: {error}") from error
         if not self._same_source(history.source, source):
             raise ConfigurationError(f"Saucepan history does not match declared recipe for {identity!r}")
         if history.current is None:
-            raise ConfigurationError(f"Saucepan source {identity!r} has no current materialization")
+            raise MetadataUnavailable(f"Saucepan source {identity!r} has no current materialization")
         candidates = [item for item in matched
                       if item.snapshot_id == history.current.id and item.folder is None]
         if len(candidates) != 1:
-            raise ConfigurationError(
+            raise MetadataUnavailable(
                 f"Saucepan source {identity!r} has no unique full-repository current artifact"
             )
         artifact = candidates[0]
         try:
-            located = app.path(artifact.id)
+            located = self._read(app, 'path', artifact.id, deadline=deadline)
         except (SaucepanError, OSError, ValueError) as error:
-            raise ConfigurationError(f"cannot locate Saucepan source {identity!r}: {error}") from error
+            raise MetadataUnavailable(f"cannot locate Saucepan source {identity!r}: {error}") from error
         if not located:
-            raise ConfigurationError(f"Saucepan source {identity!r} materialization is missing")
-        root = Path(located).resolve(strict=True)
+            raise MetadataUnavailable(f"Saucepan source {identity!r} materialization is missing")
+        try:
+            root = Path(located).resolve(strict=True)
+        except OSError as error:
+            raise MetadataUnavailable(f"Saucepan source {identity!r} materialization is unavailable: {error}") from error
         if not root.is_dir():
             raise ConfigurationError(f"Saucepan source {identity!r} is not a directory: {root}")
         return SourceBinding(identity, source.origin, source.reference, artifact.revision,
                              source_id, artifact.id, root)
 
-    def lookup(self, identity: str, recipe) -> SourceBinding:
+    def lookup(self, identity: str, recipe, *, deadline=None) -> SourceBinding:
         """Return the current complete materialization without fetching or repair."""
         source = self._source(identity, recipe)
-        app, view = self._application(create=False)
-        return self._binding(identity, source, app, view)
+        app, view = self._application(create=False, deadline=deadline)
+        return self._binding(identity, source, app, view, deadline=deadline)
 
     def _acquire(self, identity: str, source: _GitSource, app) -> SourceBinding:
         try:

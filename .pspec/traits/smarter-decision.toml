@@ -1,5 +1,5 @@
 hooks = ["sessionStart", "afterCompaction"]
 
 body = """
-Use <skill:pspec-smarter-decision> when unresolved choices affect the current task. Follow its effective decision_level; preserve explicit user choices and answers already settled. The skill controls when to infer, recommend, or ask, without expanding the task or starting another workflow. Resolve it through pspec-skill-bootstrap when that bootstrap is active. This reminder does not require a mode-selection question.
+Use <skill:pspec-smarter-decision> when unresolved choices affect the current task. Follow its effective decision_level; preserve explicit user choices and answers already settled. The skill controls when to infer, recommend, or ask, without expanding the task or starting another workflow. This reminder does not require a mode-selection question.
 """

@@ -7,7 +7,7 @@ description: Assess unresolved task choices and decide whether to infer, recomme
 
 Control the amount of user involvement in decisions within the accepted task. Preserve the user's scope, explicit choices, and prior answers. This skill does not select a development process or authorize implementation, publication, or external actions.
 
-When bootstrap supplies resolved content, follow it and its handling of pending choices or errors. The manifest selects only the effective decision policy. For direct use without bootstrap, use the supplied decision_level, or balanced when none is supplied, and read only the matching file under modes/. Accepted user instructions can select another level; do not silently substitute a default for an invalid configured level.
+This skill has a dynamic pspec.toml. If you are reading its native entrypoint, request its assembled content before following the procedure: run `pspec resolve skill --path "<this-native-selected-skill-location>" --agent <current-agent>` from the task directory. Include `--change <name>` only for an explicitly active change. Follow pending-answer or error handling from the command. Content already returned by Powerspec is assembled: follow it directly without resolving again or loading every branch.
 
 ## Establish what is unresolved
 

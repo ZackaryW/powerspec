@@ -7,9 +7,7 @@ description: Develop selected software behavior through observed red, green, and
 
 Use the project's established test tools for one selected development segment.
 
-When pspec-skill-bootstrap supplies resolved content, follow it in order. [pspec.toml](pspec.toml) declares language-specific additions and where they belong in this shared procedure. Follow bootstrap's handling of pending choices and errors; neither means permission to bypass resolution.
-
-For direct use without bootstrap, consult [pspec.toml](pspec.toml) version 2: `section` names an exact destination heading in this document, `pos = "after"` adds content after that section and its descendants, and `source_section` selects a heading and its descendants in the source file. `pos = "replace"` replaces the entire destination section. Establish the language and any inputs required by the selected additions from configuration or accepted scope; ask only for unresolved choices. Substitute declared values once into the selected text before following it. The bundled language resource currently covers Python; report a missing selected language resource rather than inventing a branch or silently omitting it.
+This skill has a dynamic pspec.toml. If you are reading its native entrypoint, request its assembled content before following the procedure: run `pspec resolve skill --path "<this-native-selected-skill-location>" --agent <current-agent>` from the task directory. Include `--change <name>` only for an explicitly active change. Follow pending-answer or error handling from the command. Content already returned by Powerspec is assembled: follow it directly without resolving again or loading every branch.
 
 ## Scope and expected behavior
 

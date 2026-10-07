@@ -225,7 +225,8 @@ body="Use <skill:remote-skill>."
                        resolve_remote_skills=False)
     result = trait_contributions(selected, None, Invocation(tmp_path),
                                  matching_refs=['@builtin/reminder'])
-    assert result[0].body == 'Use remote-skill.'
+    assert result[0].body.startswith('### Skill metadata unavailable: remote-skill')
+    assert result[0].body.endswith('Use remote-skill.')
 
 
 def test_trait_compiles_name_covered_by_deferred_remote_wildcard(tmp_path):
@@ -246,4 +247,82 @@ body="Use <skill:remote-skill>."
                        resolve_remote_skills=False)
     result = trait_contributions(selected, None, Invocation(tmp_path),
                                  matching_refs=['@builtin/reminder'])
-    assert result[0].body == 'Use remote-skill.'
+    assert result[0].body.startswith('### Skill metadata unavailable: remote-skill')
+    assert result[0].body.endswith('Use remote-skill.')
+
+
+@pytest.mark.parametrize('manifest', [
+    'version=2\nentry="SKILL.md"',
+    'version=2\nentry="SKILL.md"\n[[input]]\nid="answer"\ntype="string"',
+    'version=2\nentry="SKILL.md"\n[[input]]\nid="enabled"\ntype="boolean"\ndefault=false\n'
+    '[[dynamic]]\nsection="Missing anchor"\npos="after"\npath="unread.md"\n[dynamic.when]\nenabled=true',
+])
+def test_reference_classification_is_manifest_only_and_single_pass(tmp_path, bundle, manifest):
+    put(tmp_path, 'skills/folder/pspec.toml', manifest)
+    context = bundle.contexts[0]
+    context.data['compiletime'] = [{'id': 'label', 'type': 'string'}]
+    context.data['attach']['context'] = [{'body': '<label> Use <skill:example> and <skill:example>.'}]
+    result = context_contributions(bundle, None, Invocation(tmp_path))[0]
+    assert result.body.startswith('### Skills requiring dynamic resolution: example\n')
+    assert '--path "<selected-skill-location>"' in result.body
+    assert result.body.endswith('profile Use example and example.')
+    assert result.identifier == '@builtin/example/context/1'
+    # Introduced tokens never cause classification or recursive substitution.
+    context.data['attach']['context'] = [{'body': 'Use <label>.'}]
+    from dataclasses import replace
+    changed = replace(bundle, selected_defaults={'label': '<skill:example>'})
+    assert context_contributions(changed, None, Invocation(tmp_path))[0].body == 'Use <skill:example>.'
+
+
+@pytest.mark.parametrize('manifest', ['version=1', 'version=2\nentry="SKILL.md"\ninput=1', 'not toml'])
+def test_invalid_manifest_only_fails_for_eligible_explicit_mentions(tmp_path, bundle, manifest):
+    put(tmp_path, 'skills/folder/pspec.toml', manifest)
+    context = bundle.contexts[0]
+    context.data['attach']['context'] = [{'body': '<skill:example>', 'when': 'False'}, {'body': 'example'}]
+    assert [c.body for c in context_contributions(bundle, None, Invocation(tmp_path))] == ['example']
+    context.data['attach']['context'][0]['when'] = 'True'
+    with pytest.raises(ConfigurationError, match='pspec.toml'):
+        context_contributions(bundle, None, Invocation(tmp_path))
+
+
+def test_duplicate_names_require_consistent_manifest_classification(tmp_path, bundle):
+    from dataclasses import replace
+    put(tmp_path, 'other/SKILL.md', '---\nname: example\n---\n')
+    duplicate = replace(bundle.skills[0], resource=replace(bundle.skills[0].resource,
+                         ref='@other/example', path=tmp_path / 'other/SKILL.md'))
+    bundle = replace(bundle, skills=(*bundle.skills, bundle.skills[0], duplicate))
+    bundle.contexts[0].data['attach']['context'] = [{'body': 'Use <skill:example>.'}]
+    assert context_contributions(bundle, None, Invocation(tmp_path))[0].body == 'Use example.'
+    put(tmp_path, 'other/pspec.toml', 'version=2\nentry="SKILL.md"')
+    with pytest.raises(ConfigurationError, match='conflicting.*example'):
+        context_contributions(bundle, None, Invocation(tmp_path))
+
+
+def test_manifest_read_error_is_not_ordinary(tmp_path, bundle, monkeypatch):
+    from pathlib import Path
+    manifest = tmp_path / 'skills/folder/pspec.toml'
+    put(tmp_path, 'skills/folder/pspec.toml', 'version=2\nentry="SKILL.md"')
+    bundle.contexts[0].data['attach']['context'] = [{'body': '<skill:example>'}]
+    original = Path.open
+    def read(path, *args, **kwargs):
+        if path == manifest:
+            raise PermissionError('denied')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', read)
+    with pytest.raises(ConfigurationError, match='denied'):
+        context_contributions(bundle, None, Invocation(tmp_path))
+
+
+def test_manifest_canonical_path_must_stay_in_skill_root(tmp_path, bundle, monkeypatch):
+    from pathlib import Path
+    manifest = tmp_path / 'skills/folder/pspec.toml'
+    put(tmp_path, 'skills/folder/pspec.toml', 'version=2\nentry="SKILL.md"')
+    bundle.contexts[0].data['attach']['context'] = [{'body': '<skill:example>'}]
+    original = Path.resolve
+    def resolve(path, *args, **kwargs):
+        if path == manifest:
+            return tmp_path / 'outside.toml'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'resolve', resolve)
+    with pytest.raises(ConfigurationError, match='escapes skill root'):
+        context_contributions(bundle, None, Invocation(tmp_path))

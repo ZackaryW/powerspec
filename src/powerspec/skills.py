@@ -8,7 +8,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from .catalog import ConfigurationError, read_toml
+from .catalog import ConfigurationError, read_toml, skill_metadata
 from .consumer import runtime_values
 from .models import VALUE_ADAPTERS
 from .utils.dependencies import dependency_order
@@ -149,6 +149,11 @@ def _relative_pattern(value: str, *, allow_glob=True) -> Path:
 
 def load_manifest(path: Path) -> SkillManifest:
     path = Path(path)
+    try:
+        if not path.resolve(strict=True).is_relative_to(path.parent.resolve(strict=True)):
+            raise ConfigurationError(f"{path}: manifest escapes skill root")
+    except OSError as error:
+        raise ConfigurationError(f"{path}: {error}") from error
     data = read_toml(path)
     version = data.get("version") if isinstance(data, dict) else None
     if version != 2:
@@ -157,7 +162,7 @@ def load_manifest(path: Path) -> SkillManifest:
         )
     if "hint" in data:
         raise ConfigurationError(f"{path}: version 2 removed [[hint]] declarations")
-    for item in data.get("input", ()):
+    for item in (data["input"] if isinstance(data.get("input"), list) else ()):
         if not isinstance(item, dict):
             continue
         parser = item.get("parser")
@@ -167,7 +172,7 @@ def load_manifest(path: Path) -> SkillManifest:
             )
         if isinstance(parser, dict) and "default_hint" in parser:
             raise ConfigurationError(f"{path}: version 2 removed parser default_hint")
-    for item in data.get("dynamic", ()):
+    for item in (data["dynamic"] if isinstance(data.get("dynamic"), list) else ()):
         if isinstance(item, dict) and item.get("pos") in {"before", "combine"}:
             raise ConfigurationError(
                 f"{path}: version 2 removed dynamic position {item['pos']!r}; use 'after' or 'replace'"
@@ -176,6 +181,19 @@ def load_manifest(path: Path) -> SkillManifest:
         return SkillManifest.model_validate(data)
     except (ValidationError, ValueError) as error:
         raise ConfigurationError(f"{path}: {error}") from error
+
+
+def manifest_supported(root: Path) -> bool:
+    """Validate metadata only; absence differs from unreadable or broken entries."""
+    path = root / "pspec.toml"
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return False
+    except OSError as error:
+        raise ConfigurationError(f"{path}: {error}") from error
+    load_manifest(path)
+    return True
 
 
 def resolve_inputs(manifest: SkillManifest, bundle, consumer, *, needed, change=None) -> InputResult:
@@ -435,6 +453,22 @@ def _source_text(root: Path, item: Dynamic, values: dict[str, Any]) -> str:
     if item.source_section is not None:
         source = section(source, item.source_section, location=root / relative).text
     return source
+
+
+def selected_skill(path: Path) -> tuple[Path, str]:
+    """Consume caller selection without querying native installation state."""
+    requested = Path(path)
+    resolved = requested.resolve(strict=True)
+    if resolved.is_dir():
+        root = resolved
+    elif requested.name in {"SKILL.md", "pspec.toml"} and resolved.is_file():
+        root = requested.parent.resolve(strict=True)
+        if not resolved.is_relative_to(root):
+            raise ConfigurationError(f"{requested}: selected file escapes skill root")
+    else:
+        raise ConfigurationError(f"{requested}: expected a skill directory, SKILL.md, or pspec.toml")
+    name, _ = skill_metadata(root / "SKILL.md", root)
+    return root, name
 
 
 def resolve_skill(root: Path, bundle, consumer, *, change: str | None = None) -> SkillResolution:

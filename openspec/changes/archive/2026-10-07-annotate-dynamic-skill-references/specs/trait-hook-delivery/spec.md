@@ -1,10 +1,6 @@
-# Trait Hook Delivery Specification
+# Spec Delta
 
-## Purpose
-
-Deliver trait-owned guidance through portable logical hook selection and verified native callbacks using each event's current consumer configuration.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Bootstrap discovery uses runtime trait guidance
 
@@ -94,36 +90,6 @@ An operational failure to obtain remote metadata, including absence or timeout, 
 - **WHEN** a later supported callback can inspect metadata that was previously unavailable
 - **THEN** that callback classifies the reference from current evidence rather than reusing the prior unknown result
 
-### Requirement: Hook guidance uses fresh Python conditions
-
-Event-matched, non-excluded traits SHALL support an optional top-level Python when string through profile-skill-bundles. Dispatch SHALL bind the event's invocation cwd/environment, enclosing Git root including worktrees, and effective runtime vars. Change layers SHALL participate only with an explicit caller selector. Omission SHALL be unconditional; guarded bodies SHALL participate only when the result is Boolean true.
-
-Results SHALL be fresh at each matched Powerspec lifecycle boundary without persistence or cross-call caching. False SHALL omit only that trait, preserving other guidance and generic registrations. Variable keys SHALL NOT shadow capability names or fabricate probe results. Syntax/name/non-Boolean errors and unavailable required context SHALL be diagnostics without successful partial output. An operational run_json failure SHALL be diagnosed and omit only its owning optional trait while preserving successfully resolved unrelated trait guidance. No consumer or no eligible contribution SHALL execute any condition. Markers SHALL NOT establish index health. Conditions SHALL retain the foundation's trusted-rule contract without an isolation guarantee.
-
-#### Scenario: Executable without local marker
-- **WHEN** a trait requires which('codegraph') is not None and (git_root / '.codegraph').is_dir() but the directory is absent
-- **THEN** it is omitted without suppressing unrelated unguarded guidance or changing registrations
-
-#### Scenario: Availability changes during a session
-- **WHEN** a tool or marker is added after one matched callback and before a later startup, clear, fork, or compaction callback
-- **THEN** the later evaluation observes it without sync, reinstall, or reuse of the prior result
-
-#### Scenario: Service readiness is false
-- **WHEN** zmem service doctor returns valid object JSON with ok=false
-- **THEN** the expression testing .get('ok') is True omits only the Zmem trait
-
-#### Scenario: Service probe fails
-- **WHEN** the Zmem trait's eligible run_json call times out, exits nonzero, or returns invalid JSON
-- **THEN** dispatch reports the Zmem diagnostic, omits its guidance, and still returns unrelated successfully resolved guidance
-
-#### Scenario: Runtime value affects selection
-- **WHEN** vars is read with an explicitly selected change supplying the winning runtime value
-- **THEN** it follows runtime precedence without unrelated skill questions
-
-#### Scenario: Ineligible event
-- **WHEN** a trait is excluded from the invoked callback or no Powerspec callback is mapped to the native event
-- **THEN** its condition is not executed and other guidance remains eligible at their own matched boundaries
-
 ### Requirement: Powerspec owns portable hook selection
 
 Powerspec SHALL define logical hook selectors, agent-qualified native selectors, and exclusions prefixed with ~ on runtime traits. Powerspec SHALL own their mapping to native callbacks and agent response serialization; ZuAT SHALL manage the generated native assets. A supported context-delivery mapping SHALL require that the selected callback can actually deliver guidance to the agent. Unsupported mappings SHALL be reported rather than fabricated. For each trait, positive selectors SHALL be expanded before exclusions are applied. An agent-qualified negative selector SHALL exclude only the named native callback for that trait. It SHALL NOT suppress other traits, other callbacks for the same logical event, or the generic dispatcher registration.
@@ -159,36 +125,32 @@ Codex sessionStart SHALL map only to native SessionStart sources startup and cle
 - **WHEN** a supported compact context-delivery callback fires for that consumer
 - **THEN** the dispatcher restores the eligible targeted headings using current consumer configuration and metadata without adding a universal lookup requirement
 
-### Requirement: Provision generic user-level hook dispatchers through ZuAT
+### Requirement: Hook guidance uses fresh Python conditions
 
-Powerspec provisioning SHALL install generic `pspec resolve hook` command registrations on the explicitly selected agent's supported user-level hook surfaces through ZuAT. Every generated advisory command handler SHALL carry an explicit timeout of no more than five seconds and a concise status message. Registrations SHALL carry the native context needed to select guidance at invocation rather than embedding one consumer's profile or trait body, and SHALL NOT return a blocking host decision. Unsupported surfaces SHALL be reported without guessing native events or falling back to repository-local installation.
+Event-matched, non-excluded traits SHALL support an optional top-level Python when string through profile-skill-bundles. Dispatch SHALL bind the event's invocation cwd/environment, enclosing Git root including worktrees, and effective runtime vars. Change layers SHALL participate only with an explicit caller selector. Omission SHALL be unconditional; guarded bodies SHALL participate only when the result is Boolean true.
 
-Repeated provisioning SHALL preserve unrelated hooks/settings, reuse matching registrations, and report modified or unmanaged conflicts without silently overwriting them. Reconciliation SHALL replace safely owned earlier Powerspec registrations, including legacy command aliases and broader resume matchers, without retaining duplicate callbacks. It SHALL NOT remove or rewrite callbacks owned by another tool. Guidance selection SHALL remain a trait-level concern.
+Results SHALL be fresh at each matched Powerspec lifecycle boundary without persistence or cross-call caching. False SHALL omit only that trait, preserving other guidance and generic registrations. Variable keys SHALL NOT shadow capability names or fabricate probe results. Syntax/name/non-Boolean errors and unavailable required context SHALL be diagnostics without successful partial output. An operational run_json failure SHALL be diagnosed and omit only its owning optional trait while preserving successfully resolved unrelated trait guidance. No consumer or no eligible contribution SHALL execute any condition. Markers SHALL NOT establish index health. Conditions SHALL retain the foundation's trusted-rule contract without an isolation guarantee.
 
-#### Scenario: Repeated dispatcher provisioning
-- **WHEN** the selected agent already has matching bounded Powerspec registrations alongside unrelated hooks
-- **THEN** provisioning preserves unrelated entries and does not duplicate Powerspec callbacks
+#### Scenario: Executable without local marker
+- **WHEN** a trait requires which('codegraph') is not None and (git_root / '.codegraph').is_dir() but the directory is absent
+- **THEN** it is omitted without suppressing unrelated unguarded guidance or changing registrations
 
-#### Scenario: Safely owned earlier callback shape
-- **WHEN** ZuAT identifies an unmodified Powerspec-owned registration using a legacy command or resume matcher
-- **THEN** provisioning replaces it with the current bounded registration and leaves unrelated providers untouched
+#### Scenario: Availability changes during a session
+- **WHEN** a tool or marker is added after one matched callback and before a later startup, clear, fork, or compaction callback
+- **THEN** the later evaluation observes it without sync, reinstall, or reuse of the prior result
 
-#### Scenario: Consumer changes its selected hook traits
-- **WHEN** a consumer changes profile selection after user-level hooks have been installed
-- **THEN** subsequent matching lifecycle callbacks resolve that consumer's new effective hook traits without rewriting shared registrations
+#### Scenario: Service readiness is false
+- **WHEN** zmem service doctor returns valid object JSON with ok=false
+- **THEN** the expression testing .get('ok') is True omits only the Zmem trait
 
-### Requirement: Native matchers own event source filtering
+#### Scenario: Service probe fails
+- **WHEN** the Zmem trait's eligible run_json call times out, exits nonzero, or returns invalid JSON
+- **THEN** dispatch reports the Zmem diagnostic, omits its guidance, and still returns unrelated successfully resolved guidance
 
-Installed native registration matchers SHALL select which supported lifecycle callbacks invoke Powerspec. The command's event and agent arguments SHALL select the corresponding supported mapping without inspecting stdin to revalidate native event names or source fields. Direct invocation of a supported logical event SHALL resolve its guidance without claiming that a native lifecycle event occurred. Existing startup, clear, supported fork, and compaction mappings, forbidden high-frequency registrations, five-second native handler timeouts, and per-trait exclusions SHALL remain in force.
+#### Scenario: Runtime value affects selection
+- **WHEN** vars is read with an explicitly selected change supplying the winning runtime value
+- **THEN** it follows runtime precedence without unrelated skill questions
 
-#### Scenario: Resume does not start Powerspec
-- **WHEN** the native host emits SessionStart with source resume
-- **THEN** no installed Powerspec matcher selects it and no Powerspec condition or doctor runs for that event
-
-#### Scenario: Compaction maps through arguments
-- **WHEN** the compact matcher invokes `pspec resolve hook afterCompaction --agent codex`
-- **THEN** Powerspec selects afterCompaction guidance and emits the supported SessionStart additional-context response without inspecting a native source field
-
-#### Scenario: Direct inspection of guidance
-- **WHEN** a caller explicitly runs `pspec resolve hook sessionStart --agent claude` in a configured consumer
-- **THEN** the command returns applicable guidance without requiring proof of a native SessionStart event and without claiming the agent followed it
+#### Scenario: Ineligible event
+- **WHEN** a trait is excluded from the invoked callback or no Powerspec callback is mapped to the native event
+- **THEN** its condition is not executed and other guidance remains eligible at their own matched boundaries

@@ -39,11 +39,11 @@ Declared `<name>` values are substituted once after assembly. Values introduced 
 
 ## Command outcomes
 
-Run `pspec resolve skill <name> --agent <agent>` or its `powerspec` alias. Add `--change <name>` only when resolving an explicit OpenSpec change, `--selected <installed-path>` when the host reports which native copy it loaded, and `--json` for structured output. The removed top-level `pspec skill` form is not supported; use `pspec resolve skill`.
+Run `pspec resolve skill --path "<native-selected-location>" --agent <agent>` (or `powerspec`). Supply the directory, SKILL.md, or pspec.toml selected by the agent's native integration. Powerspec does not search installations or validate scope precedence. Keep the task cwd for project configuration; add `--change` only for an explicit active change. Former positional-name and `--selected` calls fail with migration instructions.
 
-- `null` means ZuAT located the skill selected by that agent and the installed copy has no `pspec.toml`. The agent follows the ordinary installed skill.
-- A pending result contains typed questions, allowed choices, unpersisted suggestions, and the exact shared or change-scoped `current.toml` answer location. It withholds procedural content. Record only a confirmed answer, then rerun the same agent/change/selected-path command.
-- A resolved result is assembled Markdown by default. JSON returns `status = resolved` and the identical Markdown in `content`.
-- Lookup ambiguity, unsupported agents, invalid selected evidence, malformed manifests, invalid configured values, missing active resources, and ambiguous sections are errors on stderr with a nonzero exit. They never fall back to normal skill handling and never emit a success payload.
+- Resolved Markdown is returned directly; `--json` includes status, skill, canonical skill_path, agent, change, and content.
+- Pending results withhold the procedure and describe unanswered inputs, the owning answer location, and the same path-based rerun. JSON includes questions and skill_path. Confirm answers before recording them; resolution never reads stdin or writes answers.
+- Literal `null` means the explicitly supplied existing skill has no manifest. Follow that copy normally. Ordinary native skills do not require a Powerspec probe.
+- Invalid paths, unreadable/malformed manifests, invalid configuration, and content errors fail on stderr without a success payload. An unavailable executable is a failure, not null.
 
-Installed lookup is a read-only call to ZuAT for one explicit agent. Powerspec does not observe, register, install, enable, disable, or choose between coexisting native copies. If the `pspec` executable itself is unavailable, the bootstrap skill tells the agent to report that limitation and use the installed skill normally; a malformed manifest is a different case and remains an error.
+Generated guidance identifies referenced dynamic skills beside their mentions. Bundled dynamic entrypoints also explain direct invocation. The selected copy remains authoritative if it differs from the catalog version. Installation and upgrade remain separate lifecycle operations.

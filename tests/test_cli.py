@@ -127,12 +127,12 @@ def test_installed_entrypoints_clear_one_change(name, tmp_path):
 @pytest.mark.parametrize("name", ["pspec", "powerspec"])
 def test_installed_entrypoints_report_missing_skill(name, tmp_path):
     result = run_process(
-        [console(name), "resolve", "skill", "pspec-tdd", "--agent", "codex", "--json"], tmp_path,
+        [console(name), "resolve", "skill", "--path", str(tmp_path / "pspec-tdd"), "--agent", "codex", "--json"], tmp_path,
         home=tmp_path / "empty-home",
     )
     assert result.returncode == 1
     assert result.stdout == ""
-    assert "missing" in result.stderr.lower() and "pspec-tdd" in result.stderr
+    assert "pspec-tdd" in result.stderr
     assert list(tmp_path.iterdir()) == []
 
 

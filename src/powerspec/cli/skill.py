@@ -1,32 +1,32 @@
-"""Resolve installed skill content for one explicit agent."""
+"""Resolve content at the caller's native-selected skill location."""
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated, Any
 import json
+import sys
 
 import typer
 
 from ..catalog import Catalog, ConfigurationError
 from ..consumer import discover_consumer
-from ..installed import installed_skill
 from ..profiles import compose
 from ..resources import builtin_catalog_root
-from ..skills import Question, resolve_skill
+from ..skills import Question, manifest_supported, resolve_skill, selected_skill
 
 
 def _bundle(cwd: Path, agent: str, consumer, root: Path):
     if consumer is None:
         return SimpleNamespace(selected_defaults={}, global_defaults={})
-    catalog = Catalog(builtin=root)
+    catalog = Catalog(builtin=root, sources={'local': consumer.config_path.parent})
     return compose(
         catalog,
         consumer.config.profile,
         agent=agent,
         project_root=consumer.git_root,
         exclude_profiles=consumer.config.exclude_profiles,
-        resolve_remote_skills=False,
+        resolve_skills=False,
     )
 
 
@@ -43,17 +43,18 @@ def _question_data(question: Question) -> dict[str, Any]:
     return data
 
 
-def _pending_markdown(name: str, agent: str, change: str | None, selected: Path | None,
+def _pending_markdown(name: str, agent: str, change: str | None, selected: Path,
                       questions: tuple[Question, ...]) -> str:
-    command = f"pspec resolve skill {name} --agent {agent}"
+    executable = Path(sys.argv[0]).stem
+    if executable not in {'pspec', 'powerspec'}:
+        executable = 'pspec'
+    command = f'{executable} resolve skill --path "{selected}" --agent {agent}'
     if change is not None:
         command += f" --change {change}"
-    if selected is not None:
-        command += f' --selected "{selected}"'
     lines = [
         "# Powerspec skill resolution pending",
         "",
-        f"The installed `{name}` skill needs confirmed configuration before its procedural content can be returned.",
+        f"The selected `{name}` skill needs confirmed configuration before its procedural content can be returned.",
         "",
     ]
     for question in questions:
@@ -67,7 +68,7 @@ def _pending_markdown(name: str, agent: str, change: str | None, selected: Path 
             lines.append(f"Answer location: `{question.answer_location}`")
         lines.append("")
     lines.extend([
-        "After recording the confirmed value, rerun the same agent and change lookup:",
+        "After recording the confirmed value, rerun with the same path, agent, and change:",
         "",
         f"`{command}`",
     ])
@@ -75,28 +76,34 @@ def _pending_markdown(name: str, agent: str, change: str | None, selected: Path 
 
 
 def skill(
-    name: Annotated[str, typer.Argument(help="Installed skill name.", metavar="NAME")],
     agent: Annotated[str, typer.Option(help="Invoking agent identifier.")],
+    path: Annotated[Path | None, typer.Option(help="Skill location selected by the native integration.")] = None,
+    name: Annotated[str | None, typer.Argument(hidden=True)] = None,
     change: Annotated[str | None, typer.Option(help="Active change name.")] = None,
     selected: Annotated[
         Path | None,
-        typer.Option(help="Installed skill directory or SKILL.md path selected by the host."),
+        typer.Option(hidden=True),
     ] = None,
     json_output: Annotated[
         bool, typer.Option("--json", help="Return a structured result instead of Markdown.")
     ] = False,
 ) -> None:
-    """Resolve a native installed skill through its optional pspec.toml manifest."""
+    """Assemble content at a native-selected skill path; never discover installations."""
     try:
         cwd = Path.cwd()
-        located = installed_skill(agent, name, cwd=cwd, selected=selected)
-        if not (located.root / "pspec.toml").is_file():
+        if name is not None or selected is not None or path is None:
+            raise ConfigurationError(
+                'Use pspec resolve skill --path "<native-selected-location>" --agent <agent>; '
+                "obtain the path through your native skill integration, not name-based lookup."
+            )
+        skill_root, name = selected_skill(path)
+        if not manifest_supported(skill_root):
             typer.echo("null")
             return
         consumer = discover_consumer(cwd)
         with builtin_catalog_root() as root:
             result = resolve_skill(
-                located.root,
+                skill_root,
                 _bundle(cwd, agent, consumer, root),
                 consumer,
                 change=change,
@@ -106,6 +113,7 @@ def skill(
                 typer.echo(json.dumps({
                     "status": "resolved",
                     "skill": name,
+                    "skill_path": str(skill_root),
                     "agent": agent,
                     "change": change,
                     "content": result.content,
@@ -117,12 +125,13 @@ def skill(
             typer.echo(json.dumps({
                 "status": "pending",
                 "skill": name,
+                "skill_path": str(skill_root),
                 "agent": agent,
                 "change": change,
                 "questions": [_question_data(question) for question in result.questions],
             }, ensure_ascii=False))
         else:
-            typer.echo(_pending_markdown(name, agent, change, selected, result.questions), nl=False)
+            typer.echo(_pending_markdown(name, agent, change, skill_root, result.questions), nl=False)
     except (ConfigurationError, OSError, ValueError) as error:
         typer.echo(f"Error: {error}", err=True)
         raise typer.Exit(1) from error

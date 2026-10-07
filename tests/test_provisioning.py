@@ -35,7 +35,7 @@ def test_scoped_provisioning_reuses_and_preserves_complete_resources(tmp_path):
     first = provision_skills(plan, **context)
     assert first.ok, first
     assert {item.status for item in first.items} == {"installed"}
-    from powerspec.installed import installed_skill
+    from zuat.pub import locate_skill as installed_skill
     for name in ("shared", "local"):
         located = installed_skill("codex", name, cwd=tmp_path / "project", home=context["home"])
         assert (located.root / "inactive.md").read_text() == "Complete branch content"
@@ -58,7 +58,7 @@ def test_foreign_and_modified_skills_are_preserved(tmp_path):
     assert any(i.ref == "@builtin/shared" and i.status == "failed" for i in result.items)
     assert any(i.ref == "@builtin/local" and i.status == "installed" for i in result.items)
     assert foreign.read_text().endswith("User content")
-    from powerspec.installed import installed_skill
+    from zuat.pub import locate_skill as installed_skill
     local = installed_skill("codex", "local", cwd=tmp_path / "project", home=context["home"])
     local.entrypoint.write_text("---\nname: local\n---\nLocal edits")
     again = provision_skills(plan, **context)
@@ -114,7 +114,7 @@ def test_force_replaces_unowned_and_modified_skills(tmp_path):
     first = provision_skills(plans, home=home, registry=registry)
     assert not first.ok
 
-    from powerspec.installed import installed_skill
+    from zuat.pub import locate_skill as installed_skill
     local = installed_skill(
         "codex", "local", cwd=tmp_path / "project", home=home
     ).entrypoint
@@ -181,7 +181,7 @@ def test_requests_never_use_all_agent_default_or_force(tmp_path, monkeypatch):
 
 def test_reviewed_bundle_installs_upstream_and_manifest_resources(tmp_path, monkeypatch):
     from powerspec.provisioning import plan_skills, provision_skills
-    from powerspec.installed import installed_skill
+    from zuat.pub import locate_skill as installed_skill
     from powerspec.resources import builtin_catalog_root
     from powerspec.skills import resolve_skill
     project = tmp_path / "project"
@@ -201,7 +201,7 @@ def test_reviewed_bundle_installs_upstream_and_manifest_resources(tmp_path, monk
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "home/.codex"))
     monkeypatch.chdir(project)
-    fallback = CliRunner().invoke(app, ["resolve", "skill", "openspec-apply-change", "--agent", "codex"])
+    fallback = CliRunner().invoke(app, ["resolve", "skill", "--path", str(ordinary.root), "--agent", "codex"])
     assert fallback.exit_code == 0 and fallback.stdout.strip() == "null", fallback.output
     tdd = installed_skill("codex", "pspec-tdd", cwd=project, home=tmp_path / "home")
     assert (tdd.root / "languages/python.md").is_file()

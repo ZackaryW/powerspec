@@ -43,6 +43,36 @@ def assert_guidance(output):
     }}
 
 
+def test_mixed_dynamic_unknown_hook_json_and_separate_diagnostic(project, monkeypatch):
+    from powerspec.catalog import MetadataUnavailable
+    from powerspec.sources import SaucepanSources
+    config = project / 'openspec/.pspec'
+    skill = config / 'skills/dynamic'
+    skill.mkdir(parents=True)
+    (skill / 'SKILL.md').write_text('---\nname: dynamic\n---\n')
+    (skill / 'pspec.toml').write_text('version=2\nentry="SKILL.md"')
+    (config / 'profiles/input-test.toml').write_text(
+        'traits=["@local/input-test"]\nskills=["@local/dynamic", "remote/*"]\n'
+        '[[source]]\nid="remote"\nprovider="git"\norigin="https://example.test/tools"\nreference="main"')
+    (config / 'traits/input-test.toml').write_text(
+        'hooks=["sessionStart", "afterCompaction"]\nbody="Use <skill:dynamic> and <skill:remote-helper>."')
+    calls = []
+    def unavailable(self, *args, **kwargs):
+        calls.append(kwargs)
+        raise MetadataUnavailable('service unavailable')
+    monkeypatch.setattr(SaucepanSources, 'lookup', unavailable)
+    monkeypatch.setattr(SaucepanSources, 'acquire', lambda *a, **k: pytest.fail('acquire'))
+    monkeypatch.chdir(project)
+    result = CliRunner().invoke(app, ['resolve', 'hook', 'sessionStart', '--agent', 'codex'])
+    assert result.exit_code == 0, result.output
+    guidance = json.loads(result.stdout)['hookSpecificOutput']['additionalContext']
+    assert 'Skills requiring dynamic resolution: dynamic\n' in guidance
+    assert 'Skill metadata unavailable: remote-helper\n' in guidance
+    assert guidance.endswith('Use dynamic and remote-helper.')
+    assert result.stderr == 'Warning: service unavailable\n'
+    assert len(calls) == 1 and 'deadline' in calls[0]
+
+
 @pytest.mark.parametrize("content", ["", "not JSON", '{"cwd":"/wrong/repo"}'])
 def test_hook_ignores_input_and_does_not_write_state(project, monkeypatch, content):
     monkeypatch.chdir(project)

@@ -11,6 +11,63 @@ from powerspec.sources import ExternalCatalogs, SaucepanSources, SourceBinding, 
 SOURCE = {"provider": "git", "origin": "https://example.test/team/tools", "reference": "main"}
 
 
+def test_lookup_passes_one_remaining_budget_to_each_public_sdk_call(tmp_path, monkeypatch):
+    import powerspec.sources as sources
+    import powerspec.saucepan_tool as binary
+    clock = [10.0]
+    calls = []
+    app = App(tmp_path)
+    monkeypatch.setattr(binary, 'monotonic', lambda: clock[0])
+    def inspect(*, deadline):
+        assert deadline == 11
+        clock[0] += .2
+        calls.append('inspect')
+        return tmp_path / 'saucepan.exe'
+    class SDK:
+        def __init__(self, *, binary, timeout=None):
+            self.binary = binary
+            self.timeout = timeout
+        def for_app(self, name):
+            assert name == 'powerspec'
+            return self
+        def __getattr__(self, method):
+            def run(*args):
+                calls.append((method, self.timeout))
+                clock[0] += .2
+                return getattr(app, method)(*args)
+            return run
+    monkeypatch.setattr(sources, 'inspect_saucepan_binary', inspect)
+    monkeypatch.setattr(sources, 'Saucepan', SDK)
+    monkeypatch.setattr(sources, 'ensure_saucepan_binary', lambda: pytest.fail('acquisition'))
+    store = SaucepanSources(manage_binary=False)
+    assert store.lookup('tools', SOURCE, deadline=11).root == tmp_path
+    assert calls[0] == 'inspect'
+    assert [c[0] for c in calls[1:]] == ['view', 'history', 'path']
+    assert [c[1] for c in calls[1:]] == pytest.approx([.8, .6, .4])
+    assert app.acquire_calls == []
+
+
+def test_stalled_source_subprocess_is_bounded_without_retry(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+    import time
+    import saucepan_sdk._runner as runner
+    import powerspec.sources as sources
+    from powerspec.catalog import MetadataUnavailable
+    real_run = subprocess.run
+    calls = []
+    def stalled(argv, **kwargs):
+        calls.append(kwargs['timeout'])
+        return real_run([sys.executable, '-c', 'import time;time.sleep(10)'], **kwargs)
+    monkeypatch.setattr(runner.subprocess, 'run', stalled)
+    monkeypatch.setattr(sources, 'inspect_saucepan_binary', lambda **kw: tmp_path / 'saucepan.exe')
+    start = time.monotonic()
+    with pytest.raises(MetadataUnavailable, match='unavailable'):
+        SaucepanSources(manage_binary=False).lookup('tools', SOURCE, deadline=start + .15)
+    assert time.monotonic() - start < 1.5
+    assert len(calls) == 1 and 0 < calls[0] <= .15
+
+
 def artifact(root: Path, *, folder=None, revision="a" * 40, snapshot="snap", source=SOURCE):
     return {
         "id": "artifact-" + (folder or "root"),

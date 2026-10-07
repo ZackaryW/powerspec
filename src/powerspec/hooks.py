@@ -10,6 +10,7 @@ from .catalog import Catalog, ConfigurationError, Resource
 from .conditions import Invocation, trait_contributions
 from .consumer import discover_consumer
 from .profiles import compose
+from .skill_references import SkillReferences
 
 
 LOGICAL_EVENTS = frozenset({"sessionStart", "afterCompaction"})
@@ -114,6 +115,7 @@ def dispatch(*, logical_event: str, agent: str, cwd: Path, catalog: Catalog,
         change=change,
         isolate_probe_failures=True,
         diagnostics=diagnostics,
+        references=SkillReferences(bundle, catalog=catalog, diagnostics=diagnostics),
     )
     bodies = [item.body for item in contributions if item.body]
     return "\n\n".join(bodies) if bodies else None

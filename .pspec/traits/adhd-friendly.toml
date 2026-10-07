@@ -2,7 +2,7 @@ hooks = ["sessionStart", "afterCompaction"]
 when = "vars.get('adhd_friendly', False) is True"
 
 body = """
-The user has enabled ADHD-friendly output for this consumer. Use <skill:i-have-adhd> to guide response presentation, resolving it through pspec-skill-bootstrap when that bootstrap is active. Follow the upstream skill's instructions rather than copying its formatting rules here.
+The user has enabled ADHD-friendly output for this consumer. Use <skill:i-have-adhd> to guide response presentation. Follow the upstream skill's instructions rather than copying its formatting rules here.
 
 Preserve the user's latest preference for this session. If they have said "stop adhd mode", "normal mode", or otherwise disabled this style, do not reactivate it after compaction unless they explicitly enable it again. This output preference does not change the selected decision policy, authorize additional work, or establish a medical fact about the user.
 """

@@ -7,7 +7,7 @@ description: Shape and verify selected behavior through executable BDD examples 
 
 OpenSpec owns all behavioral scenarios. BDD features are executable examples of those scenarios; step implementations and test runs provide evidence. Features, issues, conversations, and design notes do not form alternative scenario authorities. Record accepted behavioral decisions in the owning OpenSpec scenarios before treating them as the contract for executable coverage.
 
-When bootstrap supplies resolved skill content, follow that content and its handling of pending choices or errors. Otherwise use this procedure directly within the requested scope.
+Use this ordinary skill directly through the native integration within the requested scope.
 
 ## Establish the intended behavior
 
