@@ -60,11 +60,19 @@ operations:
         <!-- pspec:managed -->
         ^@builtin/incremental-checkpoints/operations.apply.guidance/1
       - |
+        ### Skills requiring dynamic resolution: pspec-tdd
+
+        When the guidance below calls for these skills, select each through your native skill integration. Before following its procedure, run `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory. Include `--change <name>` only for an explicitly active change. Follow returned content or pending-choice instructions; report errors without bypassing resolution.
+
         For planned generic helpers, use pspec-tdd to implement and verify the accepted portable contracts before application integration that depends on them. Keep helper interfaces usable by other projects; application models, configuration conventions, and workflow rules belong in their callers. Reuse existing utility implementations and evidence when they still cover the accepted contracts; preserve work already present. Resolve missing or materially changed contracts before dependent implementation. Then wire the verified utilities into their callers and verify the integrated behavior. Passing utility tests does not establish integration or whole-change completion. This ordering applies only where utility work is needed; environment-only work, documentation, and configuration edits without behavioral effects do not activate it.
 
         <!-- pspec:managed -->
         ^@builtin/utility-apply/operations.apply.guidance/1
       - |
+        ### Skills requiring dynamic resolution: pspec-tdd
+
+        When the guidance below calls for these skills, select each through your native skill integration. Before following its procedure, run `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory. Include `--change <name>` only for an explicitly active change. Follow returned content or pending-choice instructions; report errors without bypassing resolution.
+
         When implementing or changing software behavior, use pspec-tdd for the accepted implementation segment. For environment-only work, documentation, investigation, or configuration edits without behavioral effects, use appropriate validation without activating TDD. For mixed work, apply TDD to the behavioral portion. Use `uv run pytest` with the runner's appropriate selectors for focused checks, broadening when dependencies, failures, or unresolved concerns warrant it.
 
         <!-- pspec:managed -->
