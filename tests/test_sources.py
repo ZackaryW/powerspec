@@ -225,3 +225,32 @@ def test_publication_failure_preserves_previous_bytes(retained, monkeypatch):
     with pytest.raises(OSError, match='disk full'):
         store.commit()
     assert store.state_path.read_bytes() == before
+
+
+def test_exact_commit_selector_and_mismatch_are_checked(retained):
+    store, source, client, calls = retained
+    exact = {**source, 'reference': 'b' * 40}
+    recipe = store._source('tools', exact)
+    assert store._selector(recipe) == {'type': 'commit', 'commit': 'b' * 40}
+    state = store._state()
+    record = next(iter(state['selected'].values())).copy()
+    record['recipe'] = exact
+    state['selected'][store._key(recipe)] = record
+    store._write(state)
+    target = client.receipt['group']['group']['definition']['members'][0]['target']
+    target['selector'] = store._selector(recipe)
+    with pytest.raises(ConfigurationError, match='requested commit'):
+        store.lookup('tools', exact)
+
+
+def test_explicit_moved_rebind_preserves_old_receipts(retained, tmp_path):
+    import shutil
+    store, source, client, calls = retained
+    moved = store.for_consumer(tmp_path / 'moved/config.toml')
+    moved.state_path.parent.mkdir()
+    shutil.copyfile(store.state_path, moved.state_path)
+    backup = moved.state_path.with_name('previous-saucepan-receipts.json')
+    moved.state_path.rename(backup)
+    assert moved._state()['selected'] == {}
+    assert moved.scope != store.scope
+    assert backup.read_bytes() == store.state_path.read_bytes()

@@ -200,6 +200,10 @@ def test_two_consumers_lost_receipt_and_rejected_candidate():
         a.commit()
         assert (newer.root / 'data').read_text() == 'C'
         assert (b.lookup('tools', recipe).root / 'data').read_text() == 'A'
-        client.reclaim()
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            reclaim = pool.submit(client.reclaim)
+            assert (b.lookup('tools', recipe).root / 'data').read_text() == 'A'
+            reclaim.result()
         assert (original.root / 'data').read_text() == 'A'
         assert (candidate.root / 'data').read_text() == 'B'
