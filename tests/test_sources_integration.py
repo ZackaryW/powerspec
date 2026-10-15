@@ -20,6 +20,31 @@ def git(repo: Path, *args):
     return result.stdout.strip()
 
 
+def assert_profile_adoption(client, sources, *, refresh):
+    """Check saved flat intent against native registry and adopted claim evidence."""
+    state = sources._state()
+    record = next(iter(state['selected'].values()))
+    policies = record['policies']
+    catalog = {item['uuid']: item for item in policies['catalog']}
+    for identity, policy in catalog.items():
+        assert client.policy(identity) == policy
+    selected = [catalog[identity] for identity in policies['policy_refs']]
+    assert all(item['type'] != 'pin_policy' for item in selected)
+    update = next(item for item in selected if item['type'] == 'update_policy')
+    assert update['mode'] == ('always' if refresh else 'manual')
+    expected = client.profile('explicit-update', **({
+        'catalog': [update], 'acquisition_policy_refs': [update['uuid']],
+    } if refresh else {}))
+    assert policies['policy_refs'] == expected['combined_policy_refs']
+    explanation = client.for_app(state['app']).explain_policies({
+        'operation': 'claim', 'app': state['app'], 'claim': record['claim'],
+    })
+    assert explanation['axes']['update']['origin'] == 'adopted_claim'
+    assert explanation['axes']['update']['evidence']['uuid'] == update['uuid']
+    assert explanation['axes']['payload_verification']['value'] == 'if_available'
+    assert not explanation['restrictions']
+
+
 def test_powerspec_app_materializes_and_refreshes_declared_recipe():
     # Saucepan documents short test roots as required on Windows.
     with tempfile.TemporaryDirectory(prefix="ps-sp-") as temporary:
@@ -47,6 +72,7 @@ def test_powerspec_app_materializes_and_refreshes_declared_recipe():
         sources = SaucepanSources(base, consumer_path=root / "consumer/config.toml")
         observed = sources.ensure("tools", source)
         sources.commit()
+        assert_profile_adoption(base, sources, refresh=False)
         assert observed.resolved_revision == first_revision
         assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
         assert sources.ensure("tools", source) == observed
@@ -62,6 +88,7 @@ def test_powerspec_app_materializes_and_refreshes_declared_recipe():
         second_revision = git(repo, "rev-parse", "HEAD")
         refreshed = sources.acquire("tools", source)
         sources.commit()
+        assert_profile_adoption(base, sources, refresh=True)
         assert refreshed.resolved_revision == second_revision
         assert refreshed.source_id == observed.source_id
         assert (refreshed.root / "resource.txt").read_text(encoding="utf-8") == "two"
