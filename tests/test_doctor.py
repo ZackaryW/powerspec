@@ -55,7 +55,7 @@ def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch):
     project = setup(tmp_path)
 
     def inspect(argv, **kwargs):
-        version = "1.12.9" if argv[0] == "openspec" else "0.6.0"
+        version = "1.12.9" if argv[0] == "openspec" else "0.9.0"
         return ExecutableResult("ok", argv[0], 0, version, "", version)
 
     monkeypatch.setattr(doctoring, "inspect_executable", inspect)

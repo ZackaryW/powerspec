@@ -5,10 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from saucepan_sdk.client import shared_executable_path
-
 from .consumer import discover_consumer
-from .saucepan_tool import _compatible
+from .saucepan_tool import _compatible, saucepan_executable_path
 from .utils.inspection import ExecutableResult, inspect_executable, semantic_version
 
 
@@ -65,7 +63,7 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None) -> DoctorRe
     git = inspect_executable(["git", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
     openspec = inspect_executable(["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
     saucepan = inspect_executable(
-        [str(saucepan_path or shared_executable_path()), "--version"],
+        [str(saucepan_path or saucepan_executable_path()), "--version"],
         cwd=root,
         timeout=15,
         parse_version=semantic_version,

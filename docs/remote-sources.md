@@ -4,7 +4,7 @@ Powerspec delegates Git acquisition and retained materialization to Saucepan. Pr
 
 ## Managed Saucepan executable
 
-Powerspec uses Zuu's managed-release lifecycle when a selected remote reference first needs the default Saucepan client. If the SDK's shared executable under `~/.saucepan/bin` is absent, Powerspec selects an official Saucepan 0.5 or 0.6 GitHub release for the current platform, validates `--version` and `--help` on a staged file, and publishes it atomically. These are the verified CLI protocol lines supported by the installed SDK boundary. An explicitly supplied SDK client bypasses this lifecycle.
+Powerspec uses Zuu's managed-release lifecycle when a selected remote reference first needs the default Saucepan client. If Powerspec's shared executable under `~/.saucepan/bin` is absent, Powerspec selects an official Saucepan 0.9 GitHub release for the current platform, extracts only the exact manager member from the platform ZIP, validates `--version` and required commands on a staged file, and publishes it atomically. These are the verified CLI protocol lines supported by the installed SDK boundary. Set `POWERSPEC_SAUCEPAN` to select an explicit manager path. An explicitly supplied SDK client bypasses this lifecycle.
 
 Successful release checks are cached for 24 hours. A fresh matching check avoids GitHub discovery. When a later discovery or upgrade fails, Zuu retains a compatible installed executable; when no compatible executable can be produced, Powerspec reports the managed-tool failure before attempting the source operation. Constructing a catalog or running a bundled-only profile does not trigger installation: the lifecycle is lazy until a selected Git recipe needs materialization.
 
