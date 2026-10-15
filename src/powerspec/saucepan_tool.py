@@ -1,4 +1,4 @@
-"""Keep the Saucepan SDK's shared executable installed and compatible."""
+"""Resolve and maintain Powerspec's compatible shared Saucepan executable."""
 from __future__ import annotations
 
 import subprocess
