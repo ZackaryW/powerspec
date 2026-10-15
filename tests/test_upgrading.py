@@ -105,6 +105,19 @@ def test_upgrade_refreshes_updates_and_removes_confirmed_obsolete_skill(tmp_path
     assert not (data.home / ".codex/skills/b").exists()
 
 
+def test_selection_publication_failure_never_starts_obsolete_removal(tmp_path):
+    data = fixture(tmp_path)
+    store = Store(data.old, data.new)
+    def fail_commit():
+        raise OSError('disk unavailable')
+    store.commit = fail_commit
+    result = run_upgrade(data, source_store=store,
+        remove=lambda *a, **k: pytest.fail('removed before selection publication'))
+    assert not result.ok
+    assert 'publication failed' in result.diagnostics[0]
+    assert (data.home / '.codex/skills/b/SKILL.md').exists()
+
+
 def test_upgrade_replaces_owned_bootstrap_guidance_preserving_foreign_assets(tmp_path):
     from powerspec.resources import builtin_catalog_root
     data = fixture(tmp_path)
@@ -151,6 +164,16 @@ def test_malformed_replacement_preserves_installed_copies(tmp_path):
     result = run_upgrade(data)
     assert not result.ok and "frontmatter" in " ".join(result.diagnostics)
     assert (data.home / ".codex/skills/b").is_dir()
+
+
+def test_invalid_candidate_is_rejected_without_selecting_it(tmp_path):
+    data = fixture(tmp_path, malformed=True)
+    store = Store(data.old, data.new)
+    events = []
+    store.reject = lambda: events.append('reject')
+    store.commit = lambda: events.append('commit')
+    assert not run_upgrade(data, source_store=store).ok
+    assert events == ['reject']
 
 
 def test_late_provisioning_failure_does_not_start_obsolete_removal(tmp_path):

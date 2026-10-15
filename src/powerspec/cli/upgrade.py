@@ -34,7 +34,7 @@ def upgrade(
                 local_sources=sources,
                 consumer=consumer,
                 agent=agent,
-                source_store=SaucepanSources(),
+                source_store=SaucepanSources(consumer_path=consumer.config_path),
                 force=force,
             )
         for binding in result.refreshed:

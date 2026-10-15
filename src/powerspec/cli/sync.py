@@ -17,9 +17,9 @@ def sync() -> None:
         with open_workspace(
             cwd,
             agent="powerspec-sync",
-            source_mode="ensure",
+            source_mode="lookup",
             runtime=False,
-            source_store=SaucepanSources(manage_binary=True),
+            source_store=SaucepanSources(manage_binary=False),
         ) as workspace:
             contributions = context_contributions(
                 workspace.bundle, workspace.consumer, Invocation(cwd)

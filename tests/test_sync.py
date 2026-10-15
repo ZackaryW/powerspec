@@ -124,10 +124,10 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
 
     class Sources:
         def __init__(self, *, manage_binary):
-            assert manage_binary is True
+            assert manage_binary is False
 
-        def ensure(self, identity, recipe):
-            calls.append(("ensure", identity, recipe))
+        def lookup(self, identity, recipe):
+            calls.append(("lookup", identity, recipe))
             return SourceBinding(identity, "https://example.test/tools", "main", "a" * 40,
                                  "1" * 64, "artifact", remote)
 
@@ -144,7 +144,7 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
-    assert calls == [("ensure", "tools", {
+    assert calls == [("lookup", "tools", {
         "provider": "git", "origin": "https://example.test/tools", "reference": "main"
     })]
     assert "Remote-aware guidance" in target.read_text()
@@ -168,9 +168,9 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
 
     class Sources:
         def __init__(self, *, manage_binary):
-            assert manage_binary is True
+            assert manage_binary is False
 
-        def ensure(self, identity, recipe):
+        def lookup(self, identity, recipe):
             raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
 
     @contextmanager
@@ -190,7 +190,7 @@ def test_sync_uses_consumer_local_profile_and_context(tmp_path, monkeypatch):
     project = tmp_path / "project"
     (project / ".git").mkdir(parents=True)
     local = project / "openspec/.pspec"
-    put(local / "config.toml", 'profile="@local/private"\n')
+    put(local / "config.toml", 'profile="@local/private"\nexclude-profiles=["@builtin/zmem-lifecycle","@builtin/adhd-friendly"]\n')
     put(local / "profiles/private.toml", 'contexts=["@local/private"]\n')
     put(local / "contexts/private.toml", '[[attach.context]]\nbody="Private local guidance"\n')
     target = put(project / "openspec/config.yaml", "schema: spec-driven\n")

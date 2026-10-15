@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 
 import pytest
-from saucepan_sdk import Saucepan
+from saucepan_sdk import Client
 
 from powerspec.catalog import Catalog
 from powerspec.sources import ExternalCatalogs, SaucepanSources
@@ -42,10 +42,11 @@ def test_powerspec_app_materializes_and_refreshes_declared_recipe():
         git(repo, "commit", "-m", "first")
         first_revision = git(repo, "rev-parse", "HEAD")
 
-        base = Saucepan(binary=BINARY, test_root=root / "store", test_key="12" * 32)
+        base = Client(executable=BINARY, root=str(root / "store"))
         source = {"provider": "git", "origin": str(repo), "reference": "main"}
-        sources = SaucepanSources(base)
+        sources = SaucepanSources(base, consumer_path=root / "consumer/config.toml")
         observed = sources.ensure("tools", source)
+        sources.commit()
         assert observed.resolved_revision == first_revision
         assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
         assert sources.ensure("tools", source) == observed
@@ -60,6 +61,7 @@ def test_powerspec_app_materializes_and_refreshes_declared_recipe():
         git(repo, "commit", "-am", "second")
         second_revision = git(repo, "rev-parse", "HEAD")
         refreshed = sources.acquire("tools", source)
+        sources.commit()
         assert refreshed.resolved_revision == second_revision
         assert refreshed.source_id == observed.source_id
         assert (refreshed.root / "resource.txt").read_text(encoding="utf-8") == "two"
@@ -105,7 +107,7 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
         def resources():
             yield builtin
 
-        store = SaucepanSources(Saucepan(binary=BINARY, test_root=root / "store", test_key="12" * 32))
+        store = SaucepanSources(Client(executable=BINARY, root=str(root / "store")), consumer_path=project / "openspec/.pspec/config.toml")
         source = {"provider": "git", "origin": str(remote), "reference": "main"}
         workspace = importlib.import_module("powerspec.workspace")
         sync = importlib.import_module("powerspec.cli.sync")
@@ -116,7 +118,7 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
         isolated = dict(home=root / "home", registry=root / "registry")
         monkeypatch.setattr(init, "install_consumer", partial(install_consumer, source_store=store, **isolated))
         monkeypatch.setattr(upgrade, "builtin_catalog_root", resources)
-        monkeypatch.setattr(upgrade, "SaucepanSources", lambda: store)
+        monkeypatch.setattr(upgrade, "SaucepanSources", lambda **_: store)
         monkeypatch.setattr(upgrade, "upgrade_consumer", partial(upgrade_consumer, **isolated))
         # This also keeps Windows from retaining the temporary working directory
         # when TemporaryDirectory removes it after the test.
@@ -124,10 +126,10 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
             cwd.chdir(project)
             runner = CliRunner()
             first = runner.invoke(app, ["sync"])
-            assert first.exit_code == 0, first.output
-            assert "Lifecycle guidance" in target.read_text()
+            assert first.exit_code == 1, first.output
+            assert "run init" in first.output
             assert "# user comment" in target.read_text()
-            assert store.lookup("tools", source).resolved_revision == original_revision
+            assert not store.state_path.exists()
             assert not (root / "home").exists()
             for status in ("installed", "reused"):
                 result = runner.invoke(app, ["init", "--agent", "codex"])
@@ -135,6 +137,7 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
                 assert status in result.stdout
             installed = root / "home/.codex/skills/example/SKILL.md"
             assert "Version one" in installed.read_text()
+            assert runner.invoke(app, ["sync"]).exit_code == 0
             before = target.read_bytes()
             skill.write_text(skill.read_text().replace("Version one", "Version two"))
             git(remote, "commit", "-am", "second")
@@ -147,3 +150,56 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
             assert refreshed.exit_code == 0, refreshed.output
             assert store.lookup("tools", source).resolved_revision == git(remote, "rev-parse", "HEAD")
             assert "Version two" in installed.read_text()
+
+
+def test_two_consumers_lost_receipt_and_rejected_candidate():
+    from saucepan_sdk import TransportError
+    from saucepan_sdk.transport import CliTransport
+    from powerspec.catalog import ConfigurationError
+    with tempfile.TemporaryDirectory(prefix='ps-pins-') as temporary:
+        root = Path(temporary)
+        repo = root / 'repo'
+        repo.mkdir()
+        git(repo, 'init', '-b', 'main')
+        git(repo, 'config', 'user.name', 'Test')
+        git(repo, 'config', 'user.email', 'test@example.invalid')
+        (repo / 'data').write_text('A')
+        git(repo, 'add', '.')
+        git(repo, 'commit', '-m', 'A')
+        class LostReceipt(CliTransport):
+            lose = True
+            def json(self, config, call):
+                result = super().json(config, call)
+                if call.argv[0] == 'prepare-group' and self.lose:
+                    self.lose = False
+                    raise TransportError('timeout', started=True, indeterminate=True)
+                return result
+        transport = LostReceipt()
+        client = Client(executable=BINARY, root=str(root / 'store'), transport=transport)
+        a = SaucepanSources(client, consumer_path=root / 'a/config.toml')
+        b = SaucepanSources(client, consumer_path=root / 'b/config.toml')
+        recipe = {'provider': 'git', 'origin': str(repo), 'reference': 'main'}
+        with pytest.raises(ConfigurationError, match='may have committed'):
+            a.ensure('tools', recipe)
+        pending = a._state()['pending'].copy()
+        original = a.ensure('tools', recipe)
+        assert a._state()['pending'] == pending
+        a.commit()
+        same = b.ensure('tools', recipe)
+        b.commit()
+        assert same.resolved_revision == original.resolved_revision
+        (repo / 'data').write_text('B')
+        git(repo, 'commit', '-am', 'B')
+        candidate = a.acquire('tools', recipe)
+        assert candidate.resolved_revision != original.resolved_revision
+        assert a.lookup('tools', recipe) == original
+        a.reject()  # Caller validation rejected a known, successfully pinned result.
+        (repo / 'data').write_text('C')
+        git(repo, 'commit', '-am', 'C')
+        newer = a.acquire('tools', recipe)
+        a.commit()
+        assert (newer.root / 'data').read_text() == 'C'
+        assert (b.lookup('tools', recipe).root / 'data').read_text() == 'A'
+        client.reclaim()
+        assert (original.root / 'data').read_text() == 'A'
+        assert (candidate.root / 'data').read_text() == 'B'

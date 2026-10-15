@@ -2,7 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from saucepan_sdk import Saucepan
+from saucepan_sdk import Client
 from zuu.case16 import Candidate, ResolutionSource
 from zuu.case17 import ManagedReleaseBinaryError
 
@@ -93,8 +93,8 @@ def test_default_source_client_lazily_uses_ensured_binary(tmp_path, monkeypatch)
 
     client = store._client_or_default()
 
-    assert isinstance(client, Saucepan)
-    assert client.binary == str(destination)
+    assert isinstance(client, Client)
+    assert store._executable == destination
     assert store._client_or_default() is client
     assert calls == ["ensure"]
 
@@ -115,7 +115,7 @@ def test_read_only_source_client_lazily_inspects_existing_binary(tmp_path, monke
         lambda: (_ for _ in ()).throw(AssertionError("read-only lookup managed the binary")),
     )
     client = sources.SaucepanSources(manage_binary=False)._client_or_default()
-    assert client.binary == str(destination) and calls == ["inspect"]
+    assert isinstance(client, Client) and calls == ["inspect"]
 
 
 def test_explicit_source_client_bypasses_managed_binary(monkeypatch):
@@ -157,6 +157,23 @@ def test_zip_assets_select_manager_platform_and_exclude_sdk():
         'saucepan-sdk-0.1.0.zip'))
     assert _select_manager_zip(assets, 'Windows', 'AMD64') == assets[0]
     assert _select_manager_zip(assets, 'Darwin', 'arm64') == assets[1]
+
+
+@pytest.mark.parametrize('system,machine,target', [
+    ('Windows', 'AMD64', 'x86_64-pc-windows-msvc'),
+    ('Windows', 'ARM64', 'aarch64-pc-windows-msvc'),
+    ('Windows', 'x86', 'i686-pc-windows-msvc'),
+    ('Darwin', 'x86_64', 'x86_64-apple-darwin'),
+    ('Darwin', 'arm64', 'aarch64-apple-darwin'),
+    ('Linux', 'x86_64', 'x86_64-unknown-linux-musl'),
+    ('Darwin', 'arm64', 'universal-apple-darwin'),
+])
+def test_actual_release_zip_names(system, machine, target):
+    from zuu.case16 import ReleaseAsset
+    from powerspec.saucepan_tool import _select_manager_zip
+    name = f'saucepan-v0.9.0-{target}.zip'
+    asset = ReleaseAsset(name, 'https://example.test/' + name)
+    assert _select_manager_zip((asset,), system, machine) == asset
 
 
 def test_zip_download_reads_only_exact_manager(tmp_path, monkeypatch):

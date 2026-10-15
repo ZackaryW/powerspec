@@ -32,17 +32,16 @@ but does not untrack it. Later failures leave established consumer files and
 successful assets in place. Resolve the error and rerun init with the same options;
 matching materializations and assets are reused.
 
-`pspec sync` publishes contexts, acquiring missing sources without refreshing
-existing revisions or installing skills/hooks. `pspec upgrade --agent codex`
+`pspec sync` publishes contexts using existing retained source selections without
+fetching or installing skills/hooks. Run `pspec init` first for missing sources. `pspec upgrade --agent codex`
 refreshes selected sources and reconciles installations, committing obsolete
 managed removals only after successful preparation.
 
 The bundled zmem and ADHD-friendly profiles use external Git recipes. First use
-of init or sync lazily prepares the shared Powerspec Saucepan application.
-Native secret and index initialization are delegated to Saucepan; existing
-store data is never deleted or rekeyed to bypass failure. A missing credential
-service or damaged existing store remains an error. Do not copy an encrypted
-Saucepan store between computers as a substitute for initialization.
+of init lazily registers the Powerspec application and a separate consumer scope.
+Basic integrity is the default; credentials and keyring integrity remain opt-in.
+Existing incompatible or damaged stores are rejected, never deleted or rekeyed.
+See [remote sources](remote-sources.md) for retained bindings and recovery.
 
 For a bundled-only consumer, explicitly exclude the external profiles:
 

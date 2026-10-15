@@ -45,6 +45,8 @@ def open_workspace(
     if consumer is None:
         raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
     store = source_store or SaucepanSources(manage_binary=source_mode == "ensure")
+    if callable(getattr(store, 'for_consumer', None)):
+        store = store.for_consumer(consumer.config_path)
     if source_mode == "lookup":
         resolver = store.lookup
     elif source_mode == "ensure":
@@ -55,13 +57,18 @@ def open_workspace(
     sources = {"local": local} if local.is_dir() else {}
     with builtin_catalog_root() as builtin:
         catalog = Catalog(builtin=builtin, sources=sources, git_resolver=resolver)
-        bundle = compose(
-            catalog,
-            consumer.config.profile,
-            agent=agent,
-            project_root=consumer.git_root,
-            exclude_profiles=consumer.config.exclude_profiles,
-            resolve_skills=resolve_skills,
-            resolve_remote_skills=resolve_remote_skills,
-        )
-        yield ConsumerWorkspace(consumer, catalog, bundle, store)
+        try:
+            bundle = compose(
+                catalog,
+                consumer.config.profile,
+                agent=agent,
+                project_root=consumer.git_root,
+                exclude_profiles=consumer.config.exclude_profiles,
+                resolve_skills=resolve_skills,
+                resolve_remote_skills=resolve_remote_skills,
+            )
+            yield ConsumerWorkspace(consumer, catalog, bundle, store)
+        except Exception:
+            if callable(getattr(store, 'for_consumer', None)) and source_mode == 'ensure':
+                store.reject()
+            raise

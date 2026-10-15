@@ -393,7 +393,7 @@ def test_hook_cli_emits_only_structured_guidance_without_input(tmp_path, monkeyp
     source_modes = []
 
     class Sources:
-        def __init__(self, *, manage_binary):
+        def __init__(self, *, manage_binary, consumer_path):
             source_modes.append(manage_binary)
 
         def lookup(self, *_args, **_kwargs):

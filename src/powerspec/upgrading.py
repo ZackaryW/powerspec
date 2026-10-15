@@ -92,6 +92,8 @@ def upgrade_consumer(
 ) -> UpgradeResult:
     """Refresh every selected Git source and commit removals at the final boundary."""
     store = source_store or SaucepanSources()
+    if callable(getattr(store, "for_consumer", None)):
+        store = store.for_consumer(consumer.config_path)
     source_roots = dict(local_sources or {})
     compose_args = dict(
         selected=consumer.config.profile,
@@ -125,18 +127,24 @@ def upgrade_consumer(
         ))
         new_plans = plan_skills(new_bundle)
     except (ConfigurationError, OSError, ValueError) as error:
+        if callable(getattr(store, "reject", None)):
+            store.reject()
         return UpgradeResult("failed", diagnostics=(str(error),))
 
     provisioned = provision(
         new_plans, home=home, registry=registry, force=force
     )
     if not provisioned.ok:
+        if callable(getattr(store, "reject", None)):
+            store.reject()
         return UpgradeResult(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
             diagnostics=("selected skill provisioning did not complete; obsolete copies were preserved",),
         )
     hooked = reconcile_hooks(agent, home=home, registry=registry)
     if not hooked.ok:
+        if callable(getattr(store, "reject", None)):
+            store.reject()
         return UpgradeResult(
             "failed",
             refreshed=tuple(refreshed.values()),
@@ -145,12 +153,24 @@ def upgrade_consumer(
             diagnostics=(*hooked.diagnostics, "hook reconciliation did not complete; obsolete copies were preserved"),
         )
 
+    def publish_selection():
+        try:
+            if callable(getattr(store, 'commit', None)):
+                store.commit()
+        except (ConfigurationError, OSError, ValueError) as error:
+            return UpgradeResult('failed', refreshed=tuple(refreshed.values()),
+                provisioning=provisioned, hooks=hooked,
+                diagnostics=(f'consumer selection publication failed: {error}; obsolete copies were preserved',))
+        return None
+
     selected_targets = {
         (item.agent, item.scope, item.project_root, item.resource.name)
         for item in new_bundle.skills
     }
     obsolete = tuple(plan for plan in old_plans if _target(plan) not in selected_targets)
     if not obsolete:
+        if publication_error := publish_selection():
+            return publication_error
         return UpgradeResult(
             "success",
             refreshed=tuple(refreshed.values()),
@@ -171,11 +191,18 @@ def upgrade_consumer(
         else:
             asset_refs.append(observed.asset_ref.id)
     if diagnostics:
+        if callable(getattr(store, "reject", None)):
+            store.reject()
         return UpgradeResult(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
             hooks=hooked,
             diagnostics=tuple(diagnostics) + ("obsolete copies were preserved",),
         )
+
+    # Validate all old-copy ownership before publication; publication must still
+    # succeed before the destructive removal starts.
+    if publication_error := publish_selection():
+        return publication_error
 
     removal = remove(
         ZuatRequest(agents=(agent,), asset_refs=tuple(asset_refs)), **context
@@ -193,7 +220,7 @@ def upgrade_consumer(
         return UpgradeResult(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
             hooks=hooked,
-            diagnostics=tuple(removal.diagnostics) + ("obsolete copies were restored or never removed",),
+            diagnostics=tuple(removal.diagnostics) + ("source selection was published; obsolete copies were restored or never removed",),
         )
 
     try:
@@ -210,7 +237,7 @@ def upgrade_consumer(
         return UpgradeResult(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
             hooks=hooked,
-            diagnostics=(str(error), "removal finalization failed; obsolete copies were restored"),
+            diagnostics=(str(error), "source selection was published; removal finalization failed; obsolete copies were restored"),
         )
     return UpgradeResult(
         "success",

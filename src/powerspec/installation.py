@@ -16,6 +16,7 @@ from .provisioning import (
     provision_skills,
 )
 from .workspace import open_workspace
+from .sources import SaucepanSources
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,11 @@ def install_consumer(
         plans = plan_skills(workspace.bundle)
         provisioning = provision_skills(plans, home=home, registry=registry)
         hooks = provision_hooks(agent, home=home, registry=registry)
+        if isinstance(workspace.source_store, SaucepanSources):
+            if provisioning.ok and hooks.ok:
+                workspace.source_store.commit()
+            else:
+                workspace.source_store.reject()
         return InstallationResult(
             workspace.consumer.git_root,
             workspace.consumer.config.profile,

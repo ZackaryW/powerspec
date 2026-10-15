@@ -1,258 +1,7 @@
 from pathlib import Path
-from types import MappingProxyType
-
 import pytest
-from saucepan_sdk import SaucepanError
-
 from powerspec.catalog import ConfigurationError
-from powerspec.sources import ExternalCatalogs, SaucepanSources, SourceBinding, discover_catalogs
-
-
-SOURCE = {"provider": "git", "origin": "https://example.test/team/tools", "reference": "main"}
-
-
-def test_lookup_passes_one_remaining_budget_to_each_public_sdk_call(tmp_path, monkeypatch):
-    import powerspec.sources as sources
-    import powerspec.saucepan_tool as binary
-    clock = [10.0]
-    calls = []
-    app = App(tmp_path)
-    monkeypatch.setattr(binary, 'monotonic', lambda: clock[0])
-    def inspect(*, deadline):
-        assert deadline == 11
-        clock[0] += .2
-        calls.append('inspect')
-        return tmp_path / 'saucepan.exe'
-    class SDK:
-        def __init__(self, *, binary, timeout=None):
-            self.binary = binary
-            self.timeout = timeout
-        def for_app(self, name):
-            assert name == 'powerspec'
-            return self
-        def __getattr__(self, method):
-            def run(*args):
-                calls.append((method, self.timeout))
-                clock[0] += .2
-                return getattr(app, method)(*args)
-            return run
-    monkeypatch.setattr(sources, 'inspect_saucepan_binary', inspect)
-    monkeypatch.setattr(sources, 'Saucepan', SDK)
-    monkeypatch.setattr(sources, 'ensure_saucepan_binary', lambda: pytest.fail('acquisition'))
-    store = SaucepanSources(manage_binary=False)
-    assert store.lookup('tools', SOURCE, deadline=11).root == tmp_path
-    assert calls[0] == 'inspect'
-    assert [c[0] for c in calls[1:]] == ['view', 'history', 'path']
-    assert [c[1] for c in calls[1:]] == pytest.approx([.8, .6, .4])
-    assert app.acquire_calls == []
-
-
-def test_stalled_source_subprocess_is_bounded_without_retry(tmp_path, monkeypatch):
-    import subprocess
-    import sys
-    import time
-    import saucepan_sdk._runner as runner
-    import powerspec.sources as sources
-    from powerspec.catalog import MetadataUnavailable
-    real_run = subprocess.run
-    calls = []
-    def stalled(argv, **kwargs):
-        calls.append(kwargs['timeout'])
-        return real_run([sys.executable, '-c', 'import time;time.sleep(10)'], **kwargs)
-    monkeypatch.setattr(runner.subprocess, 'run', stalled)
-    monkeypatch.setattr(sources, 'inspect_saucepan_binary', lambda **kw: tmp_path / 'saucepan.exe')
-    start = time.monotonic()
-    with pytest.raises(MetadataUnavailable, match='unavailable'):
-        SaucepanSources(manage_binary=False).lookup('tools', SOURCE, deadline=start + .15)
-    assert time.monotonic() - start < 1.5
-    assert len(calls) == 1 and 0 < calls[0] <= .15
-
-
-def artifact(root: Path, *, folder=None, revision="a" * 40, snapshot="snap", source=SOURCE):
-    return {
-        "id": "artifact-" + (folder or "root"),
-        "source_id": "1" * 64,
-        "source": source,
-        "snapshot_id": snapshot,
-        "revision": revision,
-        "folder": folder,
-    }
-
-
-class App:
-    def __init__(self, root: Path, *, entries=None, fail=None, source=SOURCE):
-        self.root = root
-        self.source = source
-        self.entries = entries if entries is not None else {"root": artifact(root, source=source)}
-        self.fail = fail
-        self.acquire_calls = []
-
-    def view(self):
-        if self.fail == "view":
-            raise OSError("view unavailable")
-        return {"version": 1, "app": "powerspec", "entries": self.entries}
-
-    def history(self, source_id):
-        if self.fail == "history":
-            raise OSError("history unavailable")
-        return {"source": self.source, "current": {"id": "snap", "revision": "a" * 40}}
-
-    def path(self, artifact_id):
-        return str(self.root)
-
-    def acquire(self, recipe):
-        self.acquire_calls.append(recipe)
-        if self.fail == "acquire":
-            raise OSError("network unavailable")
-        return {"artifact": artifact(self.root, revision="b" * 40, source=self.source),
-                "directory": str(self.root), "content_verified": True}
-
-
-class Client:
-    def __init__(self, app, *, store=True, registered=True, missing="store index is missing"):
-        self.app = app
-        self.store = store
-        self.registered = registered
-        self.missing = missing
-        self.names = []
-        self.init_calls = 0
-        self.register_calls = []
-
-    def for_app(self, name):
-        self.names.append(name)
-        client = self
-
-        class Selected:
-            def __getattr__(self, attribute):
-                if attribute == "view":
-                    def view():
-                        if not client.store:
-                            raise SaucepanError(client.missing, stderr=client.missing)
-                        if not client.registered:
-                            raise SaucepanError("app is not registered", stderr="app is not registered")
-                        return client.app.view()
-                    return view
-                return getattr(client.app, attribute)
-
-        return Selected()
-
-    def init(self):
-        self.init_calls += 1
-        self.store = True
-        return {"created": True}
-
-    def register(self, name):
-        self.register_calls.append(name)
-        self.registered = True
-        return {"version": 1, "app": name, "token": []}
-
-
-def test_lookup_is_read_only_and_retains_provenance(tmp_path):
-    app = App(tmp_path)
-    client = Client(app)
-    result = SaucepanSources(client).lookup("tools", SOURCE)
-    assert result.identity == "tools"
-    assert result.repository == SOURCE["origin"]
-    assert result.requested_revision == "main"
-    assert result.resolved_revision == "a" * 40
-    assert result.source_id == "1" * 64
-    assert result.root == tmp_path.resolve()
-    assert app.acquire_calls == []
-    assert client.names == ["powerspec"]
-
-
-def test_lookup_accepts_frozen_profile_recipe(tmp_path):
-    result = SaucepanSources(Client(App(tmp_path))).lookup(
-        "tools", MappingProxyType(SOURCE)
-    )
-    assert result.repository == SOURCE["origin"]
-
-
-def test_acquire_refreshes_registered_recipe_and_returns_complete_root(tmp_path):
-    app = App(tmp_path)
-    result = SaucepanSources(Client(app)).acquire("tools", SOURCE)
-    assert app.acquire_calls == [{"source": SOURCE}]
-    assert result.resolved_revision == "b" * 40
-    assert result.root == tmp_path.resolve()
-
-
-@pytest.mark.parametrize("identity", ["builtin", "Bad Name", ""])
-def test_reserved_or_invalid_identity_is_rejected_without_sdk_call(tmp_path, identity):
-    client = Client(App(tmp_path))
-    with pytest.raises(ConfigurationError, match="invalid or reserved"):
-        SaucepanSources(client).lookup(identity, SOURCE)
-    assert client.names == []
-
-
-def test_lookup_requires_declared_recipe_and_full_current_artifact(tmp_path):
-    empty = App(tmp_path, entries={})
-    with pytest.raises(ConfigurationError, match="no current materialization"):
-        SaucepanSources(Client(empty)).lookup("tools", SOURCE)
-
-    entries = {"folder": artifact(tmp_path, folder="skills")}
-    with pytest.raises(ConfigurationError, match="no unique full-repository"):
-        SaucepanSources(Client(App(tmp_path, entries=entries))).lookup("tools", SOURCE)
-
-    other = artifact(tmp_path)
-    other["id"] = "second"
-    other["source_id"] = "2" * 64
-    other["source"] = {**SOURCE, "origin": "https://example.test/other"}
-    result = SaucepanSources(Client(App(tmp_path, entries={"one": artifact(tmp_path), "two": other}))).lookup(
-        "tools", SOURCE
-    )
-    assert result.source_id == "1" * 64
-
-
-def test_failed_refresh_reports_failure_without_replacing_prior_lookup(tmp_path):
-    app = App(tmp_path)
-    sources = SaucepanSources(Client(app))
-    before = sources.lookup("tools", SOURCE)
-    app.fail = "acquire"
-    with pytest.raises(ConfigurationError, match="failed to acquire.*network unavailable"):
-        sources.acquire("tools", SOURCE)
-    app.fail = None
-    assert sources.lookup("tools", SOURCE) == before
-
-
-def test_ensure_reuses_existing_recipe_without_refresh(tmp_path):
-    app = App(tmp_path)
-    client = Client(app)
-    result = SaucepanSources(client).ensure("tools", SOURCE)
-    assert result.resolved_revision == "a" * 40
-    assert app.acquire_calls == []
-    assert client.init_calls == 0 and client.register_calls == []
-
-
-def test_remote_git_suffix_is_treated_as_the_same_declared_origin(tmp_path):
-    canonical = {**SOURCE, "origin": SOURCE["origin"] + ".git"}
-    result = SaucepanSources(Client(App(tmp_path, source=canonical))).lookup("tools", SOURCE)
-    assert result.repository == SOURCE["origin"]
-
-
-@pytest.mark.parametrize("missing", ["store index is missing", "store secret is missing"])
-def test_ensure_initializes_registers_and_acquires_missing_recipe(tmp_path, missing):
-    app = App(tmp_path, entries={})
-    client = Client(app, store=False, registered=False, missing=missing)
-    result = SaucepanSources(client).ensure("tools", SOURCE)
-    assert result.resolved_revision == "b" * 40
-    assert client.init_calls == 1
-    assert client.register_calls == ["powerspec"]
-    assert app.acquire_calls == [{"source": SOURCE}]
-
-
-def test_missing_secret_does_not_bypass_saucepan_initialization_guard(tmp_path):
-    app = App(tmp_path, entries={})
-    client = Client(app, store=False, registered=False, missing="store secret is missing")
-
-    def reject_existing_store():
-        raise SaucepanError("existing store data prevents initialization")
-
-    client.init = reject_existing_store
-    with pytest.raises(ConfigurationError, match="cannot initialize Saucepan store.*existing store data"):
-        SaucepanSources(client).ensure("tools", SOURCE)
-    assert client.register_calls == []
-    assert app.acquire_calls == []
-
+from powerspec.sources import ExternalCatalogs, SourceBinding, discover_catalogs
 
 def binding(identity, root, revision="a" * 40):
     return SourceBinding(identity, "https://example.test/tools", "main", revision,
@@ -309,3 +58,170 @@ def test_external_registration_is_validated_atomic_and_reserves_builtin(tmp_path
 
     with pytest.raises(ConfigurationError, match="reserved"):
         registry.register(binding("builtin", good))
+
+
+@pytest.fixture
+def retained(tmp_path):
+    import copy
+    from powerspec.sources import SaucepanSources
+    source = {"provider": "git", "origin": "https://example.test/tools", "reference": "main"}
+    root = tmp_path / "output"
+    root.mkdir()
+    (root / "resource").write_text("retained")
+    calls = []
+    class Client:
+        def for_app(self, app, **options):
+            assert app == 'app'
+            return self
+        def pin(self, uuid):
+            calls.append('pin')
+            return copy.deepcopy(self.receipt)
+        def __getattr__(self, method):
+            raise AssertionError(f'lookup attempted {method}')
+    client = Client()
+    store = SaucepanSources(client, consumer_path=tmp_path / 'consumer/config.toml')
+    target = {'type': 'acquire', 'source_uuid': 'source', 'selector': {'type': 'ref', 'reference': 'main'}}
+    client.receipt = {'owner': 'app', 'state': 'active', 'outputs': {'out': {'available': True, 'path': str(root)}},
+        'group': {'group': {'uuid': 'group', 'definition': {'members': [{'target': target}]},
+            'selected': {'members': {'repository': {'scope': store.scope, 'output_uuid': 'out',
+                'relative': None, 'selected_source': {'type': 'git', 'commit': 'a' * 40}}}}}}}
+    recipe = store._source('tools', source)
+    state = store._state()
+    state['app'] = 'app'
+    state['selected'][store._key(recipe)] = {'recipe': source, 'pin': 'pin', 'output': 'out',
+        'group': 'group', 'source': 'source', 'commit': 'a' * 40}
+    store._write(state)
+    return store, source, client, calls
+
+
+def test_readonly_retained_lookup_aliases_and_provenance(retained):
+    store, source, client, calls = retained
+    before = store.state_path.read_bytes()
+    first = store.lookup('tools', source)
+    second = store.lookup('other-alias', source)
+    assert first.artifact_id == second.artifact_id
+    assert first.resolved_revision == 'a' * 40
+    assert (first.root / 'resource').read_text() == 'retained'
+    assert calls == ['pin', 'pin']
+    assert store.state_path.read_bytes() == before
+
+
+@pytest.mark.parametrize('field,value', [('scope', 'another-consumer'), ('output_uuid', 'wrong'),
+    ('relative', '../')])
+def test_retained_lookup_rejects_foreign_or_escaping_view(retained, field, value):
+    store, source, client, calls = retained
+    member = client.receipt['group']['group']['selected']['members']['repository']
+    member[field] = value
+    with pytest.raises(ConfigurationError):
+        store.lookup('tools', source)
+
+
+def test_retained_lookup_rejects_mismatched_selector(retained):
+    store, source, client, calls = retained
+    client.receipt['group']['group']['definition']['members'][0]['target']['selector']['reference'] = 'other'
+    with pytest.raises(ConfigurationError, match='provenance'):
+        store.lookup('tools', source)
+
+
+def test_readonly_denial_does_not_retry_unbound(retained):
+    from saucepan_sdk import SaucepanError
+    store, source, client, calls = retained
+    def denied(uuid):
+        calls.append('denied')
+        raise SaucepanError('access_denied', 'no', {})
+    client.pin = denied
+    with pytest.raises(ConfigurationError, match='access_denied'):
+        store.lookup('tools', source)
+    assert calls == ['denied']
+
+
+def test_readonly_deadline_exhaustion_never_calls_manager(retained):
+    store, source, client, calls = retained
+    with pytest.raises(ConfigurationError, match='budget'):
+        store.lookup('tools', source, deadline=0)
+    assert calls == []
+
+
+def test_moved_consumer_is_not_silently_rebound(retained, tmp_path):
+    import shutil
+    store, source, client, calls = retained
+    moved = store.for_consumer(tmp_path / 'moved/config.toml')
+    moved.state_path.parent.mkdir()
+    shutil.copyfile(store.state_path, moved.state_path)
+    with pytest.raises(ConfigurationError, match='moved'):
+        moved.lookup('tools', source)
+
+
+def test_consumer_mutations_refuse_concurrent_writer(retained):
+    store, source, client, calls = retained
+    with store._mutation():
+        with pytest.raises(ConfigurationError, match='already in progress'):
+            with store._mutation():
+                pytest.fail('lock bypassed')
+    assert not store.state_path.with_suffix('.lock').exists()
+
+
+def test_existing_ensure_is_readonly(retained):
+    store, source, client, calls = retained
+    assert store.ensure('alias', source).identity == 'alias'
+    assert calls == ['pin']
+
+
+def test_default_client_uses_remaining_lookup_deadline(retained, monkeypatch):
+    import powerspec.sources as module
+    import powerspec.saucepan_tool as binary
+    store, source, client, calls = retained
+    store._client = None
+    clock = [10.0]
+    allowances = []
+    monkeypatch.setattr(binary, 'monotonic', lambda: clock[0])
+    def inspect(**options):
+        assert options['deadline'] == 11.0
+        clock[0] += .2
+        return store.consumer_path.parent / 'saucepan.exe'
+    def factory(**options):
+        if 'timeout' in options:
+            allowances.append(options['timeout'])
+        return client
+    monkeypatch.setattr(module, 'inspect_saucepan_binary', inspect)
+    monkeypatch.setattr(module, 'Client', factory)
+    monkeypatch.setattr(module, 'ensure_saucepan_binary', lambda: pytest.fail('lookup provisioned binary'))
+    store.lookup('tools', source, deadline=11.0)
+    assert allowances == pytest.approx([.8])
+
+
+def test_corrupt_state_is_not_repaired(retained):
+    store, source, client, calls = retained
+    store.state_path.write_text('{bad')
+    with pytest.raises(ConfigurationError, match='invalid Saucepan binding state'):
+        store.ensure('tools', source)
+    assert calls == [] and store.state_path.read_text() == '{bad'
+
+
+@pytest.mark.parametrize('code', ['revision_conflict', 'integrity_error', 'key_unavailable', 'unknown_output'])
+def test_structured_read_failures_are_preserved(retained, code):
+    from saucepan_sdk import SaucepanError
+    store, source, client, calls = retained
+    def failure(uuid):
+        raise SaucepanError(code, 'not interpreted', {})
+    client.pin = failure
+    with pytest.raises(ConfigurationError, match=code):
+        store.lookup('tools', source)
+
+
+def test_publication_failure_preserves_previous_bytes(retained, monkeypatch):
+    store, source, client, calls = retained
+    recipe = store._source('tools', source)
+    key = store._key(recipe)
+    state = store._state()
+    candidate = {**state['selected'][key], 'key': 'new-generation'}
+    state['pending'][key] = candidate
+    store._write(state)
+    before = store.state_path.read_bytes()
+    store._candidates[key] = candidate
+    def fail(*args):
+        raise OSError('disk full')
+    monkeypatch.setattr('powerspec.sources.replace_bytes', fail)
+    with pytest.raises(OSError, match='disk full'):
+        store.commit()
+    assert store.state_path.read_bytes() == before

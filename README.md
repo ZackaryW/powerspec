@@ -145,8 +145,8 @@ Powerspec is built and installed to the selected agent's user scope during
 `pspec init --agent <agent>`.
 
 Profiles can also declare Git sources. Saucepan owns their materialization;
-ZuAT owns installation into native agent locations. `pspec sync` acquires a
-missing selected source but preserves its current revision. `pspec upgrade`
+ZuAT owns installation into native agent locations. `pspec init` acquires and pins
+missing selected sources; `pspec sync` reads existing selections without fetching. `pspec upgrade`
 refreshes selected sources and reconciles managed skill installations.
 
 ## Commands

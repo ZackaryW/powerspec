@@ -26,7 +26,8 @@ def hook(
             catalog = Catalog(
                 builtin=root,
                 sources=sources,
-                git_resolver=SaucepanSources(manage_binary=False).lookup,
+                git_resolver=SaucepanSources(manage_binary=False,
+                    consumer_path=consumer.config_path if consumer else None).lookup,
             )
             diagnostics = []
             guidance = dispatch(logical_event=event, agent=agent, cwd=cwd,

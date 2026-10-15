@@ -26,8 +26,9 @@ def init(
         for warning in result.warnings:
             typer.echo(f"Warning: {warning}", err=True)
         if agent is None:
-            with open_workspace(result.root, agent="powerspec-init", source_mode="ensure"):
-                pass
+            with open_workspace(result.root, agent="powerspec-init", source_mode="ensure") as workspace:
+                if callable(getattr(workspace.source_store, 'commit', None)):
+                    workspace.source_store.commit()
             typer.echo("Sources ready. Run pspec init --agent <agent> to provision agent assets.")
         else:
             installed = install_consumer(result.root, agent=agent)
