@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import re
 import shutil
 import subprocess
@@ -46,7 +47,14 @@ def inspect_executable(
     """Run literal argv with a time bound and return a categorized observation."""
     if isinstance(argv, (str, bytes)) or not argv or any(not isinstance(x, str) or not x for x in argv):
         raise ValueError("argv must be a nonempty sequence of nonempty strings")
-    executable = shutil.which(argv[0])
+    if os.path.dirname(argv[0]):
+        # Explicit paths may be valid staged binaries outside PATHEXT on Windows.
+        candidate = Path(argv[0])
+        if not candidate.is_absolute():
+            candidate = Path(cwd).absolute() / candidate
+        executable = str(candidate) if candidate.is_file() else None
+    else:
+        executable = shutil.which(argv[0])
     if executable is None:
         return ExecutableResult("missing")
     command = [executable, *argv[1:]]
