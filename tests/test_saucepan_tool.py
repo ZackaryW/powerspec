@@ -24,14 +24,14 @@ def test_manager_uses_supported_cli_lines_and_zuu_release_lifecycle(tmp_path):
     assert managed.resolver.owner == "ZackaryW"
     assert managed.resolver.repository == "saucepan"
     assert managed.max_age == timedelta(hours=24)
-    assert managed.policy_id == "saucepan-cli-0.9-zip-v1"
+    assert managed.policy_id == "saucepan-cli-0.10-zip-v1"
     assert managed.state_store.path == destination.with_name("saucepan-check.json")
-    assert SAUCEPAN_CLI_LINES == {(0, 9)}
-    assert managed.is_compatible("0.9.1")
-    assert managed.is_compatible("0.9.0")
+    assert SAUCEPAN_CLI_LINES == {(0, 10)}
+    assert managed.is_compatible("0.10.1")
+    assert managed.is_compatible("0.10.0")
     assert not managed.is_compatible("0.7.0")
     assert managed.resolver.candidate_filter(
-        Candidate("v0.9.0", ResolutionSource.RELEASE)
+        Candidate("v0.10.0", ResolutionSource.RELEASE)
     )
     assert not managed.resolver.candidate_filter(
         Candidate("v0.7.0", ResolutionSource.RELEASE)
@@ -72,7 +72,7 @@ def test_inspect_requires_existing_compatible_binary_without_creating_parent(tmp
 
     destination.parent.mkdir()
     destination.write_bytes(b"binary")
-    monkeypatch.setattr("powerspec.saucepan_tool._probe", lambda path: "0.9.0")
+    monkeypatch.setattr("powerspec.saucepan_tool._probe", lambda path: "0.10.0")
     monkeypatch.setattr("powerspec.saucepan_tool._validate", lambda path, tag: None)
     assert inspect_saucepan_binary(destination) == destination
 
@@ -142,7 +142,7 @@ def test_readonly_binary_probes_share_budget(tmp_path, monkeypatch):
     def inspect(argv, **options):
         calls.append((argv[-1], options['timeout']))
         clock[0] += .3
-        return SimpleNamespace(ok=True, version='0.9.0', stdout='register-application register-source prepare-group pin inspect')
+        return SimpleNamespace(ok=True, version='0.10.0', stdout='register-application register-source prepare-group pin inspect profile')
     monkeypatch.setattr(module, 'inspect_executable', inspect)
     assert inspect_saucepan_binary(destination, deadline=2) == destination
     assert [x[0] for x in calls] == ['--version', '--help']
@@ -171,7 +171,7 @@ def test_zip_assets_select_manager_platform_and_exclude_sdk():
 def test_actual_release_zip_names(system, machine, target):
     from zuu.case16 import ReleaseAsset
     from powerspec.saucepan_tool import _select_manager_zip
-    name = f'saucepan-v0.9.0-{target}.zip'
+    name = f'saucepan-v0.10.0-{target}.zip'
     asset = ReleaseAsset(name, 'https://example.test/' + name)
     assert _select_manager_zip((asset,), system, machine) == asset
 

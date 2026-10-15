@@ -2,7 +2,8 @@ from powerspec.saucepan_tool import _compatible
 
 
 def test_only_current_manager_protocol_is_compatible():
-    assert _compatible('0.9.0+local')
+    assert _compatible('0.10.0+local')
+    assert not _compatible('0.9.0')
     assert not _compatible('0.6.9')
 
 

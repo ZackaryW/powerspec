@@ -231,16 +231,20 @@ class SaucepanSources:
             self._write(state)
         return self._bound(state)
 
-    @staticmethod
-    def _policies(refresh):
-        definitions = [
-            {'type': 'refresh_policy', 'mode': 'always'},
-            {'type': 'update_policy', 'mode': 'always' if refresh else 'manual'},
-            {'type': 'stale_policy', 'allow_stale': False},
-            {'type': 'revision_policy', 'history': 'latest', 'keep': 10},
-            {'type': 'pin_policy', 'retention': 'until_released'},
-        ]
-        return [dict(uuid=str(uuid5(NAMESPACE_URL, 'powerspec:' + json.dumps(item, sort_keys=True))), **item) for item in definitions]
+    def _policies(self, refresh):
+        """Expand manager defaults while keeping app-owned choices explicit."""
+        def policy(definition):
+            identity = str(uuid5(NAMESPACE_URL, 'powerspec:' + json.dumps(definition, sort_keys=True)))
+            return dict(uuid=identity, **definition)
+
+        options = {}
+        if refresh:
+            update = policy({'type': 'update_policy', 'mode': 'always'})
+            options = {'catalog': [update], 'acquisition_policy_refs': [update['uuid']]}
+        expansion = self._client_or_default().profile('explicit-update', **options)
+        pin = policy({'type': 'pin_policy', 'retention': 'until_released'})
+        return {'catalog': [*expansion['catalog'], pin],
+                'policy_refs': expansion['combined_policy_refs'], 'pin_refs': [pin['uuid']]}
 
     @contextmanager
     def _mutation(self):
@@ -272,23 +276,26 @@ class SaucepanSources:
             return self._binding(identity, source, state, state['selected'][key])
         try:
             app = self._application(state)
-            policies = self._policies(refresh)
-            self._client_or_default().register_policies(policies)
             pending = state['pending'].get(key)
             if pending is None:
+                policies = self._policies(refresh)
                 registered = self._client_or_default().register_source({'type': 'git', 'origin': source.origin})
                 if registered['source'].get('type') != 'git' or not self._same_source(source, _GitSource(provider='git', origin=registered['source'].get('origin'), reference=source.reference)):
                     raise ConfigurationError('Saucepan registered a mismatched source')
                 operation = str(uuid4())
                 pending = {'recipe': source.model_dump(), 'source': registered['uuid'],
-                           'key': f'{self.scope}:{operation}', 'refresh': refresh}
+                           'key': f'{self.scope}:{operation}', 'refresh': refresh, 'policies': policies}
                 state['pending'][key] = pending
                 self._write(state)
             elif pending['recipe'] != source.model_dump() or pending['refresh'] != refresh:
                 raise ConfigurationError('pending source operation requires reconciliation before another intent')
+            # A recipe can evolve between invocations. Retry the saved expanded
+            # definitions and references, never a fresh recipe with the old key.
+            policies = pending['policies']
+            self._client_or_default().register_policies(policies['catalog'])
             if refresh:
                 matches = app.query_claims({'app': state['app'], 'scope': self.scope, 'where': []})
-                wanted = [item['uuid'] for item in policies[:-1]]
+                wanted = policies['policy_refs']
                 claims = [item['claim'] for item in matches['claims']
                           if item['claim']['request']['source_uuid'] == pending['source']
                           and item['claim']['request']['selector'] == self._selector(source)]
@@ -298,7 +305,7 @@ class SaucepanSources:
                     app.adopt_claim_policies(state['app'], claims[0]['uuid'], matches['revision'], wanted)
             definition = {'registration_key': pending['key'], 'members': [{'name': 'repository', 'target': {
                 'type': 'acquire', 'source_uuid': pending['source'], 'selector': self._selector(source),
-                'policy_refs': [item['uuid'] for item in policies[:-1]], 'claim': {'scope': self.scope}}}]}
+                'policy_refs': policies['policy_refs'], 'claim': {'scope': self.scope}}}]}
             if 'group' not in pending:
                 groups = app.list_groups(key=pending['key'])
                 if len(groups) > 1:
@@ -315,7 +322,7 @@ class SaucepanSources:
             # Same receipt key and original revision make retry reconciliation
             # idempotent even after a committed result was lost.
             prepared = app.prepare_group(pending['group'], expected_revision=pending['expected_revision'],
-                pin={'registration_key': pending['key'], 'policy_refs': [policies[-1]['uuid']]})
+                pin={'registration_key': pending['key'], 'policy_refs': policies['pin_refs']})
             member = prepared['resources']['members']['repository']
             resolved = prepared['group']['selected']['members']['repository']['selected_source']
             record = {**pending, 'pin': prepared['pin']['uuid'], 'output': member['output_uuid'],

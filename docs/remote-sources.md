@@ -4,7 +4,7 @@ Powerspec delegates Git acquisition and retained materialization to Saucepan. Pr
 
 ## Managed Saucepan executable
 
-Powerspec uses Zuu's managed-release lifecycle when an authorized init or upgrade needs the default Saucepan client. Read-only lookup only inspects an already installed compatible executable. If Powerspec's shared executable under `~/.saucepan/bin` is absent, Powerspec selects an official Saucepan 0.9 GitHub release for the current platform, extracts only the exact manager member from the platform ZIP, validates `--version` and required commands on a staged file, and publishes it atomically. These are the verified CLI protocol lines supported by the installed SDK boundary. Set `POWERSPEC_SAUCEPAN` to select an explicit manager path. An explicitly supplied SDK client bypasses this lifecycle.
+Powerspec uses Zuu's managed-release lifecycle when an authorized init or upgrade needs the default Saucepan client. Read-only lookup only inspects an already installed compatible executable. If Powerspec's shared executable under `~/.saucepan/bin` is absent, Powerspec selects an official Saucepan 0.10 GitHub release for the current platform, extracts only the exact manager member from the platform ZIP, validates `--version` and required commands on a staged file, and publishes it atomically. These are the verified CLI protocol lines supported by the installed SDK boundary. Set `POWERSPEC_SAUCEPAN` to select an explicit manager path. An explicitly supplied SDK client bypasses this lifecycle.
 
 Successful release checks are cached for 24 hours. A fresh matching check avoids GitHub discovery. When a later discovery or upgrade fails, Zuu retains a compatible installed executable; when no compatible executable can be produced, Powerspec reports the managed-tool failure before attempting the source operation. Constructing a catalog or running a bundled-only profile does not trigger installation: the lifecycle is lazy until a selected Git recipe needs materialization.
 
@@ -31,13 +31,25 @@ registers missing intent and prepares a pinned generation. Repeated init reuses
 that selection without refresh. `pspec sync`, status and hooks only inspect it.
 A missing required selection is an error suggesting init; lookup never repairs it.
 
-The current SDK is pinned to source commit `041e4f90634e6007b58054a59604396f8fbebd21`.
-SDK package version 0.1.0 and manager protocol 0.9 are separate version contracts.
+The current SDK is pinned to source commit `8a2d04e7d2e393c035715520254bdd5955651873`.
+SDK package version 0.2.0 and manager protocol 0.10 are separate version contracts.
 Local administrative registration creates source and immutable policy definitions;
 resource acquisition, policy adoption, group preparation and retention checks use
 the bound application context. Denials never trigger an unrestricted retry.
 Set `POWERSPEC_SAUCEPAN_CREDENTIAL_FILE` for an explicitly protected application;
 default registration requires no credential and no OS keyring.
+
+Saucepan expands its `explicit-update` policy profile when Powerspec prepares a
+missing source or an explicit upgrade. Powerspec registers those flat immutable
+policies and adopts their UUID references. This means fresh source retrieval,
+manual copied-result updates and the profile's managed revision settings; upgrade
+explicitly overrides copied-result updates to `always`. The Rust manager owns
+these defaults. Powerspec's authored profiles still own source aliases and skill
+selection, and are a separate concept from Saucepan policy profiles.
+
+Pinned retention and consumer scope remain explicit Powerspec choices. Policy
+profiles do not enable credentials, keyring integrity, or managed app installation.
+Lookup and repeated init use the selected receipt without expanding a profile.
 
 Installation and explicit upgrade submit the profile's Git origin and reference, request the complete repository, and retain:
 
@@ -118,7 +130,9 @@ move another consumer's selection.
 Candidates become selected only after validation and, for agent installation,
 successful provisioning. Explicit upgrades adopt new immutable policy UUIDs before
 preparing the replacement. A lost preparation response retains its original group,
-revision and pin registration key for reconciliation on retry. Known rejected
+revision, expanded policy catalog, UUID references and pin registration key for
+reconciliation on retry. The retry uses these saved inputs without expanding the
+named policy profile again. Known rejected
 candidates can be abandoned while their pins remain retained, allowing a later
 upgrade to fetch a corrected revision.
 

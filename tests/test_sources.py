@@ -167,6 +167,68 @@ def test_existing_ensure_is_readonly(retained):
     assert calls == ['pin']
 
 
+@pytest.mark.parametrize('refresh', [False, True])
+def test_preparation_keeps_manager_expansion_for_uncertain_retry(tmp_path, monkeypatch, refresh):
+    import copy
+    from saucepan_sdk import TransportError
+    from powerspec.sources import SaucepanSources
+
+    class Manager:
+        def __init__(self):
+            self.expansions = []
+            self.registered = []
+
+        def profile(self, name, **options):
+            self.expansions.append((name, options))
+            # Deliberately not the built-in IDs: the caller must consume the
+            # manager's expansion instead of hard-coding the recipe locally.
+            return {'catalog': [{'uuid': 'manager-policy', 'type': 'cache_policy', 'mode': 'cached'}],
+                    'combined_policy_refs': ['manager-policy']}
+
+        def register_policies(self, records):
+            self.registered.append(copy.deepcopy(records))
+
+        def register_source(self, source):
+            return {'uuid': 'source', 'source': source}
+
+        def query_claims(self, request):
+            return {'claims': [], 'revision': 0}
+
+        def list_groups(self, **options):
+            raise TransportError('timeout', started=True, indeterminate=True)
+
+    manager = Manager()
+    store = SaucepanSources(manager, consumer_path=tmp_path / 'consumer/config.toml')
+    def application(state):
+        state['app'] = 'app'
+        return manager
+    monkeypatch.setattr(store, '_application', application)
+    recipe = {'provider': 'git', 'origin': 'https://example.test/tools', 'reference': 'main'}
+    operation = store.acquire if refresh else store.ensure
+    with pytest.raises(ConfigurationError, match='timeout'):
+        operation('tools', recipe)
+    pending = copy.deepcopy(store._state()['pending'])
+    with pytest.raises(ConfigurationError, match='timeout'):
+        operation('tools', recipe)
+    assert store._state()['pending'] == pending
+    assert len(manager.expansions) == 1
+    name, options = manager.expansions[0]
+    assert name == 'explicit-update'
+    if refresh:
+        assert len(options['catalog']) == 1
+        override = options['catalog'][0]
+        assert override['type'] == 'update_policy' and override['mode'] == 'always'
+        assert options['acquisition_policy_refs'] == [override['uuid']]
+    else:
+        assert options == {}
+    intent = next(iter(pending.values()))['policies']
+    assert intent['policy_refs'] == ['manager-policy']
+    assert intent['catalog'][0]['uuid'] == 'manager-policy'
+    assert intent['catalog'][-1]['type'] == 'pin_policy'
+    assert intent['pin_refs'] == [intent['catalog'][-1]['uuid']]
+    assert manager.registered == [intent['catalog'], intent['catalog']]
+
+
 def test_default_client_uses_remaining_lookup_deadline(retained, monkeypatch):
     import powerspec.sources as module
     import powerspec.saucepan_tool as binary

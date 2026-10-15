@@ -18,7 +18,7 @@ from .catalog import ConfigurationError, MetadataUnavailable
 from .utils.inspection import inspect_executable
 
 
-SAUCEPAN_CLI_LINES = {(0, 9)}
+SAUCEPAN_CLI_LINES = {(0, 10)}
 
 
 def saucepan_executable_path() -> Path:
@@ -104,7 +104,7 @@ def _validate(path: Path, _tag: str, *, deadline=None) -> None:
     result = _inspect(path, "--help", deadline=deadline)
     if not result.ok:
         raise ValueError(f"Saucepan validation failed: {result.kind}")
-    required = {'register-application', 'register-source', 'prepare-group', 'pin', 'inspect'}
+    required = {'register-application', 'register-source', 'prepare-group', 'pin', 'inspect', 'profile'}
     if not required.issubset(set(result.stdout.split())):
         raise ValueError('Saucepan command surface is incompatible')
 
@@ -124,7 +124,7 @@ def _managed_saucepan(destination: Path) -> ManagedReleaseBinary:
         validator=_validate,
         state_store=FileCheckStateStore(destination.with_name("saucepan-check.json")),
         max_age=timedelta(hours=24),
-        policy_id="saucepan-cli-0.9-zip-v1",
+        policy_id="saucepan-cli-0.10-zip-v1",
     )
 
 
