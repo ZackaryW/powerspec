@@ -23,7 +23,7 @@ class DoctorResult:
 
     @property
     def ok(self) -> bool:
-        return all(item.status == "ok" for item in self.checks)
+        return all(item.status != "failed" for item in self.checks)
 
 
 def _check(name: str, result: ExecutableResult, *, minimum=None, compatible=None) -> DoctorCheck:
@@ -45,8 +45,11 @@ def _check(name: str, result: ExecutableResult, *, minimum=None, compatible=None
     return DoctorCheck(name, "ok", result.version or result.executable or "available")
 
 
-def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None) -> DoctorResult:
+def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str | None = None) -> DoctorResult:
     """Return named prerequisite observations without changing the environment."""
+    if agent is not None:
+        from .hooks import callback_for
+        callback_for(agent, 'sessionStart')
     cwd = Path(cwd).resolve(strict=True)
     try:
         consumer = discover_consumer(cwd, runtime=False)
@@ -68,9 +71,14 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None) -> DoctorRe
         timeout=15,
         parse_version=semantic_version,
     )
-    return DoctorResult((
+    checks = (
         consumer_check,
         _check("git", git),
         _check("openspec", openspec, minimum=(1, 13, 2)),
         _check("saucepan", saucepan, compatible=_compatible),
-    ))
+    )
+    if agent is None:
+        return DoctorResult((*checks, DoctorCheck('guidance', 'warning',
+            'delivery not inspected; use doctor --agent codex or --agent claude')))
+    from .guidance_doctor import inspect_guidance
+    return DoctorResult((*checks, *inspect_guidance(cwd, agent, inspect=inspect_executable)))

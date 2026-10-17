@@ -156,7 +156,7 @@ refreshes selected sources and reconciles managed skill installations.
 | `pspec init [--profile PROFILE] [--agent AGENT]` | Create or reuse the Git-root consumer, ensure sources, and optionally provision one agent |
 | `pspec sync` | Reconcile selected compile-time contexts into `openspec/config.yaml` |
 | `pspec status [--json]` | Show the effective profile bundle and source availability without mutation |
-| `pspec doctor [--json]` | Check the consumer boundary and required tools without repairing them |
+| `pspec doctor [--agent codex\|claude] [--json]` | Check prerequisites and, with an agent, guidance publication, hook registrations/settings and resolver output without repair |
 | `pspec config show\|profile\|edit` | Inspect or update committed consumer configuration |
 | `pspec state show\|clear` | Inspect or clear temporary global or change-specific values |
 | `pspec resolve skill --path PATH --agent AGENT` | Assemble content for a native-selected skill |

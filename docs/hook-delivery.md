@@ -53,7 +53,44 @@ skill `null`, pending, answered, and malformed-manifest outcomes.
 The current targeted headings and selected-path chain are covered by automated
 fixtures; that earlier walkthrough does not establish agent adherence to this revision.
 
-## Trait selectors
+## Diagnose missing guidance
+
+Run `pspec doctor --agent codex` (or `--agent claude`) from the affected
+consumer. Add `--json` for structured checks. Basic `pspec doctor` reports
+that delivery was not inspected when no agent is supplied.
+
+The agent-specific checks distinguish:
+
+- Whether the zmem lifecycle profile is selected, and whether its current
+  standing instruction is published in `openspec/config.yaml`.
+- Whether the expected startup and compaction commands are registered in the
+  user's native settings, and whether inspected user settings explicitly disable
+  them. Codex honors `CODEX_HOME`; Claude honors `CLAUDE_CONFIG_DIR` for inspection.
+- Whether the installed `pspec resolve hook` command generates a valid context
+  envelope for each event. Source-metadata warnings remain visible.
+- Host receipt and agent adherence, which remain **unverified**. Generation does
+  not prove receipt, and no observed user disable flag does not prove effective
+  enablement or trust across all host settings layers.
+
+Warnings do not make doctor exit unsuccessfully; observed failures do. JSON
+`ok: true` therefore means no checked stage failed, not complete verification of
+delivery. Doctor does not change settings, trust hooks, install skills, initialize
+stores, or acquire sources. A resolver invocation can evaluate the same trusted
+trait conditions as a normal hook; those authored commands are not sandboxed.
+
+If a registration is missing, use the normal `pspec init --agent codex` setup
+flow. If settings disable a callback, review it in the host's own hook controls;
+PowerSpec does not override that choice. Codex additionally requires trust for
+new or changed hooks; review them through its [hook controls](https://developers.openai.com/de-DE/docs/hooks).
+If context is stale, run `pspec sync` after completing any setup it reports.
+
+The zmem profile now supplies one shared standing instruction to both persistent
+context and runtime hooks. It does not gate that instruction on a running zmem
+service. An agent handling history or prior decisions should query memory,
+corroborate current evidence, and report unavailable tooling before using a
+Git/source fallback. Excluding the profile intentionally removes both routes.
+
+## Declaring trait selectors
 
 A runtime trait selects one or more logical events:
 

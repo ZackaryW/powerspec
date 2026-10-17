@@ -31,8 +31,9 @@ def test_doctor_reports_named_checks_without_repair(tmp_path, monkeypatch):
     monkeypatch.setattr(doctoring, "inspect_executable", inspect)
     result = doctor_consumer(project, saucepan_path=tmp_path / "saucepan")
     assert not result.ok
-    assert [item.name for item in result.checks] == ["consumer", "git", "openspec", "saucepan"]
-    assert result.checks[-1].status == "failed"
+    assert [item.name for item in result.checks] == ["consumer", "git", "openspec", "saucepan", "guidance"]
+    assert result.checks[-2].status == "failed"
+    assert result.checks[-1].status == "warning"
     assert not (tmp_path / "saucepan").exists()
     assert observed[-1][0] == str(tmp_path / "saucepan")
 
