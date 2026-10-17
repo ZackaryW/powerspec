@@ -3,6 +3,20 @@ import pytest
 from powerspec.catalog import ConfigurationError
 from powerspec.sources import ExternalCatalogs, SourceBinding, discover_catalogs
 
+
+@pytest.mark.parametrize('origin,registered,expected', [
+    ('https://github.com/ZackaryW/zmem', 'https://github.com/zackaryw/zmem.git', True),
+    ('https://github.com/Owner/Repo', 'https://github.com/owner/other.git', False),
+    ('https://example.test/Owner/Repo', 'https://example.test/owner/repo.git', False),
+    ('https://github.com/Owner/Repo?token=x', 'https://github.com/owner/repo.git', False),
+])
+def test_registered_source_identity_respects_github_canonicalization(tmp_path, origin, registered, expected):
+    from powerspec.sources import SaucepanSources
+    store = SaucepanSources(object(), consumer_path=tmp_path / 'config.toml')
+    def recipe(value):
+        return store._source('tools', {'provider': 'git', 'origin': value, 'reference': 'main'})
+    assert store._same_source(recipe(origin), recipe(registered)) is expected
+
 def binding(identity, root, revision="a" * 40):
     return SourceBinding(identity, "https://example.test/tools", "main", revision,
                          "1" * 64, "artifact", root)

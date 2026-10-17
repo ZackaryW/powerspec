@@ -108,6 +108,9 @@ class SaucepanSources:
         path = parsed.path.rstrip("/")
         if path.endswith(".git"):
             path = path[:-4]
+        if parsed.scheme.lower() == 'https' and parsed.netloc.lower() == 'github.com':
+            # Saucepan canonicalizes GitHub owner/repository names at registration.
+            path = path.lower()
         return parsed.scheme.lower(), parsed.netloc.lower(), path, parsed.params, parsed.query, parsed.fragment
 
     @classmethod
