@@ -31,15 +31,23 @@ Provide a coherent Powerspec command lifecycle for establishing, inspecting, syn
 - **THEN** it reports the error before creating consumer files or acquiring sources
 
 ### Requirement: First-use source preparation preserves existing stores
-Source preparation SHALL recognize missing native store secrets and missing indexes and delegate initialization to Saucepan. It SHALL NOT replace credentials, delete existing store data, bypass guards, or substitute test keys. Credential-service or damaged-store failures SHALL remain errors without a success claim.
+Source preparation SHALL delegate missing-store initialization to Saucepan. Default managed-binary bootstrap SHALL initialize before publication and MAY preserve narrowly recognized binary-only installer leftovers outside the root before retrying. It SHALL NOT replace credentials, delete existing store data, bypass guards, or substitute test keys. Credential-service or damaged-store failures SHALL remain errors without a success claim. A failed setup SHALL direct the user to rerun init with the same options; upgrade SHALL NOT silently replace missing-only initialization.
 
 #### Scenario: Fresh native store
-- **WHEN** a missing secret is reported and Saucepan permits initialization
-- **THEN** Powerspec initializes, registers its application, and continues acquisition
+- **WHEN** a store is absent and Saucepan permits initialization
+- **THEN** PowerSpec initializes, registers its application, and continues acquisition
 
 #### Scenario: Existing store cannot be initialized
 - **WHEN** Saucepan rejects initialization because existing data or credential problems prevent it
-- **THEN** Powerspec reports failure without registering or acquiring sources or replacing store contents
+- **THEN** PowerSpec reports failure without registering or acquiring sources or replacing store contents
+
+#### Scenario: Failed binary-only setup
+- **WHEN** the former installer left only recognized installer files under the default root
+- **THEN** rerunning init preserves those files outside the root and proceeds through store initialization before acquisition
+
+#### Scenario: Canonical GitHub source identity
+- **WHEN** Saucepan returns the same HTTPS GitHub repository with canonical lowercase owner/repository spelling and the normal .git suffix
+- **THEN** source preparation accepts that identity while preserving host, transport, query, and reference distinctions; other hosts retain case-sensitive repository paths
 
 ### Requirement: No separate install command
 The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an install command. Help and bundled bootstrap guidance SHALL direct users to init --agent for provisioning.
@@ -171,3 +179,33 @@ Human-facing lifecycle commands SHALL emit concise successful outcomes to stdout
 #### Scenario: Operation fails
 - **WHEN** a command cannot complete its promised effect
 - **THEN** it exits nonzero and identifies the failed operation without a contradictory completion message
+
+### Requirement: Doctor distinguishes executable checks from source readiness
+Doctor SHALL identify its successful Saucepan observation as an executable compatibility check, without implying that a shared store or selected materializations have been initialized. Human and JSON results SHALL preserve the named check and indicate this limitation without mutating resources. User instructions SHALL explain that incomplete setup is resumed with init before upgrade.
+
+#### Scenario: Compatible binary but no selected source
+- **WHEN** doctor observes a compatible Saucepan executable
+- **THEN** its detail identifies executable compatibility and that store/source readiness was not checked
+
+### Requirement: Doctor reports evidence for guidance delivery stages
+`pspec doctor --agent codex|claude` SHALL add read-only diagnostics to the existing prerequisite checks. It SHALL distinguish effective zmem profile selection, current persistent rule publication, matching startup/compaction registrations, observable native disabled settings, resolver generation for both events, and host receipt/adherence. Resolver generation SHALL use the installed hook command with finite timeouts and validate its native envelope. Source warnings SHALL remain visible. Host receipt, effective enablement/trust beyond inspected settings, and adherence SHALL be explicitly unverified unless directly established; successful generation alone SHALL NOT establish them. Unknown verification SHALL be reported as warning, observed failures SHALL cause nonzero exit, and JSON SHALL remain a single structured result. Unsupported agents SHALL fail before probes. Omitting --agent SHALL retain basic checks and indicate that delivery checks were not requested. Doctor SHALL NOT install, enable, trust, repair or acquire resources.
+
+#### Scenario: Hook registered but disabled
+- **WHEN** native settings explicitly disable a matching PowerSpec callback
+- **THEN** doctor reports the observed disabled setting and exits unsuccessfully without changing it
+
+#### Scenario: Guidance generated without host observation
+- **WHEN** both resolver commands emit valid context
+- **THEN** generation passes while host receipt and adherence remain unverified
+
+#### Scenario: Stale or missing published context
+- **WHEN** the zmem profile is selected but the current standing rule is absent from config.yaml
+- **THEN** doctor reports the publication gap rather than claiming complete delivery
+
+#### Scenario: Missing sources
+- **WHEN** resolver output contains metadata warnings but still carries the required rule
+- **THEN** doctor preserves those warnings and does not repair sources
+
+#### Scenario: Excluded policy
+- **WHEN** zmem is excluded
+- **THEN** doctor reports intentional nonselection without treating its absent guidance as a failure

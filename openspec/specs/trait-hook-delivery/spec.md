@@ -109,12 +109,12 @@ Results SHALL be fresh at each matched Powerspec lifecycle boundary without pers
 - **THEN** the later evaluation observes it without sync, reinstall, or reuse of the prior result
 
 #### Scenario: Service readiness is false
-- **WHEN** zmem service doctor returns valid object JSON with ok=false
-- **THEN** the expression testing .get('ok') is True omits only the Zmem trait
+- **WHEN** an optional service-health trait probes a service that returns valid object JSON with ok=false
+- **THEN** the expression testing .get('ok') is True omits only that guarded trait; the unconditional standing memory rule remains eligible
 
 #### Scenario: Service probe fails
-- **WHEN** the Zmem trait's eligible run_json call times out, exits nonzero, or returns invalid JSON
-- **THEN** dispatch reports the Zmem diagnostic, omits its guidance, and still returns unrelated successfully resolved guidance
+- **WHEN** an optional service-health trait's eligible run_json call times out, exits nonzero, or returns invalid JSON
+- **THEN** dispatch reports the optional trait diagnostic, omits that guarded guidance, and still returns independent guidance including the unconditional standing memory rule
 
 #### Scenario: Runtime value affects selection
 - **WHEN** vars is read with an explicitly selected change supplying the winning runtime value
@@ -192,3 +192,14 @@ Installed native registration matchers SHALL select which supported lifecycle ca
 #### Scenario: Direct inspection of guidance
 - **WHEN** a caller explicitly runs `pspec resolve hook sessionStart --agent claude` in a configured consumer
 - **THEN** the command returns applicable guidance without requiring proof of a native SessionStart event and without claiming the agent followed it
+
+### Requirement: Standing memory guidance survives unavailable tooling
+The selected zmem standing rule SHALL be unconditional at existing startup and compaction boundaries. It SHALL NOT require a successful service probe to remain visible. It SHALL direct agents to report unavailable memory tooling and use Git/current-source evidence with that limitation, rather than claim a memory check or wait for permission for the authorized investigation. Missing remote skill metadata SHALL retain the existing explicit unknown-classification fallback. No prompt/tool callback or automatic service repair SHALL be added.
+
+#### Scenario: Missing or unhealthy zmem
+- **WHEN** zmem is missing, unhealthy or cannot be probed
+- **THEN** both delivery events still produce the standing rule and its explicit fallback instructions
+
+#### Scenario: Sources have not been initialized
+- **WHEN** remote zmem skill metadata has no selected materialization
+- **THEN** runtime output retains the rule with unknown classification and performs no acquisition
