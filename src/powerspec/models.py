@@ -54,14 +54,23 @@ class Profile(ConfigurationModel):
         return self
 
 
-class Trait(ConfigurationModel):
+class GuidanceBody(ConfigurationModel):
+    body: str | None = None
+    body_file: Nonempty | None = None
+
+    @model_validator(mode="after")
+    def one_body_source(self):
+        if (self.body is None) == (self.body_file is None):
+            raise ValueError("declare exactly one of body or body_file")
+        return self
+
+
+class Trait(GuidanceBody):
     hooks: list[Nonempty] = Field(min_length=1)
-    body: str
     when: Expression | None = None
 
 
-class Attachment(ConfigurationModel):
-    body: str
+class Attachment(GuidanceBody):
     id: str | None = None
     when: Expression | None = None
 

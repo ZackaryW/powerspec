@@ -1,6 +1,6 @@
 scope = "user"
 global = true
-contexts = ["@builtin/incremental-checkpoints"]
+contexts = ["@builtin/incremental-checkpoints", "@builtin/zmem-lifecycle"]
 traits = ["@builtin/zmem-lifecycle"]
 skills = ["zmem/skills/*"]
 

@@ -51,6 +51,21 @@ For compilation use `discover_consumer(cwd, runtime=False)` and `context_values(
 
 ## Guidance conditions
 
+To share instructions between a context attachment and a runtime trait, put the
+text in one UTF-8 file inside the catalog and declare
+`body_file = "guidance/example.md"` in each resource instead of `body`.
+Paths are relative to the catalog root, not the resource TOML file. Declare
+exactly one body form. Absolute paths, traversal, missing files and links escaping
+the catalog are rejected. Skill references and variable substitution work as they
+do in inline bodies; contexts and traits retain their separate evaluation timing.
+
+The global zmem lifecycle profile uses this mechanism for its standing memory
+rule. Sync publishes it into OpenSpec context; startup and compaction hooks also
+deliver it. The rule remains visible when zmem is unavailable and directs the
+agent to report the limitation before using Git/current-source evidence. Exclude
+`@builtin/zmem-lifecycle` to remove both contributions. Receiving this guidance
+does not prove that the agent followed it.
+
 `Invocation(cwd, env=...)` captures the invoking working directory, environment, and Git root. `evaluate(when, values=..., bundle=..., invocation=..., location=...)` uses the pinned Zuu case18 expression evaluator with empty builtins and direct-dunder guarding. A condition must return an actual Boolean. Ordinary bodies/defaults remain data.
 
 The bindings are `vars` (a read-only top-level mapping), `git_root` (an invocation-owned Path, unavailable outside Git), `which(name)`, `run_json(argv)`, and `armed(kind, reference)`. Variables cannot replace capability names. Executable lookup honors invocation-relative paths and its PATH/PATHEXT without changing process cwd or environment. This small invocation adapter is necessary because `shutil.which` reads process-global PATHEXT and cwd. A probe requires a nonempty argument list, no shell, exit zero, and an object JSON result. Its default subprocess timeout is five seconds. A caller under a shorter external deadline may choose a finite positive timeout no greater than that default; runtime hook delivery uses two seconds inside its five-second native deadline. `ok=false` remains data; successful exit alone is not readiness.

@@ -223,6 +223,7 @@ class Catalog:
                 try:
                     data = read_toml(path)
                     validate(kind, data)
+                    self._resolve_bodies(kind, data, root)
                     ref = reference(f"@{source}/{path.stem}")
                 except ConfigurationError as error:
                     raise ConfigurationError(f"{path}: {error}") from error
@@ -230,6 +231,23 @@ class Catalog:
         for path in sorted((root / "skills").glob("*/SKILL.md")):
             name, data = self._skill(path, root)
             self._add(Resource("skill", f"@{source}/{name}", name, path.resolve(), data))
+
+    def _resolve_bodies(self, kind, data, root):
+        entries = [data] if kind == "trait" else (
+            [item for _, _, item in attachments(data)] if kind == "context" else []
+        )
+        for item in entries:
+            if "body_file" not in item:
+                continue
+            relative = Path(item["body_file"])
+            if relative.anchor or ".." in relative.parts or "\\" in item["body_file"]:
+                raise ConfigurationError("body_file must be a contained catalog-relative path")
+            source = root / relative
+            self._contained(source, root)
+            try:
+                item["body"] = source.read_text(encoding="utf-8")
+            except (OSError, ValueError) as error:
+                raise ConfigurationError(f"{source}: {error}") from error
 
     def get(self, kind, ref):
         if kind not in KINDS:
