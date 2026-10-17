@@ -17,6 +17,7 @@ from .provisioning import (
 )
 from .workspace import open_workspace
 from .sources import SaucepanSources
+from .progress import stage
 
 
 @dataclass(frozen=True)
@@ -52,12 +53,16 @@ def install_consumer(
     ) as workspace:
         plans = plan_skills(workspace.bundle)
         provisioning = provision_skills(plans, home=home, registry=registry)
-        hooks = provision_hooks(agent, home=home, registry=registry)
+        with stage(f'Reconciling {agent} hooks') as task:
+            hooks = provision_hooks(agent, home=home, registry=registry)
+            task.result(hooks.status, '; '.join(hooks.diagnostics))
         if isinstance(workspace.source_store, SaucepanSources):
             if provisioning.ok and hooks.ok:
-                workspace.source_store.commit()
+                with stage('Saving source selections'):
+                    workspace.source_store.commit()
             else:
-                workspace.source_store.reject()
+                with stage('Retaining recovery state after incomplete provisioning'):
+                    workspace.source_store.reject()
         return InstallationResult(
             workspace.consumer.git_root,
             workspace.consumer.config.profile,

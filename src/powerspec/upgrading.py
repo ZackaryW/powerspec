@@ -18,6 +18,7 @@ from .provisioning import (
     provision_skills,
 )
 from .sources import SaucepanSources, SourceBinding
+from .progress import stage
 
 
 @dataclass(frozen=True)
@@ -63,14 +64,15 @@ def _restore(operation_id, agent, *, root, home, project_root):
 
 def _verify_removed(plans, *, root, home, project_root):
     for plan in plans:
-        observed = inspect_asset(
-            plan.asset(), root=root, home=home, project_root=project_root
-        )
-        if observed.classification != "absent" or observed.owned:
-            raise ConfigurationError(
-                f"removal finalization did not establish absence for {plan.ref}: "
-                f"{observed.classification}"
+        with stage(f'Verifying removal: {plan.name}'):
+            observed = inspect_asset(
+                plan.asset(), root=root, home=home, project_root=project_root
             )
+            if observed.classification != "absent" or observed.owned:
+                raise ConfigurationError(
+                    f"removal finalization did not establish absence for {plan.ref}: "
+                    f"{observed.classification}"
+                )
 
 
 def upgrade_consumer(
@@ -101,26 +103,40 @@ def upgrade_consumer(
         project_root=consumer.git_root,
         exclude_profiles=consumer.config.exclude_profiles,
     )
+    def observed_lookup(identity, recipe):
+        with stage(f'Checking cached source: {identity} ({recipe["reference"]})'):
+            return store.lookup(identity, recipe)
+
+    def restore_removal(operation_id, **context):
+        with stage('Restoring obsolete skills after failed removal') as task:
+            result = restore(operation_id, agent, **context)
+            task.result('done' if result.ok else 'failed', '; '.join(result.diagnostics))
+            return result
+
     try:
         old_catalog = Catalog(
-            builtin=builtin, sources=source_roots, git_resolver=store.lookup
+            builtin=builtin, sources=source_roots, git_resolver=observed_lookup
         )
-        old_bundle = compose(old_catalog, **compose_args)
+        with stage('Resolving current profiles and sources'):
+            old_bundle = compose(old_catalog, **compose_args)
         refs = _remote_refs(old_bundle)
         refreshed = {}
         for identity in dict.fromkeys(map(_source_identity, refs)):
-            refreshed[identity] = store.acquire(identity, old_bundle.sources[identity])
+            recipe = old_bundle.sources[identity]
+            with stage(f'Refreshing source: {identity} ({recipe["reference"]})'):
+                refreshed[identity] = store.acquire(identity, recipe)
         new_catalog = Catalog(
             builtin=builtin, sources=source_roots, gitsources=refreshed,
-            git_resolver=store.lookup,
+            git_resolver=observed_lookup,
         )
         allowed_empty = tuple(
             ref for ref in refs
             if not new_catalog.select("skill", ref, allow_empty=True)
         )
-        new_bundle = compose(
-            new_catalog, **compose_args, empty_skill_selectors=allowed_empty
-        )
+        with stage('Resolving refreshed profiles and sources'):
+            new_bundle = compose(
+                new_catalog, **compose_args, empty_skill_selectors=allowed_empty
+            )
         old_plans = plan_skills(SimpleNamespace(
             skills=tuple(item for item in old_bundle.skills
                          if is_git_skill_reference(item.resource.ref))
@@ -131,9 +147,12 @@ def upgrade_consumer(
             store.reject()
         return UpgradeResult("failed", diagnostics=(str(error),))
 
-    provisioned = provision(
-        new_plans, home=home, registry=registry, force=force
-    )
+    with stage('Provisioning selected skills') as task:
+        provisioned = provision(
+            new_plans, home=home, registry=registry, force=force
+        )
+        if not provisioned.ok:
+            task.result('failed', 'selected skill provisioning incomplete')
     if not provisioned.ok:
         if callable(getattr(store, "reject", None)):
             store.reject()
@@ -141,7 +160,9 @@ def upgrade_consumer(
             "failed", refreshed=tuple(refreshed.values()), provisioning=provisioned,
             diagnostics=("selected skill provisioning did not complete; obsolete copies were preserved",),
         )
-    hooked = reconcile_hooks(agent, home=home, registry=registry)
+    with stage(f'Reconciling {agent} hooks') as task:
+        hooked = reconcile_hooks(agent, home=home, registry=registry)
+        task.result(hooked.status, '; '.join(hooked.diagnostics))
     if not hooked.ok:
         if callable(getattr(store, "reject", None)):
             store.reject()
@@ -156,7 +177,8 @@ def upgrade_consumer(
     def publish_selection():
         try:
             if callable(getattr(store, 'commit', None)):
-                store.commit()
+                with stage('Saving source selections'):
+                    store.commit()
         except (ConfigurationError, OSError, ValueError) as error:
             return UpgradeResult('failed', refreshed=tuple(refreshed.values()),
                 provisioning=provisioned, hooks=hooked,
@@ -182,7 +204,8 @@ def upgrade_consumer(
     asset_refs = []
     diagnostics = []
     for plan in obsolete:
-        observed = inspect(plan.asset(), **context)
+        with stage(f'Checking obsolete skill: {plan.name}'):
+            observed = inspect(plan.asset(), **context)
         if not (observed.classification == "current" and observed.owned
                 and observed.source_matches and observed.asset_ref is not None):
             diagnostics.append(
@@ -204,12 +227,14 @@ def upgrade_consumer(
     if publication_error := publish_selection():
         return publication_error
 
-    removal = remove(
-        ZuatRequest(agents=(agent,), asset_refs=tuple(asset_refs)), **context
-    )
+    with stage(f'Removing {len(obsolete)} obsolete skills') as task:
+        removal = remove(
+            ZuatRequest(agents=(agent,), asset_refs=tuple(asset_refs)), **context
+        )
+        task.result('done' if removal.ok else 'failed', '; '.join(removal.diagnostics))
     if not removal.ok:
         if removal.operation_id is not None:
-            restored = restore(removal.operation_id, agent, **context)
+            restored = restore_removal(removal.operation_id, **context)
             if not restored.ok:
                 return UpgradeResult(
                     "partial", refreshed=tuple(refreshed.values()), provisioning=provisioned,
@@ -224,9 +249,10 @@ def upgrade_consumer(
         )
 
     try:
-        finalize(obsolete, **context)
+        with stage('Verifying obsolete skill removal'):
+            finalize(obsolete, **context)
     except (ConfigurationError, OSError, ValueError) as error:
-        restored = restore(removal.operation_id, agent, **context) if removal.operation_id else None
+        restored = restore_removal(removal.operation_id, **context) if removal.operation_id else None
         if restored is None or not restored.ok:
             extra = tuple(restored.diagnostics) if restored is not None else ()
             return UpgradeResult(

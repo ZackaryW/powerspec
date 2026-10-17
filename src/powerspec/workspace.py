@@ -12,6 +12,7 @@ from .consumer import Consumer, discover_consumer
 from .profiles import Bundle, compose
 from .resources import builtin_catalog_root
 from .sources import SaucepanSources
+from .progress import stage
 
 
 SourceMode = Literal["lookup", "ensure"]
@@ -53,20 +54,25 @@ def open_workspace(
         resolver = store.ensure
     else:
         raise ValueError(f"unsupported source mode: {source_mode}") from None
+    def observe_source(identity, recipe):
+        action = 'Preparing' if source_mode == 'ensure' else 'Checking cached'
+        with stage(f'{action} source: {identity} ({recipe["reference"]})'):
+            return resolver(identity, recipe)
     local = consumer.config_path.parent
     sources = {"local": local} if local.is_dir() else {}
     with builtin_catalog_root() as builtin:
-        catalog = Catalog(builtin=builtin, sources=sources, git_resolver=resolver)
+        catalog = Catalog(builtin=builtin, sources=sources, git_resolver=observe_source)
         try:
-            bundle = compose(
-                catalog,
-                consumer.config.profile,
-                agent=agent,
-                project_root=consumer.git_root,
-                exclude_profiles=consumer.config.exclude_profiles,
-                resolve_skills=resolve_skills,
-                resolve_remote_skills=resolve_remote_skills,
-            )
+            with stage('Resolving selected profiles and sources'):
+                bundle = compose(
+                    catalog,
+                    consumer.config.profile,
+                    agent=agent,
+                    project_root=consumer.git_root,
+                    exclude_profiles=consumer.config.exclude_profiles,
+                    resolve_skills=resolve_skills,
+                    resolve_remote_skills=resolve_remote_skills,
+                )
             yield ConsumerWorkspace(consumer, catalog, bundle, store)
         except Exception:
             if callable(getattr(store, 'for_consumer', None)) and source_mode == 'ensure':

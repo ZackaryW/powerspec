@@ -1,4 +1,5 @@
 """Provision explicit profile targets through ZuAT's native ownership checks."""
+from .progress import stage
 from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Mapping
@@ -95,76 +96,81 @@ def provision_skills(plans, *, home: Path | None = None,
     permits recoverable replacement only after complete inspection identifies
     an unowned or locally modified target.
     """
+    plans = tuple(plans)
     outcomes = []
-    for plan in plans:
-        context = dict(root=registry, home=home, project_root=plan.project_root)
-        try:
-            observed = inspect_asset(plan.asset(), **context)
-            if observed.classification == "current" and observed.owned and observed.source_matches:
-                outcomes.append(SkillOutcome(plan.ref, "reused", plan))
-                continue
-            if (observed.owned and observed.observed_fingerprint is not None
-                    and observed.observed_fingerprint == observed.baseline_fingerprint):
-                result = update_asset(plan.asset(), **context)
-                outcomes.append(SkillOutcome(plan.ref, "updated" if result.ok else "failed", plan,
+    for index, plan in enumerate(plans, 1):
+        with stage(f'Checking skill {index}/{len(plans)}: {plan.name}') as task:
+            context = dict(root=registry, home=home, project_root=plan.project_root)
+            try:
+                observed = inspect_asset(plan.asset(), **context)
+                if observed.classification == "current" and observed.owned and observed.source_matches:
+                    outcomes.append(SkillOutcome(plan.ref, "reused", plan))
+                    continue
+                if (observed.owned and observed.observed_fingerprint is not None
+                        and observed.observed_fingerprint == observed.baseline_fingerprint):
+                    result = update_asset(plan.asset(), **context)
+                    outcomes.append(SkillOutcome(plan.ref, "updated" if result.ok else "failed", plan,
+                        tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                        result.operation_id))
+                    continue
+                if (observed.classification == "unowned"
+                        and observed.completeness == "complete"
+                        and observed.source_matches is True):
+                    # A complete source-relative inspection proves that the native
+                    # bytes are already the selected resource. ZuAT's non-forced
+                    # install records ownership without rewriting those bytes.
+                    result = install(
+                        ZuatRequest(agents=(plan.agent,), assets=(plan.asset(),)),
+                        **context,
+                    )
+                    outcomes.append(SkillOutcome(
+                        plan.ref, "reused" if result.ok else "failed", plan,
+                        tuple(result.diagnostics)
+                        or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                        result.operation_id,
+                    ))
+                    continue
+                if (force and observed.completeness == "complete"
+                        and observed.classification in {"unowned", "conflict"}):
+                    result = install(
+                        ZuatRequest(
+                            agents=(plan.agent,), assets=(plan.asset(),), force=True,
+                        ),
+                        **context,
+                    )
+                    outcomes.append(SkillOutcome(
+                        plan.ref, "updated" if result.ok else "failed", plan,
+                        tuple(result.diagnostics)
+                        or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                        result.operation_id,
+                    ))
+                    continue
+                if observed.classification in {"unsupported", "unowned", "conflict"}:
+                    outcomes.append(SkillOutcome(plan.ref, "failed", plan,
+                        observed.diagnostics or (f"native target is {observed.classification}",)))
+                    continue
+                if observed.classification == "indeterminate":
+                    # ZuAT install may adopt identical foreign bytes. An unresolved
+                    # ownership check must not turn that into implicit adoption.
+                    cwd = plan.project_root or home or Path.home()
+                    located = locate_skill(plan.agent, plan.name, cwd=cwd, home=home)
+                    copies = [locate_skill(plan.agent, plan.name, cwd=cwd, home=home,
+                                          selected=item.path) for item in located.candidates]
+                    if (located.outcome not in {"missing", "located", "unresolved"}
+                            or any(item.scope == plan.scope or item.outcome != "located" for item in copies)
+                            or (located.outcome != "missing" and not copies)):
+                        outcomes.append(SkillOutcome(plan.ref, "failed", plan,
+                            observed.diagnostics or ("native ownership could not be verified",)))
+                        continue
+                result = install(ZuatRequest(agents=(plan.agent,), assets=(plan.asset(),)), **context)
+                outcomes.append(SkillOutcome(plan.ref, "installed" if result.ok else "failed", plan,
                     tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
                     result.operation_id))
-                continue
-            if (observed.classification == "unowned"
-                    and observed.completeness == "complete"
-                    and observed.source_matches is True):
-                # A complete source-relative inspection proves that the native
-                # bytes are already the selected resource. ZuAT's non-forced
-                # install records ownership without rewriting those bytes.
-                result = install(
-                    ZuatRequest(agents=(plan.agent,), assets=(plan.asset(),)),
-                    **context,
-                )
-                outcomes.append(SkillOutcome(
-                    plan.ref, "reused" if result.ok else "failed", plan,
-                    tuple(result.diagnostics)
-                    or (() if result.ok else (f"ZuAT returned {result.status}",)),
-                    result.operation_id,
-                ))
-                continue
-            if (force and observed.completeness == "complete"
-                    and observed.classification in {"unowned", "conflict"}):
-                result = install(
-                    ZuatRequest(
-                        agents=(plan.agent,), assets=(plan.asset(),), force=True,
-                    ),
-                    **context,
-                )
-                outcomes.append(SkillOutcome(
-                    plan.ref, "updated" if result.ok else "failed", plan,
-                    tuple(result.diagnostics)
-                    or (() if result.ok else (f"ZuAT returned {result.status}",)),
-                    result.operation_id,
-                ))
-                continue
-            if observed.classification in {"unsupported", "unowned", "conflict"}:
-                outcomes.append(SkillOutcome(plan.ref, "failed", plan,
-                    observed.diagnostics or (f"native target is {observed.classification}",)))
-                continue
-            if observed.classification == "indeterminate":
-                # ZuAT install may adopt identical foreign bytes. An unresolved
-                # ownership check must not turn that into implicit adoption.
-                cwd = plan.project_root or home or Path.home()
-                located = locate_skill(plan.agent, plan.name, cwd=cwd, home=home)
-                copies = [locate_skill(plan.agent, plan.name, cwd=cwd, home=home,
-                                      selected=item.path) for item in located.candidates]
-                if (located.outcome not in {"missing", "located", "unresolved"}
-                        or any(item.scope == plan.scope or item.outcome != "located" for item in copies)
-                        or (located.outcome != "missing" and not copies)):
-                    outcomes.append(SkillOutcome(plan.ref, "failed", plan,
-                        observed.diagnostics or ("native ownership could not be verified",)))
-                    continue
-            result = install(ZuatRequest(agents=(plan.agent,), assets=(plan.asset(),)), **context)
-            outcomes.append(SkillOutcome(plan.ref, "installed" if result.ok else "failed", plan,
-                tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
-                result.operation_id))
-        except (OSError, ValueError) as error:
-            outcomes.append(SkillOutcome(plan.ref, "failed", plan, (str(error),)))
+            except (OSError, ValueError) as error:
+                outcomes.append(SkillOutcome(plan.ref, "failed", plan, (str(error),)))
+            finally:
+                if outcomes and outcomes[-1].plan is plan:
+                    task.result(outcomes[-1].status, '; '.join(outcomes[-1].diagnostics))
     return ProvisionResult(tuple(outcomes))
 
 

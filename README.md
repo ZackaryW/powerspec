@@ -119,6 +119,11 @@ selected skills and generic hook dispatcher at their declared scopes. Bare
 `pspec init` creates the consumer and prepares sources without choosing an agent
 or installing agent assets. There is no separate Powerspec install command.
 
+Init and upgrade show active stages and individual outcomes immediately on
+stderr, with elapsed waiting updates every five seconds during blocked work.
+These updates identify the wait; they do not measure download progress. See
+[following progress](docs/initialization.md#follow-progress).
+
 To inspect the setup without changing it:
 
 ```bash

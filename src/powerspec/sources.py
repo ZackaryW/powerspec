@@ -20,6 +20,7 @@ from saucepan_sdk import Client, SaucepanError, TransportError
 from .catalog import ConfigurationError, MetadataUnavailable, NAME
 from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary, inspection_remaining
 from .utils.atomic import replace_bytes
+from .progress import stage
 
 
 class _GitSource(BaseModel):
@@ -64,9 +65,10 @@ class SaucepanSources:
 
     def _client_or_default(self, *, deadline=None):
         if self._client is None:
-            self._executable = (ensure_saucepan_binary() if self._manage_binary and deadline is None
-                                else inspect_saucepan_binary(**({} if deadline is None else {'deadline': deadline})))
-            self._client = Client(executable=str(self._executable))
+            with stage('Preparing Saucepan manager' if self._manage_binary else 'Checking Saucepan manager'):
+                self._executable = (ensure_saucepan_binary() if self._manage_binary and deadline is None
+                                    else inspect_saucepan_binary(**({} if deadline is None else {'deadline': deadline})))
+                self._client = Client(executable=str(self._executable))
         if deadline is not None and self._executable is not None:
             return Client(executable=str(self._executable), timeout=inspection_remaining(deadline))
         if deadline is not None:
@@ -324,14 +326,16 @@ class SaucepanSources:
                 self._write(state)
             # Same receipt key and original revision make retry reconciliation
             # idempotent even after a committed result was lost.
-            prepared = app.prepare_group(pending['group'], expected_revision=pending['expected_revision'],
-                pin={'registration_key': pending['key'], 'policy_refs': policies['pin_refs']})
+            with stage(f'Materializing source: {identity}'):
+                prepared = app.prepare_group(pending['group'], expected_revision=pending['expected_revision'],
+                    pin={'registration_key': pending['key'], 'policy_refs': policies['pin_refs']})
             member = prepared['resources']['members']['repository']
             resolved = prepared['group']['selected']['members']['repository']['selected_source']
             record = {**pending, 'pin': prepared['pin']['uuid'], 'output': member['output_uuid'],
                       'commit': resolved['commit'], 'claim': member.get('claim_uuid')}
             self._candidates[key] = record
-            binding = self._binding(identity, source, state, record)
+            with stage(f'Verifying source: {identity}'):
+                binding = self._binding(identity, source, state, record)
             return binding
         except (SaucepanError, TransportError, OSError, KeyError, TypeError, ValueError) as error:
             if isinstance(error, ConfigurationError):

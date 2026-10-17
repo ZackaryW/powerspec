@@ -20,6 +20,34 @@ Plain `pspec init` prepares the consumer and selected sources without guessing a
 agent or provisioning assets. Rerun with `--agent` for agent setup. Unsupported
 agents are rejected before consumer writes.
 
+## Follow progress
+
+Init and upgrade report the active stage on stderr as work happens: consumer
+setup, Saucepan manager preparation, each source, each skill check, hooks and
+saving selections. Source-only init reports its source work too. For example:
+
+```text
+Starting: Preparing source: zmem (main)
+Starting: Materializing source: zmem
+Waiting: Materializing source: zmem (5s elapsed; no completion reported)
+done: Materializing source: zmem (8.2s)
+Starting: Checking skill 1/22: i-have-adhd
+failed: Checking skill 1/22: i-have-adhd (0.1s): native target is unowned
+```
+
+A waiting line appears every five seconds while a stage is blocked. It means
+PowerSpec is still waiting; it does not prove that a transfer is advancing.
+Failures retain their original diagnostics and retry guidance. A heartbeat does
+not extend timeouts or retry a mutation. Progress stops when the operation exits
+or is interrupted.
+
+Progress remains readable when redirected. In PowerShell, capture it separately
+with `pspec init --agent codex 2> init-progress.log`. Final results remain on
+stdout, including the existing per-item summary. Hook/skill resolution and doctor
+JSON do not acquire lifecycle progress output.
+
+## Setup and recovery
+
 OpenSpec CLI 1.13.2 or later is required when bootstrapping OpenSpec. Powerspec
 invokes it with `--tools none`; ZuAT installs skills at each profile's declared
 scope. Bundled OpenSpec skills use user scope. Only project-scoped profiles create
