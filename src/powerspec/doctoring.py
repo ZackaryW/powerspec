@@ -71,11 +71,15 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str 
         timeout=15,
         parse_version=semantic_version,
     )
+    saucepan_check = _check("saucepan", saucepan, compatible=_compatible)
+    if saucepan_check.status == 'ok':
+        saucepan_check = DoctorCheck('saucepan', 'ok',
+            f'executable compatible ({saucepan.version}); store/source readiness not checked')
     checks = (
         consumer_check,
         _check("git", git),
         _check("openspec", openspec, minimum=(1, 13, 2)),
-        _check("saucepan", saucepan, compatible=_compatible),
+        saucepan_check,
     )
     if agent is None:
         return DoctorResult((*checks, DoctorCheck('guidance', 'warning',

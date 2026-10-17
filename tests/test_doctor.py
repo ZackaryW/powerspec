@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 
 from powerspec.doctoring import doctor_consumer
 from powerspec.utils.inspection import ExecutableResult
@@ -63,3 +64,24 @@ def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch):
     result = doctor_consumer(project, saucepan_path=tmp_path / "saucepan")
     check = next(item for item in result.checks if item.name == "openspec")
     assert check.status == "failed" and "older than 1.13.2" in check.detail
+
+
+@pytest.mark.parametrize('json_output', [False, True])
+def test_doctor_labels_binary_check_without_implying_source_readiness(tmp_path, monkeypatch, json_output):
+    from typer.testing import CliRunner
+    from powerspec.cli import app
+    def inspect(argv, **kwargs):
+        version = '1.13.2' if argv[0] == 'openspec' else '0.10.0'
+        return ExecutableResult('ok', argv[0], 0, version, '', version)
+    monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
+    monkeypatch.chdir(setup(tmp_path))
+    result = CliRunner().invoke(app, ['doctor', *(['--json'] if json_output else [])])
+    assert result.exit_code == 0, result.output
+    if json_output:
+        check = next(item for item in json.loads(result.stdout)['checks'] if item['name'] == 'saucepan')
+        assert check['status'] == 'ok'
+        detail = check['detail']
+    else:
+        detail = result.stdout
+    assert 'executable compatible' in detail
+    assert 'store/source readiness not checked' in detail
