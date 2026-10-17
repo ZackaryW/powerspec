@@ -132,6 +132,11 @@ def ensure_saucepan_binary(destination: Path | None = None) -> Path:
     """Return a usable shared Saucepan binary, installing or upgrading via Zuu."""
     target = Path(destination) if destination is not None else saucepan_executable_path()
     try:
+        default = Path.home() / '.saucepan/bin' / ('saucepan.exe' if os.name == 'nt' else 'saucepan')
+        if os.path.normcase(os.path.abspath(target)) == os.path.normcase(os.path.abspath(default)):
+            from .saucepan_bootstrap import ensure_default
+            return ensure_default(target, manager_factory=_managed_saucepan,
+                                  downloader=_download_manager, validate=inspect_saucepan_binary)
         target.parent.mkdir(parents=True, exist_ok=True)
         return _managed_saucepan(target).ensure(downloader=_download_manager).destination
     except (ManagedReleaseBinaryError, OSError, ValueError) as error:

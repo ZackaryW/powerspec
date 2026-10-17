@@ -121,6 +121,27 @@ Saucepan's current public API does not expose source deregistration evidence. An
 
 ## Retention and recovery
 
+On first use of the default `~/.saucepan/bin` manager, PowerSpec stages and
+validates the executable outside the store, initializes the store through
+Saucepan, then publishes the manager and its release-check cache. This keeps
+installer files from making a fresh store look like an incompatible nonempty
+directory. Explicit executable destinations outside the default path retain
+their existing installation behavior.
+
+If a previous failed install left only the manager and/or `saucepan-check.json`
+under `~/.saucepan/bin`, PowerSpec validates any existing manager and preserves
+that directory in a sibling `.powerspec-saucepan-backup-*` before initialization.
+Backups remain after success or failure; failures report the backup path. Keep
+them until you have confirmed recovery. Unknown files, linked paths and existing
+store data are not automatically relocated. Saucepan owns validation and recovery
+of its interrupted initialization metadata.
+
+Default provisioning uses the sibling `.powerspec-saucepan-bootstrap.lock` to
+exclude concurrent PowerSpec bootstraps. If the process crashes, confirm the PID
+recorded in that lock has stopped before removing that specific stale lock.
+Rerun `pspec init` with the original options after fixing a failed setup;
+`upgrade` requires the initial source selection and does not substitute for init.
+
 The gitignored `openspec/.pspec/saucepan-state.json` stores this consumer's selected
 receipts and pending operation identities, never credentials. Lookup validates the
 manager's authenticated pin receipt and uses its returned path; it does not follow
