@@ -7,6 +7,8 @@ description: Explain the conditional Powerspec content handoff for an already na
 
 Use the agent's native skill integration to discover and select a skill. Ordinary skills need no Powerspec call. This helper is ordinary too: follow it directly.
 
+Applicable configured guidance can trigger that selection; the user need not name the skill again. When a task matches a rule in persistent OpenSpec context or runtime guidance, select the skill that rule calls for. The owning guidance defines when it applies; this helper handles the selected skill's content handoff. Do not enumerate, load, or resolve all configured skills.
+
 When generated guidance identifies a skill as dynamic, or its selected entrypoint declares a pspec.toml, obtain that exact selected location from the native integration. Do not substitute a catalog authoring path, search other installed copies, or guess user/project precedence.
 
 From the task working directory, run:
@@ -23,6 +25,8 @@ The path identifies the skill; the working directory identifies the project's co
 - `Powerspec skill resolution pending` or JSON status `pending`: obtain only missing answers, preserve existing explicit answers, and rerun the displayed invocation. Suggestions, silence, and elapsed time are not answers. No procedural content is available yet.
 - Successful literal `null`: the supplied selected copy has no manifest. Follow its ordinary native entrypoint. This supports version differences and does not require probing other ordinary skills.
 - Nonzero exit, unavailable executable, or invalid output: report the failure; do not treat it as null, use partial instructions, or silently bypass dynamic resolution. Continue independent work when possible.
+
+If the owning guidance explicitly permits a fallback when a skill or its tooling is unavailable, report the limitation and continue that permitted work. For example, the standing memory rule permits Git and current repository evidence when memory lookup is unavailable. This does not authorize following an unresolved dynamic procedure or claiming that memory verification or skill execution occurred.
 
 ## Supply pending answers
 
