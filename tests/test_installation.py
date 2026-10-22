@@ -4,6 +4,35 @@ import json
 
 from powerspec.installation import install_consumer
 from powerspec.sources import SourceBinding
+from test_hook_reconciliation import hooks, provision, write_hooks, snapshot
+from copy import deepcopy
+
+
+def test_installation_explicit_hook_repair_preserves_native_content(tmp_path, monkeypatch, hooks):
+    import powerspec.provisioning as provisioning
+    import powerspec.workspace as workspace
+    from powerspec.hooks import native_document
+    project, builtin, remote = setup(tmp_path)
+    current = native_document(hooks.agent)
+    legacy = deepcopy(current)
+    legacy['hooks']['SessionStart'][0]['matcher'] = 'startup|resume|clear'
+    with monkeypatch.context() as patch:
+        patch.setattr(provisioning, 'native_document', lambda _: legacy)
+        assert provision(hooks).ok
+    write_hooks(hooks, current)
+    before = snapshot(hooks)
+    class Sources:
+        def ensure(self, identity, recipe):
+            return SourceBinding(identity, recipe['origin'], 'main', 'a' * 40, 's', 'a', remote)
+    @contextmanager
+    def resources():
+        yield builtin
+    monkeypatch.setattr(workspace, 'builtin_catalog_root', resources)
+    options = dict(agent=hooks.agent, home=hooks.home, registry=hooks.registry, source_store=Sources())
+    assert not install_consumer(project, **options).ok
+    repaired = install_consumer(project, repair_hooks=True, **options)
+    assert repaired.ok and repaired.hooks.operation_id
+    assert snapshot(hooks) == before
 
 
 def put(path: Path, content: str):

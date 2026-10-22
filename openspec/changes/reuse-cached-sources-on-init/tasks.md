@@ -8,9 +8,9 @@
 
 ## 2. Explicit provider recovery boundaries
 
-- [ ] 2.1 Extend the existing manager adapter with default-off migration authorization and observed-digest arguments to the pinned verified official installer; verify disposable installer/provider fixtures cover successful migration with matching backup hash, changed-file rejection, unsupported candidates, ready-manager reuse, standalone bypass, and no work without source demand. Document eligibility and backup handling with this checkpoint.
-- [ ] 2.2 Preserve original provider operation identities after pending, conflicting or uncertain migration outcomes, including when the launcher is unavailable; verify repeated forced requests do not blindly replay migration or create replacement identities, and document recovery instructions without deleting backups or provider receipts.
-- [ ] 2.3 Thread default-off hook receipt-repair authorization through agent installation using existing ZuAT guarded repair; verify source-matching stale receipts repair without native byte/mtime changes, edited or ambiguous hooks fail, concurrent content changes are rejected, unrelated hooks survive, and operation identifiers remain available. Document these bounded effects.
+- [x] 2.1 Extend the existing manager adapter with default-off migration authorization and observed-digest arguments to the pinned verified official installer; verify disposable installer/provider fixtures cover successful migration with matching backup hash, changed-file rejection, unsupported candidates, ready-manager reuse, standalone bypass, and no work without source demand. Document eligibility and backup handling with this checkpoint.
+- [x] 2.2 Preserve original provider operation identities after pending, conflicting or uncertain migration outcomes, including when the launcher is unavailable; verify repeated forced requests do not blindly replay migration or create replacement identities, and document recovery instructions without deleting backups or provider receipts.
+- [x] 2.3 Thread default-off hook receipt-repair authorization through agent installation using existing ZuAT guarded repair; verify source-matching stale receipts repair without native byte/mtime changes, edited or ambiguous hooks fail, concurrent content changes are rejected, unrelated hooks survive, and operation identifiers remain available. Document these bounded effects.
 
 ## 3. Forced init integration and progress
 

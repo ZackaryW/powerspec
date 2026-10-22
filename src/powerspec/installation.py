@@ -39,6 +39,7 @@ def install_consumer(
     home: Path | None = None,
     registry: Path | None = None,
     source_store=None,
+    repair_hooks: bool = False,
 ) -> InstallationResult:
     """Ensure sources, install selected skills, and reconcile one dispatcher."""
     if agent not in SUPPORTED_AGENTS:
@@ -54,7 +55,7 @@ def install_consumer(
         plans = plan_skills(workspace.bundle)
         provisioning = provision_skills(plans, home=home, registry=registry)
         with stage(f'Reconciling {agent} hooks') as task:
-            hooks = provision_hooks(agent, home=home, registry=registry)
+            hooks = provision_hooks(agent, home=home, registry=registry, repair_hooks=repair_hooks)
             task.result(hooks.status, '; '.join(hooks.diagnostics))
         if isinstance(workspace.source_store, SaucepanSources):
             if provisioning.ok and hooks.ok:

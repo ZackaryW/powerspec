@@ -28,6 +28,32 @@ BINARY = os.environ.get('SAUCEPAN_TEST_BINARY')
 pytestmark = pytest.mark.skipif(not ASSETS or not BINARY, reason='set SAUCEPAN_RELEASE_ASSETS and SAUCEPAN_TEST_BINARY for native bootstrap acceptance')
 
 
+@pytest.mark.parametrize('condition', ['changed-bytes', 'binary-only', 'hard-link'])
+def test_native_migration_rejections_preserve_original(monkeypatch, condition):
+    from powerspec import saucepan_bootstrap as bootstrap
+    from powerspec.catalog import ConfigurationError
+    with tempfile.TemporaryDirectory(prefix='ps-mig-') as temporary, released_provider(ASSETS) as (provider, requests):
+        home = Path(temporary)
+        monkeypatch.setattr(Path, 'home', classmethod(lambda cls: home))
+        target = home / '.saucepan/bin' / ('saucepan.exe' if os.name == 'nt' else 'saucepan')
+        if condition != 'binary-only':
+            Client(executable=BINARY, root=str(target.parent.parent)).init()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(BINARY, target)
+        original = target.read_bytes()
+        if condition == 'hard-link':
+            os.link(target, home / 'manager-link')
+        digest = hashlib.sha256(original).hexdigest() if condition != 'changed-bytes' else '0' * 64
+        with pytest.raises(ConfigurationError):
+            bootstrap.ensure_default(target, provider=provider, expected_sha256=digest)
+        assert target.read_bytes() == original
+        record = json.loads(bootstrap.migration_record(target).read_text())
+        count = len(requests)
+        with pytest.raises(ConfigurationError, match=record['operation']):
+            bootstrap.ensure_default(target, provider=provider, expected_sha256=digest)
+        assert len(requests) == count
+
+
 @pytest.mark.parametrize('recovery', [False, True])
 def test_default_bootstrap_acquisition_repeat_and_upgrade(monkeypatch, recovery):
     with released_provider(ASSETS) as (provider, requests):
@@ -53,22 +79,11 @@ def _bootstrap_acquisition(monkeypatch, recovery, provider, requests):
             Client(executable=BINARY, root=str(target.parent.parent)).init()
             shutil.copy2(BINARY, target)
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
-            operation = str(uuid4())
-            args = [str(Path(ASSETS) / 'install.ps1'), '-Version', provider.tag, '-Root', str(target.parent.parent),
-                    '-Operation', operation, '-MigrateUnmanaged', '-ExpectedSha256', digest,
-                    '-TestReleaseBase', provider.release_base, '-TestGithubApi', provider.fixture_api]
-            if os.name == 'nt':
-                command = ['powershell.exe', '-NoProfile', '-File', *args]
-            else:
-                command = ['sh', str(Path(ASSETS) / 'install.sh'), '--version', provider.tag,
-                    '--root', str(target.parent.parent), '--operation', operation, '--migrate-unmanaged',
-                    '--expected-sha256', digest, '--test-release-base', provider.release_base,
-                    '--test-github-api', provider.fixture_api]
-            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=180)
-            assert result.returncode == 0, result.stderr
-            receipt = json.loads(result.stdout)
-            assert receipt['status'] == 'complete'
-            assert hashlib.sha256(Path(receipt['backup_paths'][0]).read_bytes()).hexdigest() == digest
+            from powerspec.saucepan_tool import ensure_saucepan_binary
+            assert ensure_saucepan_binary(migrate_unmanaged=True).samefile(target)
+            record = json.loads(bootstrap.migration_record(target).read_text())
+            backups = list((target.parent.parent / '.staging/setup' / record['operation']).glob('saucepan*'))
+            assert any(hashlib.sha256(path.read_bytes()).hexdigest() == digest for path in backups if path.is_file())
         setup_requests = None
         remote = root / 'remote'
         remote.mkdir()

@@ -129,7 +129,7 @@ Saucepan's current public API does not expose source deregistration evidence. An
 
 First setup prints its root and operation UUID to stderr. A complete result is reinspected before source access. Noncomplete receipts preserve status, backup paths and durable retry-shim identity. Timeout, malformed output and response loss are uncertain outcomes: inspect the original provider operation **before rerunning init**. Powerspec does not automatically retry setup. Use an external setup-capable manager if the shared launcher is unavailable. Resume a resumable operation with its original UUID and inputs; failed/conflict operations require an explicit new decision. See the [provider recovery contract](https://github.com/ZackaryW/saucepan/blob/v0.11.0/docs/managed-setup.md).
 
-An existing raw manager requires explicit verified migration. Powerspec reports its observed SHA256 and preserves it; init/upgrade is never migration consent. Download `install.ps1` or `install.sh` from the exact [v0.11.0 release](https://github.com/ZackaryW/saucepan/releases/tag/v0.11.0), verify against `SHA256SUMS` (or the pinned descriptor), and run externally:
+An existing raw manager requires explicit verified migration. Ordinary init and upgrade report its observed SHA256 and preserve it. `pspec init --force` authorizes the pinned official installer to migrate a supported default installation using that observed digest, with provider-verified backup and readiness reinspection. It does not migrate standalone overrides or update an already-ready manager. Download `install.ps1` or `install.sh` from the exact [v0.11.0 release](https://github.com/ZackaryW/saucepan/releases/tag/v0.11.0), verify against `SHA256SUMS` (or the pinned descriptor), and run externally:
 
 ```powershell
 .\install.ps1 -Version v0.11.0 -Root "$HOME\.saucepan" -Operation UUID -MigrateUnmanaged -ExpectedSha256 SHA256
@@ -140,6 +140,10 @@ sh ./install.sh --version v0.11.0 --root "$HOME/.saucepan" --operation UUID --mi
 ```
 
 Replace UUID with a new UUID and SHA256 with the observed file digest after reviewing the selected file. Migration only supports initialized compatible stores; binary-only leftovers, unknown sidecars and unsupported roots require manual preservation or a separate root. No files are automatically relocated or deleted by Powerspec. Keep provider backups and receipts until recovery is confirmed.
+
+Powerspec reserves an attempt record outside the store at `~/.powerspec/saucepan-setup/<root-hash>.json` before invoking migration. Keep it with the provider receipts. A repeated forced invocation cannot replay an uncertain or failed attempt; inspect/recover the recorded provider operation externally (using a setup-capable manager if the launcher is unavailable). Once the launcher is verified ready it is reused. Force does not bypass changed-file, link, sidecar, unsupported-store or busy-file checks. Migration may remain complete if later initialization fails.
+
+With an explicit agent, forced initialization can repair a stale hook ownership receipt only when the uniquely identified native group already matches Powerspec's desired content. ZuAT rechecks equality during its receipt-only update, preserving native bytes and modification time. Edited or ambiguous hooks still fail; recovery operation identifiers are reported. Source-only initialization performs no hook work. Upgrade keeps its separate `--repair-hooks` option and its existing skill-only `--force` meaning.
 
 Before migration, stop older Powerspec installations from using the default path: releases through 0.1.5 still contain the raw replacement lifecycle. Use an explicitly selected separate compatible executable for those consumers. This managed-setup adapter is the required consumer behavior; do not rely on an old consumer to protect the shared shim.
 

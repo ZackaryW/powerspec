@@ -131,12 +131,29 @@ def inspect_saucepan_binary(destination: Path | None = None, *, deadline=None) -
         raise MetadataUnavailable(f'cannot use existing Saucepan: {error}') from error
 
 
-def ensure_saucepan_binary(destination: Path | None = None) -> Path:
+def ensure_saucepan_binary(destination: Path | None = None, *, migrate_unmanaged=False) -> Path:
     target = Path(destination).absolute() if destination is not None else saucepan_executable_path()
-    if standalone(target) or target.exists() or target.is_symlink():
+    if standalone(target):
         return inspect_saucepan_binary(target)
     from .saucepan_bootstrap import ensure_default
     try:
+        if target.exists() or target.is_symlink():
+            if not migrate_unmanaged:
+                return inspect_saucepan_binary(target)
+            version = _probe(target)
+            parsed = _version(version)
+            unmanaged = parsed is not None and parsed[:2] == (0, 10)
+            if parsed is not None and parsed >= (0, 11, 0):
+                status = inspect_managed_status(target)
+                unmanaged = status.state == 'unmanaged' and _compatible(version)
+                if not unmanaged:
+                    require_ready(target, status, version)
+                    return target
+            if not unmanaged:
+                return inspect_saucepan_binary(target)
+            with target.open('rb') as source:
+                digest = hashlib.file_digest(source, 'sha256').hexdigest()
+            return ensure_default(target, expected_sha256=digest)
         return ensure_default(target)
     except ConfigurationError:
         raise
