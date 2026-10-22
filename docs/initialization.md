@@ -20,6 +20,23 @@ Plain `pspec init` prepares the consumer and selected sources without guessing a
 agent or provisioning assets. Rerun with `--agent` for agent setup. Unsupported
 agents are rejected before consumer writes.
 
+Ordinary init retains this consumer's selected source revisions. A new folder
+can reuse shared Saucepan retrievals younger than 24 hours; expired or missing
+material requires retrieval. To override retained selections or that cache window:
+
+```console
+pspec init --force
+pspec init --agent codex --force
+```
+
+`--force` also authorizes verified migration of a supported unmanaged default
+Saucepan installation when needed. With `--agent`, it permits guarded repair of
+stale hook receipts whose native content already matches Powerspec. Provider
+backups and operation identifiers are retained. It does not overwrite edited
+skills or hooks, resolve ambiguous ownership, or self-update a ready manager.
+Interrupted migration requires recovery of its recorded operation, not repeated
+forced attempts. See [recovery instructions](remote-sources.md#retention-and-recovery).
+
 ## Follow progress
 
 Init and upgrade report the active stage on stderr as work happens: consumer
@@ -27,7 +44,8 @@ setup, Saucepan manager preparation, each source, each skill check, hooks and
 saving selections. Source-only init reports its source work too. For example:
 
 ```text
-Starting: Preparing source: zmem (main)
+Starting: Resolving source: zmem (main)
+Starting: Preparing source: zmem (shared cache: up to 24 hours)
 Starting: Materializing source: zmem
 Waiting: Materializing source: zmem (5s elapsed; no completion reported)
 done: Materializing source: zmem (8.2s)
@@ -40,6 +58,13 @@ PowerSpec is still waiting; it does not prove that a transfer is advancing.
 Failures retain their original diagnostics and retry guidance. A heartbeat does
 not extend timeouts or retry a mutation. Progress stops when the operation exits
 or is interrupted.
+
+A repeated init reports `reused: Checking retained source` after validating the
+pin. Explicit refresh reports `Refreshing source: ... (explicit request)`.
+Cache-eligible preparation does not claim an actual cache hit or download when
+the provider has not supplied that evidence. Migration and hook receipt repair
+identify their recovery operations; completed recovery can remain in place if
+a later initialization step fails.
 
 Progress remains readable when redirected. In PowerShell, capture it separately
 with `pspec init --agent codex 2> init-progress.log`. Final results remain on

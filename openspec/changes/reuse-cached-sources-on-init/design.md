@@ -38,6 +38,8 @@ Extend the existing managed inspection/setup adapter with explicit migration int
 
 Force is explicit consent to this bounded migration, not proof that the candidate is eligible. Provider rejections for changed bytes, links, unknown sidecars, binary-only/uninitialized roots, unsupported stores, or busy files remain failures. Existing ready managers are reused without self-update. Explicit standalone overrides and injected clients remain untouched. No source demand means no manager work.
 
+A Powerspec-owned attempt record at `~/.powerspec/saucepan-setup/<root-hash>.json` is exclusively created and flushed before migration; it is outside the provider store and records only root, operation, tag and observed digest. Ready launchers bypass this guard. Other states require external provider recovery rather than deleting the record or replaying setup.
+
 Pending/conflict or uncertain setup outcomes retain their original operation identity and require provider recovery; a repeated forced invocation must not invent a new migration or replay setup blindly. Inspect provider state, including through an external setup-capable manager if the shared launcher is unavailable. Reuse the current pinned installer/protocol and receipt handling rather than creating another installer, rollback engine, or private metadata reader.
 
 ### 3b. Reuse ZuAT's guarded hook repair

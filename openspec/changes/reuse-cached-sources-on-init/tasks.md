@@ -14,9 +14,9 @@
 
 ## 3. Forced init integration and progress
 
-- [ ] 3.1 Add init --force and wire explicit source refresh, migration consent, and agent-scoped hook repair as separate internal intents; verify CLI-entrypoint tests cover with/without agent, missing/existing source selections, invalid-agent early failure, success publication, later-failure reporting, and conflicting pending ordinary/refresh intent.
-- [ ] 3.2 Verify force does not authorize skill overwrite, manager self-update, obsolete-skill removal, ambiguous hook replacement or provider-guard bypass; verify ordinary init remains non-migrating/non-repairing and upgrade retains its current force and repair-hooks semantics. Update CLI help and examples to enumerate all init force effects.
-- [ ] 3.3 Report validated retained reuse, cache-eligible preparation, explicit refresh, migration and guarded hook repair through existing progress observation; verify stderr/stdout separation, provider operation identifiers, silent library calls, failure/heartbeat cleanup, and absence of unsupported cache-hit or transfer claims. Update progress examples and review this complete integration checkpoint.
+- [x] 3.1 Add init --force and wire explicit source refresh, migration consent, and agent-scoped hook repair as separate internal intents; verify CLI-entrypoint tests cover with/without agent, missing/existing source selections, invalid-agent early failure, success publication, later-failure reporting, and conflicting pending ordinary/refresh intent.
+- [x] 3.2 Verify force does not authorize skill overwrite, manager self-update, obsolete-skill removal, ambiguous hook replacement or provider-guard bypass; verify ordinary init remains non-migrating/non-repairing and upgrade retains its current force and repair-hooks semantics. Update CLI help and examples to enumerate all init force effects.
+- [x] 3.3 Report validated retained reuse, cache-eligible preparation, explicit refresh, migration and guarded hook repair through existing progress observation; verify stderr/stdout separation, provider operation identifiers, silent library calls, failure/heartbeat cleanup, and absence of unsupported cache-hit or transfer claims. Update progress examples and review this complete integration checkpoint.
 
 ## 4. Integrated acceptance
 

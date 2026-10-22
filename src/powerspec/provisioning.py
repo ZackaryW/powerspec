@@ -206,9 +206,11 @@ def provision_hooks(agent: str, *, home: Path | None = None,
                 if not repair_hooks:
                     return HookOutcome(agent, "failed", (*observed.diagnostics,
                         "hook ownership receipt is stale; explicitly repair with "
-                        f"pspec upgrade --agent {agent} --repair-hooks",
+                        f"pspec upgrade --agent {agent} --repair-hooks or pspec init --agent {agent} --force",
                     ))
-                result = update_asset(asset, force=True, receipt_only=True, **context)
+                with stage(f'Repairing {agent} hook receipt') as task:
+                    result = update_asset(asset, force=True, receipt_only=True, **context)
+                    task.result('repaired' if result.ok else 'failed', f'operation={result.operation_id}')
                 status, repaired = "updated", True
             elif (kind == "absent"
                   or (kind == "unowned" and observed.source_matches is True)):

@@ -25,6 +25,10 @@ def environment(tmp_path, monkeypatch):
             calls.append(identity)
             return SourceBinding(identity, recipe["origin"], recipe["reference"], "a" * 40, "s", "a", remote)
 
+        def acquire(self, identity, recipe):
+            calls.append('refresh:' + identity)
+            return SourceBinding(identity, recipe['origin'], recipe['reference'], 'b' * 40, 's', 'b', remote)
+
     @contextmanager
     def resources():
         yield builtin

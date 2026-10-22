@@ -45,7 +45,11 @@ def cache_case(monkeypatch):
         a.commit()
         assert network_ops(trace)
         trace.write_text('')
-        yield root, repo, trace, transport, client, recipe, a, original
+        original_cwd = Path.cwd()
+        try:
+            yield root, repo, trace, transport, client, recipe, a, original
+        finally:
+            os.chdir(original_cwd)
 
 
 def network_ops(trace):
@@ -111,3 +115,65 @@ def test_explicit_refresh_bypasses_warm_cache_and_preserves_other_pin(cache_case
     a.commit()
     assert (candidate.root / 'data').read_text() == 'B'
     assert b.lookup('tools', recipe).resolved_revision == original.resolved_revision
+
+
+def test_real_init_cold_repeat_second_consumer_and_force(cache_case, monkeypatch):
+    from contextlib import contextmanager
+    from typer.testing import CliRunner
+    from powerspec.cli import app
+    import powerspec.workspace as workspace
+    root, repo, trace, clock, _, recipe, _, _ = cache_case
+    client = Client(executable=BINARY, root=str(root / 'cli-store'), transport=clock)
+    builtin = root / 'builtin'
+    (builtin / 'profiles').mkdir(parents=True)
+    (builtin / 'profiles/global.toml').write_text(
+        'global=true\nscope="user"\nskills=["tools/skills/example"]\n'
+        '[[source]]\nid="tools"\nprovider="git"\n'
+        f'origin={json.dumps(str(repo))}\nreference="main"\n')
+    skill = repo / 'skills/example/SKILL.md'
+    skill.parent.mkdir(parents=True)
+    skill.write_text('---\nname: example\ndescription: Example.\n---\n')
+    git(repo, 'add', '.')
+    git(repo, 'commit', '-m', 'skill')
+    @contextmanager
+    def resources():
+        yield builtin
+    monkeypatch.setattr(workspace, 'builtin_catalog_root', resources)
+    monkeypatch.setattr(workspace, 'SaucepanSources', lambda **kw: SaucepanSources(client))
+    runner = CliRunner()
+    consumers = []
+    for name in ('cli-a', 'cli-b'):
+        project = root / name
+        project.mkdir()
+        git(project, 'init', '-b', 'main')
+        config = project / 'openspec/.pspec/config.toml'
+        config.parent.mkdir(parents=True)
+        config.write_text('[vars]\n')
+        (project / 'openspec/config.yaml').write_text('schema: spec-driven\n')
+        consumers.append((project, SaucepanSources(client, consumer_path=config)))
+    first, second = consumers
+    for project, _, expect_network in [(first[0], first[1], True), (first[0], first[1], False), (second[0], second[1], False)]:
+        monkeypatch.chdir(project)
+        trace.write_text('')
+        result = runner.invoke(app, ['init'])
+        assert result.exit_code == 0, result.output
+        assert bool(network_ops(trace)) is expect_network
+    original = second[1].lookup('tools', recipe)
+    (repo / 'data').write_text('B')
+    git(repo, 'commit', '-am', 'B')
+    monkeypatch.chdir(first[0])
+    trace.write_text('')
+    result = runner.invoke(app, ['init', '--force'])
+    assert result.exit_code == 0, result.output
+    assert network_ops(trace)
+    assert 'Refreshing source:' in result.stderr
+    selected = first[1].lookup('tools', recipe)
+    assert selected.resolved_revision != original.resolved_revision
+    assert second[1].lookup('tools', recipe) == original
+    # A failed explicit refresh retains the successful selection.
+    git_data, offline = repo / '.git', root / 'cli-offline'
+    assert git_data.resolve().is_relative_to(root.resolve()) and offline.resolve().parent == root.resolve()
+    git_data.rename(offline)
+    failed = runner.invoke(app, ['init', '--force'])
+    assert failed.exit_code == 1 and 'Initialization complete' not in failed.stdout
+    assert first[1].lookup('tools', recipe) == selected

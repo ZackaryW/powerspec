@@ -119,6 +119,12 @@ selected skills and generic hook dispatcher at their declared scopes. Bare
 `pspec init` creates the consumer and prepares sources without choosing an agent
 or installing agent assets. There is no separate Powerspec install command.
 
+New folders reuse valid shared source retrievals for up to 24 hours; existing
+consumers keep their selected revisions. `pspec init --force` refreshes sources
+immediately and permits verified migration of an unmanaged default Saucepan
+installation. With `--agent`, it also permits guarded repair of matching hook
+receipts, preserving edited content and provider recovery records.
+
 Init and upgrade show active stages and individual outcomes immediately on
 stderr, with elapsed waiting updates every five seconds during blocked work.
 These updates identify the wait; they do not measure download progress. See
@@ -165,7 +171,7 @@ refreshes selected sources and reconciles managed skill installations.
 
 | Command | Purpose |
 | --- | --- |
-| `pspec init [--profile PROFILE] [--agent AGENT]` | Create or reuse the Git-root consumer, ensure sources, and optionally provision one agent |
+| `pspec init [--profile PROFILE] [--agent AGENT] [--force]` | Create or reuse the consumer; force refreshes sources and permits verified manager migration and matching hook receipt repair |
 | `pspec sync` | Reconcile selected compile-time contexts into `openspec/config.yaml` |
 | `pspec status [--json]` | Show the effective profile bundle and source availability without mutation |
 | `pspec doctor [--agent codex\|claude] [--json]` | Check prerequisites and, with an agent, guidance publication, hook registrations/settings and resolver output without repair |

@@ -47,9 +47,11 @@ class SaucepanSources:
     APP = 'powerspec'
 
     def __init__(self, client: Client | None = None, *, manage_binary=True,
-                 consumer_path: Path | None = None, credential_file: str | None = None):
+                 consumer_path: Path | None = None, credential_file: str | None = None,
+                 migrate_unmanaged: bool = False):
         self._client = client
         self._manage_binary = manage_binary
+        self._migrate_unmanaged = migrate_unmanaged
         self._executable = None
         self._credential_file = credential_file or os.environ.get('POWERSPEC_SAUCEPAN_CREDENTIAL_FILE')
         self.consumer_path = Path(consumer_path or Path.home() / '.powerspec/config.toml').resolve()
@@ -61,13 +63,18 @@ class SaucepanSources:
         if Path(path).resolve() == self.consumer_path:
             return self
         return SaucepanSources(self._client, manage_binary=self._manage_binary,
-                               consumer_path=path, credential_file=self._credential_file)
+                               consumer_path=path, credential_file=self._credential_file,
+                               migrate_unmanaged=self._migrate_unmanaged)
 
     def _client_or_default(self, *, deadline=None):
         if self._client is None:
             with stage('Preparing Saucepan manager' if self._manage_binary else 'Checking Saucepan manager'):
-                self._executable = (ensure_saucepan_binary() if self._manage_binary and deadline is None
-                                    else inspect_saucepan_binary(**({} if deadline is None else {'deadline': deadline})))
+                if self._manage_binary and deadline is None:
+                    options = {'migrate_unmanaged': True} if self._migrate_unmanaged else {}
+                    self._executable = ensure_saucepan_binary(**options)
+                else:
+                    options = {} if deadline is None else {'deadline': deadline}
+                    self._executable = inspect_saucepan_binary(**options)
                 self._client = Client(executable=str(self._executable), **self._root_options())
         if deadline is not None and self._executable is not None:
             return Client(executable=str(self._executable), timeout=inspection_remaining(deadline), **self._root_options())
@@ -354,11 +361,16 @@ class SaucepanSources:
     def ensure(self, identity, recipe):
         source = self._source(identity, recipe)
         if self._key(source) in self._state()['selected']:
-            return self.lookup(identity, recipe)
-        return self._prepare(identity, source, refresh=False)
+            with stage(f'Checking retained source: {identity}') as task:
+                binding = self.lookup(identity, recipe)
+                task.result('reused', 'validated retained selection; no refresh')
+                return binding
+        with stage(f'Preparing source: {identity} (shared cache: up to 24 hours)'):
+            return self._prepare(identity, source, refresh=False)
 
     def acquire(self, identity, recipe):
-        return self._prepare(identity, self._source(identity, recipe), refresh=True)
+        with stage(f'Refreshing source: {identity} (explicit request)'):
+            return self._prepare(identity, self._source(identity, recipe), refresh=True)
 
     def commit(self):
         """Publish validated candidates after the caller's success boundary."""

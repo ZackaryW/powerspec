@@ -28,7 +28,7 @@ BINARY = os.environ.get('SAUCEPAN_TEST_BINARY')
 pytestmark = pytest.mark.skipif(not ASSETS or not BINARY, reason='set SAUCEPAN_RELEASE_ASSETS and SAUCEPAN_TEST_BINARY for native bootstrap acceptance')
 
 
-@pytest.mark.parametrize('condition', ['changed-bytes', 'binary-only', 'hard-link'])
+@pytest.mark.parametrize('condition', ['changed-bytes', 'binary-only', 'hard-link', 'sidecar'])
 def test_native_migration_rejections_preserve_original(monkeypatch, condition):
     from powerspec import saucepan_bootstrap as bootstrap
     from powerspec.catalog import ConfigurationError
@@ -43,6 +43,8 @@ def test_native_migration_rejections_preserve_original(monkeypatch, condition):
         original = target.read_bytes()
         if condition == 'hard-link':
             os.link(target, home / 'manager-link')
+        if condition == 'sidecar':
+            target.with_suffix('.shim.json').write_text('unknown sidecar')
         digest = hashlib.sha256(original).hexdigest() if condition != 'changed-bytes' else '0' * 64
         with pytest.raises(ConfigurationError):
             bootstrap.ensure_default(target, provider=provider, expected_sha256=digest)
@@ -79,11 +81,6 @@ def _bootstrap_acquisition(monkeypatch, recovery, provider, requests):
             Client(executable=BINARY, root=str(target.parent.parent)).init()
             shutil.copy2(BINARY, target)
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
-            from powerspec.saucepan_tool import ensure_saucepan_binary
-            assert ensure_saucepan_binary(migrate_unmanaged=True).samefile(target)
-            record = json.loads(bootstrap.migration_record(target).read_text())
-            backups = list((target.parent.parent / '.staging/setup' / record['operation']).glob('saucepan*'))
-            assert any(hashlib.sha256(path.read_bytes()).hexdigest() == digest for path in backups if path.is_file())
         setup_requests = None
         remote = root / 'remote'
         remote.mkdir()
@@ -120,13 +117,17 @@ def _bootstrap_acquisition(monkeypatch, recovery, provider, requests):
         patch.chdir(project)
         runner = CliRunner()
         for expected in ('installed', 'reused'):
-            result = runner.invoke(app, ['init', '--agent', 'codex'])
+            result = runner.invoke(app, ['init', '--agent', 'codex'] + (['--force'] if recovery and expected == 'installed' else []))
             assert result.exit_code == 0, result.output
             assert expected in result.stdout
             if setup_requests is None:
                 setup_requests = len(requests)
             else:
                 assert len(requests) == setup_requests
+        if recovery:
+            record = json.loads(bootstrap.migration_record(target).read_text())
+            backups = list((target.parent.parent / '.staging/setup' / record['operation']).glob('saucepan*'))
+            assert any(hashlib.sha256(path.read_bytes()).hexdigest() == digest for path in backups if path.is_file())
         assert (home / '.saucepan/root.json').is_file()
         installed = home / '.codex/skills/example/SKILL.md'
         assert 'Version one' in installed.read_text()

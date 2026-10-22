@@ -40,6 +40,8 @@ def install_consumer(
     registry: Path | None = None,
     source_store=None,
     repair_hooks: bool = False,
+    refresh_sources: bool = False,
+    migrate_unmanaged: bool = False,
 ) -> InstallationResult:
     """Ensure sources, install selected skills, and reconcile one dispatcher."""
     if agent not in SUPPORTED_AGENTS:
@@ -49,7 +51,8 @@ def install_consumer(
     with open_workspace(
         cwd,
         agent=agent,
-        source_mode="ensure",
+        source_mode="refresh" if refresh_sources else "ensure",
+        migrate_unmanaged=migrate_unmanaged,
         source_store=source_store,
     ) as workspace:
         plans = plan_skills(workspace.bundle)

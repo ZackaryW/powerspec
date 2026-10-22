@@ -13,7 +13,7 @@ def test_init_reports_stages_to_stderr_without_changing_stdout(environment, argu
     result = CliRunner().invoke(app, ['init', *arguments])
     assert result.exit_code == 0, result.output
     assert 'Starting: Establishing consumer' in result.stderr
-    assert 'Preparing source: tools (main)' in result.stderr
+    assert 'Resolving source: tools (main)' in result.stderr
     if arguments:
         assert 'Checking skill 1/1: example' in result.stderr
         assert 'Reconciling codex hooks' in result.stderr

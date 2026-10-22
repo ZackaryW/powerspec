@@ -15,7 +15,7 @@ from .sources import SaucepanSources
 from .progress import stage
 
 
-SourceMode = Literal["lookup", "ensure"]
+SourceMode = Literal["lookup", "ensure", "refresh"]
 
 
 @dataclass(frozen=True)
@@ -36,26 +36,31 @@ def open_workspace(
     source_store=None,
     resolve_skills: bool = True,
     resolve_remote_skills: bool = True,
+    migrate_unmanaged: bool = False,
 ):
     """Yield a fully composed workspace and close packaged-resource handles.
 
     ``lookup`` is read-only with respect to remote materializations. ``ensure``
     may create the Powerspec Saucepan application and acquire missing recipes.
+    ``refresh`` explicitly updates selections. Migration consent is independent.
     """
     consumer = discover_consumer(Path(cwd), runtime=runtime)
     if consumer is None:
         raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
-    store = source_store or SaucepanSources(manage_binary=source_mode == "ensure")
+    store = source_store or SaucepanSources(manage_binary=source_mode != "lookup",
+                                           migrate_unmanaged=migrate_unmanaged)
     if callable(getattr(store, 'for_consumer', None)):
         store = store.for_consumer(consumer.config_path)
     if source_mode == "lookup":
         resolver = store.lookup
     elif source_mode == "ensure":
         resolver = store.ensure
+    elif source_mode == "refresh":
+        resolver = store.acquire
     else:
         raise ValueError(f"unsupported source mode: {source_mode}") from None
     def observe_source(identity, recipe):
-        action = 'Preparing' if source_mode == 'ensure' else 'Checking cached'
+        action = 'Resolving' if source_mode != 'lookup' else 'Checking cached'
         with stage(f'{action} source: {identity} ({recipe["reference"]})'):
             return resolver(identity, recipe)
     local = consumer.config_path.parent
@@ -75,6 +80,6 @@ def open_workspace(
                 )
             yield ConsumerWorkspace(consumer, catalog, bundle, store)
         except Exception:
-            if callable(getattr(store, 'for_consumer', None)) and source_mode == 'ensure':
+            if callable(getattr(store, 'for_consumer', None)) and source_mode != 'lookup':
                 store.reject()
             raise

@@ -244,6 +244,10 @@ def test_preparation_keeps_manager_expansion_for_uncertain_retry(tmp_path, monke
     assert intent['catalog'][-1]['type'] == 'pin_policy'
     assert intent['pin_refs'] == [intent['catalog'][-1]['uuid']]
     assert manager.registered == [intent['catalog'], intent['catalog']]
+    if not refresh:
+        with pytest.raises(ConfigurationError, match='pending source operation'):
+            store.acquire('tools', recipe)
+        assert store._state()['pending'] == pending
 
 
 def test_default_client_uses_remaining_lookup_deadline(retained, monkeypatch):

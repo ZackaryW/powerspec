@@ -68,3 +68,13 @@ def test_default_client_binds_the_inspected_root_not_ambient_root(tmp_path, monk
     monkeypatch.setattr(sources, 'Client', lambda **kwargs: calls.append(kwargs) or object())
     sources.SaucepanSources()._client_or_default()
     assert calls[0]['root'] == str(target.parent.parent)
+
+
+def test_migration_authorization_survives_consumer_binding(tmp_path, monkeypatch):
+    from powerspec import sources
+    observed = []
+    monkeypatch.setattr(sources, 'ensure_saucepan_binary',
+                        lambda **kw: observed.append(kw) or tmp_path / 'saucepan.exe')
+    source = sources.SaucepanSources(migrate_unmanaged=True).for_consumer(tmp_path / 'consumer/config.toml')
+    source._client_or_default()
+    assert observed == [{'migrate_unmanaged': True}]
