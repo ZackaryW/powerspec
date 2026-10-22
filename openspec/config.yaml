@@ -32,13 +32,23 @@ schema: spec-driven
 #         - Summarize the archive outcome before finishing
 context: |
   <!-- pspec:contexts:start -->
+  ### Skill metadata unavailable: zmem-query-memory, zmem-author-commits, zmem-design-extensions
+
+  Select these skills through your native integration. Check each selected copy for pspec.toml; if present, request its Powerspec content using `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory before following the procedure. Include `--change <name>` only for an explicitly active change. Otherwise follow its ordinary instructions.
+
   The selected memory skills target zmem2's TypeScript/Node CLI, whose command is still named zmem. When selecting the runtime, verify its executable location, version and help surface, including init, sync and check --file; the Python predecessor shares the command name. Report a mismatch and use an explicitly available compatible executable. Skill provisioning does not install the runtime or authorize replacing it.
 
   When investigating repository history, provenance, or why or when a prior decision changed, use zmem-query-memory before forming a conclusion, without asking the user to name zmem or approve an already-authorized read-only investigation. Verify recalled decisions against current code, tests, and specifications; reading annotations through git show alone is not a zmem validity check.
 
   If the selected memory skill or zmem runtime is unavailable or its query fails, report the limitation and continue the authorized investigation using Git and current repository evidence. Do not claim memory verification, silently omit this rule, or install/repair tooling merely to perform a lookup.
 
-  At meaningful implementation checkpoints, use zmem-author-commits to review the diff and validate focused commit messages. Create commits only within the user's existing authorization. Use zmem-design-extensions only when the task changes zmem extensions. Select the applicable skill through native integration; do not load or execute every available skill. Delivery of these instructions does not establish that the agent followed them or that a skill ran.
+  For every authorized commit, use zmem-author-commits through native skill selection to review the diff and validate the message, including code, tests, documentation, configuration and archive commits. Follow its runtime verification, validation and unavailable-tool reporting; ordinary commits need no manufactured annotation. Keep coherent, verified implementation checkpoints incremental while active OpenSpec planning remains local.
+
+  Never include active OpenSpec change artifacts in the proposed commit tree. Only after the change's delta specs are successfully synchronized and the change is successfully archived may its reviewed main-spec updates and archived artifacts be staged for the artifact commit. If sync or archive fails or remains incomplete, report that blocker and withhold that artifact commit; do not archive unfinished work just to make a code checkpoint. Previously tracked active files require explicit reconciliation preserving their local contents; ignore rules alone do not remove them from future trees.
+
+  Immediately before every authorized commit, inspect the staged diff and run `pspec check commit` against the same Git repository and index the commit will use. Resolve failures without bypassing the check, deleting local planning or automatically untracking user files. If staging changes afterward, rerun the check. Success establishes only index path eligibility, not spec synchronization, archive completion, zmem validation or agent adherence. The command does not install a Git hook or intercept direct commits automatically.
+
+  Create commits only within the user's existing authorization; these rules do not authorize pushing. Use zmem-design-extensions only when the task changes zmem extensions. Select the applicable skill through native integration; do not load or execute every available skill. Delivery of these instructions does not establish that the agent followed them or that a skill ran.
   ^@builtin/zmem-lifecycle/context/standing-memory-policy
 
   This project is a small Python CLI using typer, with uv as its build tool and pytest tests run through `uv run pytest`. Follow the existing package layout, dependency management, and framework conventions. Configuration describes the intended setup; verify available tooling before running it. Preserve established tooling rather than migrating it to satisfy a profile default; reconcile configuration with the project's actual choice.
@@ -59,12 +69,29 @@ operations:
 
         <!-- pspec:managed -->
         ^@builtin/archive-temporary-state/operations.archive.guidance/flush-temporary-change-state
+      - |
+        ### Skill metadata unavailable: zmem-author-commits
+
+        Select these skills through your native integration. Check each selected copy for pspec.toml; if present, request its Powerspec content using `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory before following the procedure. Include `--change <name>` only for an explicitly active change. Otherwise follow its ordinary instructions.
+
+        Before committing change artifacts, successfully synchronize the change's delta specs into the main specs and successfully archive the completed change. Verify both outcomes before staging the reviewed main-spec updates and artifacts from openspec/changes/archive/. If either operation fails or remains incomplete, report the blocker and withhold that artifact commit. Renaming a directory alone does not establish spec synchronization or completed implementation.
+
+        Active changes must be absent from the whole proposed commit tree. Preserve local planning when explicitly reconciling already tracked active entries; an ignore rule alone does not untrack them. Use zmem-author-commits for the artifact commit, just as for every implementation or documentation checkpoint, and run `pspec check commit` immediately before committing with the same Git repository/index selection. Resolve failures without bypass and rerun after staging changes. These steps grant no new commit or push authorization and do not replace the archive workflow or its completion checks.
+
+        <!-- pspec:managed -->
+        ^@builtin/incremental-checkpoints/operations.archive.guidance/archive-before-artifact-commit
   apply:
     guidance:
       - |
+        ### Skill metadata unavailable: zmem-author-commits
+
+        Select these skills through your native integration. Check each selected copy for pspec.toml; if present, request its Powerspec content using `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory before following the procedure. Include `--change <name>` only for an explicitly active change. Otherwise follow its ordinary instructions.
+
         Checkpoint incrementally after a coherent slice is implemented and its relevant checks pass, rather than waiting for the entire change. Use boundaries such as a verified utility contract, an integrated behavior, or a complete resource bundle; do not manufacture checkpoints for trivial edits or run the full test suite at every checkpoint without a reason.
 
-        When committing is authorized, inspect the diff, stage only the checkpoint's explicit paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Follow the applicable commit-authoring guidance supplied for the session. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
+        When committing is authorized, inspect the diff, stage only the checkpoint's explicit code/test/documentation paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Active OpenSpec change artifacts stay local and must not occur anywhere in the proposed commit tree, including as unchanged tracked entries. Reconcile legacy tracked planning explicitly while preserving local files; do not untrack user files automatically. Do not prematurely archive unfinished work to permit a code checkpoint.
+
+        Use zmem-author-commits for every commit. Immediately before committing, run `pspec check commit` with the same Git repository/index selection. Resolve failures without bypassing the check, and rerun it after any staging change. The preflight does not establish zmem validation, spec sync, archive completion or agent adherence. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
 
         <!-- pspec:managed -->
         ^@builtin/incremental-checkpoints/operations.apply.guidance/1
@@ -93,6 +120,8 @@ rules:
     - |
       Organize authorized implementation into meaningful, dependency-ordered checkpoints. Each checkpoint should deliver a coherent, independently reviewable slice with its relevant verification, before work proceeds to the next slice. Do not split implementation from verification into knowingly broken intermediate states or require a checkpoint for every edit.
 
+      Plan code/test checkpoints separately from the final spec/archive artifact commit. Keep active OpenSpec change artifacts local and out of every proposed commit tree. Spec synchronization and successful archive precede the artifact commit, not each implementation checkpoint. Every authorized commit follows the selected zmem commit-authoring skill and requires a passing `pspec check commit` preflight.
+
       <!-- pspec:managed -->
       ^@builtin/incremental-checkpoints/rules.tasks/1
     - |
@@ -109,6 +138,10 @@ rules:
       ^@builtin/python-simple-cli/rules.tasks/1
   design:
     - |
+      ### Skill metadata unavailable: pspec-plan-utilities
+
+      Select these skills through your native integration. Check each selected copy for pspec.toml; if present, request its Powerspec content using `pspec resolve skill --path "<selected-skill-location>" --agent <current-agent>` from the task directory before following the procedure. Include `--change <name>` only for an explicitly active change. Otherwise follow its ordinary instructions.
+
       When the accepted change needs generic helpers that could be reused in other projects, use pspec-plan-utilities. Record portable contracts, existing-library fit, a concrete use outside this project, and focused verification. Keep application models, configuration conventions, and workflow policy in application code. Describe how that code supplies inputs and consumes the helpers separately. Do not invent utilities when existing APIs or feature-owned logic suffice. Skip environment-only work, documentation, and configuration edits without behavioral effects; for mixed work assess only the relevant portion. Planning does not authorize implementation.
 
       <!-- pspec:managed -->

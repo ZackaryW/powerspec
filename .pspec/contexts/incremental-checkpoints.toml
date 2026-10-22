@@ -1,11 +1,23 @@
 [[attach.rules.tasks]]
 body = """
 Organize authorized implementation into meaningful, dependency-ordered checkpoints. Each checkpoint should deliver a coherent, independently reviewable slice with its relevant verification, before work proceeds to the next slice. Do not split implementation from verification into knowingly broken intermediate states or require a checkpoint for every edit.
+
+Plan code/test checkpoints separately from the final spec/archive artifact commit. Keep active OpenSpec change artifacts local and out of every proposed commit tree. Spec synchronization and successful archive precede the artifact commit, not each implementation checkpoint. Every authorized commit follows the selected zmem commit-authoring skill and requires a passing `pspec check commit` preflight.
 """
 
 [[attach.operations.apply.guidance]]
 body = """
 Checkpoint incrementally after a coherent slice is implemented and its relevant checks pass, rather than waiting for the entire change. Use boundaries such as a verified utility contract, an integrated behavior, or a complete resource bundle; do not manufacture checkpoints for trivial edits or run the full test suite at every checkpoint without a reason.
 
-When committing is authorized, inspect the diff, stage only the checkpoint's explicit paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Follow the applicable commit-authoring guidance supplied for the session. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
+When committing is authorized, inspect the diff, stage only the checkpoint's explicit code/test/documentation paths or hunks, preserve unrelated work, and create a focused commit before starting dependent work. Active OpenSpec change artifacts stay local and must not occur anywhere in the proposed commit tree, including as unchanged tracked entries. Reconcile legacy tracked planning explicitly while preserving local files; do not untrack user files automatically. Do not prematurely archive unfinished work to permit a code checkpoint.
+
+Use <skill:zmem-author-commits> for every commit. Immediately before committing, run `pspec check commit` with the same Git repository/index selection. Resolve failures without bypassing the check, and rerun it after any staging change. The preflight does not establish zmem validation, spec sync, archive completion or agent adherence. If commits are not authorized, report the verified checkpoint and proposed commit instead of committing. Report unavailable or failed verification honestly; partial evidence is not whole-change completion.
+"""
+
+[[attach.operations.archive.guidance]]
+id = "archive-before-artifact-commit"
+body = """
+Before committing change artifacts, successfully synchronize the change's delta specs into the main specs and successfully archive the completed change. Verify both outcomes before staging the reviewed main-spec updates and artifacts from openspec/changes/archive/. If either operation fails or remains incomplete, report the blocker and withhold that artifact commit. Renaming a directory alone does not establish spec synchronization or completed implementation.
+
+Active changes must be absent from the whole proposed commit tree. Preserve local planning when explicitly reconciling already tracked active entries; an ignore rule alone does not untrack them. Use <skill:zmem-author-commits> for the artifact commit, just as for every implementation or documentation checkpoint, and run `pspec check commit` immediately before committing with the same Git repository/index selection. Resolve failures without bypass and rerun after staging changes. These steps grant no new commit or push authorization and do not replace the archive workflow or its completion checks.
 """
