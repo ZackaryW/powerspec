@@ -29,7 +29,8 @@ def replace_bytes(path: Path, content: bytes) -> bool:
 
     temporary: Path | None = None
     try:
-        handle, name = tempfile.mkstemp(prefix=f".{target.name}.pspec-", dir=target.parent)
+        # Repeating a long target name can exceed path limits for a valid target.
+        handle, name = tempfile.mkstemp(prefix=".pspec-", dir=target.parent)
         temporary = Path(name)
         with os.fdopen(handle, "wb") as stream:
             stream.write(content)
