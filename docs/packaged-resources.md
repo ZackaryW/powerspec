@@ -10,6 +10,13 @@ The OpenSpec repository, immutable commit, selected skill roots, and license pat
 are declared under `[tool.hatch.build.hooks.custom.source]` in `pyproject.toml`.
 They are not copied into `.pspec/skills`.
 
+The bundled workflow snapshot is OpenSpec v1.14.3, pinned to
+`c794978f4f8845ce59693373c9dd882ee776588c`. Fresh bootstrap requires OpenSpec
+CLI 1.14.3 or later, and `pspec doctor` checks the same minimum. Updating the
+CLI alone does not refresh the snapshot shipped inside an installed Powerspec
+package; that requires a rebuilt distribution. Repository-local generated
+instructions are separate and can be refreshed with `openspec update`.
+
 The Hatch build hook uses Zuu's pinned GitHub-subpath materializer to stage only
 the declared complete skill roots. It rejects missing or redirected paths,
 identity mismatches, and invalid revisions. It adds generated license,

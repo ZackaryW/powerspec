@@ -102,7 +102,7 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str 
     checks = (
         consumer_check,
         _check("git", git),
-        _check("openspec", openspec, minimum=(1, 13, 2)),
+        _check("openspec", openspec, minimum=(1, 14, 3)),
         saucepan_check,
         installation,
         DoctorCheck('saucepan-sources', 'warning', 'selected-source readiness not checked'),

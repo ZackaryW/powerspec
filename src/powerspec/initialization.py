@@ -53,13 +53,13 @@ def bootstrap_openspec(root: Path):
         ["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version
     )
     if observed.kind == "missing":
-        raise ConfigurationError("OpenSpec CLI is required for initialization; install compatible OpenSpec 1.13.2 or later")
+        raise ConfigurationError("OpenSpec CLI is required for initialization; install compatible OpenSpec 1.14.3 or later")
     if not observed.ok:
         raise ConfigurationError("cannot determine installed OpenSpec CLI version")
     version = tuple(int(part) for part in (observed.version or "0").split("."))
-    if version < (1, 13, 2):
+    if version < (1, 14, 3):
         raise ConfigurationError(
-            f"OpenSpec {observed.version} is older than bundled skill compatibility (1.13.2)"
+            f"OpenSpec {observed.version} is older than bundled skill compatibility (1.14.3)"
         )
     try:
         result = subprocess.run([observed.executable, "init", str(root), "--tools", "none", "--no-animation"],

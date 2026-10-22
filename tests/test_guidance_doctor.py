@@ -51,7 +51,7 @@ def delivery(tmp_path, monkeypatch):
         if argv[0] == 'pspec':
             envelope = {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': rendered}}
             return ExecutableResult('ok', 'pspec', 0, json.dumps(envelope), 'Warning: source metadata unavailable')
-        version = '1.13.2' if argv[0] == 'openspec' else '0.10.0'
+        version = '1.14.3' if argv[0] == 'openspec' else '0.10.0'
         return ExecutableResult('ok', argv[0], 0, version, '', version)
     monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
     monkeypatch.chdir(project)

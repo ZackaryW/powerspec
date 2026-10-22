@@ -94,7 +94,7 @@ layer while preserving committed configuration.
 ## Quick Start
 
 Powerspec requires Python 3.12 or newer, Git, and
-[OpenSpec](https://github.com/Fission-AI/OpenSpec) 1.13.2 or newer. Install
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) 1.14.3 or newer. Install
 Powerspec directly from its Git repository with [uv](https://docs.astral.sh/uv/):
 
 ```bash

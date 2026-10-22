@@ -26,7 +26,7 @@ def test_doctor_reports_named_checks_without_repair(tmp_path, monkeypatch):
         if argv[0] == "git":
             return ExecutableResult("ok", "git", 0, "git version 2.50", "", "2.50")
         if argv[0] == "openspec":
-            return ExecutableResult("ok", "openspec", 0, "1.13.2", "", "1.13.2")
+            return ExecutableResult("ok", "openspec", 0, "1.14.3", "", "1.14.3")
         return ExecutableResult("missing")
 
     monkeypatch.setattr(doctoring, "inspect_executable", inspect)
@@ -51,19 +51,33 @@ def test_doctor_cli_json_exits_nonzero_for_missing_consumer(tmp_path, monkeypatc
     assert any(item["name"] == "consumer" and item["status"] == "failed" for item in payload["checks"])
 
 
-def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch):
+@pytest.mark.parametrize("openspec_version", ["1.12.9", "1.13.2", "1.14.2"])
+def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch, openspec_version):
     import powerspec.doctoring as doctoring
 
     project = setup(tmp_path)
 
     def inspect(argv, **kwargs):
-        version = "1.12.9" if argv[0] == "openspec" else "0.10.0"
+        version = openspec_version if argv[0] == "openspec" else "0.10.0"
         return ExecutableResult("ok", argv[0], 0, version, "", version)
 
     monkeypatch.setattr(doctoring, "inspect_executable", inspect)
     result = doctor_consumer(project, saucepan_path=tmp_path / "saucepan")
     check = next(item for item in result.checks if item.name == "openspec")
-    assert check.status == "failed" and "older than 1.13.2" in check.detail
+    assert check.status == "failed" and "older than 1.14.3" in check.detail
+
+    from typer.testing import CliRunner
+    from powerspec.cli import app
+    config = project / "openspec/.pspec/config.toml"
+    before = config.read_bytes()
+    monkeypatch.chdir(project)
+    monkeypatch.setenv("POWERSPEC_SAUCEPAN", str(tmp_path / "standalone"))
+    cli_result = CliRunner().invoke(app, ["doctor", "--json"])
+    assert cli_result.exit_code == 1
+    checks = json.loads(cli_result.stdout)["checks"]
+    assert next(item for item in checks if item["name"] == "openspec")["status"] == "failed"
+    assert config.read_bytes() == before
+    assert not (tmp_path / "standalone").exists()
 
 
 @pytest.mark.parametrize('json_output', [False, True])
@@ -71,7 +85,7 @@ def test_doctor_labels_binary_check_without_implying_source_readiness(tmp_path, 
     from typer.testing import CliRunner
     from powerspec.cli import app
     def inspect(argv, **kwargs):
-        version = '1.13.2' if argv[0] == 'openspec' else '0.10.0'
+        version = '1.14.3' if argv[0] == 'openspec' else '0.10.0'
         return ExecutableResult('ok', argv[0], 0, version, '', version)
     monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
     monkeypatch.setenv('POWERSPEC_SAUCEPAN', str(tmp_path / 'standalone'))
@@ -102,7 +116,7 @@ def test_cli_reports_managed_state_separately(tmp_path, monkeypatch, state, json
     target.parent.mkdir(parents=True)
     target.write_bytes(b'fixture')
     def inspect(argv, **kwargs):
-        version = '1.13.2' if argv[0] == 'openspec' else '0.11.0'
+        version = '1.14.3' if argv[0] == 'openspec' else '0.11.0'
         return ExecutableResult('ok', argv[0], 0, version, '', version)
     monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
     # Install this seam in the owning module; doctor must call the same contract.
@@ -133,7 +147,7 @@ def test_cli_absent_and_legacy_default_are_observations_only(tmp_path, monkeypat
     def inspect(argv, **kwargs):
         if argv[0] == str(target) and not exists:
             return ExecutableResult('missing')
-        version = '1.13.2' if argv[0] == 'openspec' else '0.10.0'
+        version = '1.14.3' if argv[0] == 'openspec' else '0.10.0'
         return ExecutableResult('ok', argv[0], 0, version, '', version)
     monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
     monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: pytest.fail('doctor network'))

@@ -48,7 +48,7 @@ JSON do not acquire lifecycle progress output.
 
 ## Setup and recovery
 
-OpenSpec CLI 1.13.2 or later is required when bootstrapping OpenSpec. Powerspec
+OpenSpec CLI 1.14.3 or later is required when bootstrapping OpenSpec. Powerspec
 invokes it with `--tools none`; ZuAT installs skills at each profile's declared
 scope. Bundled OpenSpec skills use user scope. Only project-scoped profiles create
 repository-local agent skills. Generic hooks use the agent's user-level settings.

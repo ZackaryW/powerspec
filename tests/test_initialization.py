@@ -127,14 +127,15 @@ def test_changed_configuration_aborts_before_bootstrap(tmp_path, monkeypatch):
         m.initialize(plan)
 
 
-def test_bootstrap_invokes_upstream_with_no_local_tools(tmp_path, monkeypatch):
+@pytest.mark.parametrize("version", ["1.14.3", "1.15.0"])
+def test_bootstrap_invokes_upstream_with_no_local_tools(tmp_path, monkeypatch, version):
     import powerspec.initialization as m
     calls = []
     monkeypatch.setattr(
         m,
         "inspect_executable",
         lambda *args, **kwargs: type(
-            "Observation", (), {"kind": "ok", "ok": True, "version": "1.13.2", "executable": "openspec"}
+            "Observation", (), {"kind": "ok", "ok": True, "version": version, "executable": "openspec"}
         )(),
     )
     def run(argv, **kwargs):
@@ -145,6 +146,25 @@ def test_bootstrap_invokes_upstream_with_no_local_tools(tmp_path, monkeypatch):
     m.bootstrap_openspec(tmp_path)
     assert calls[-1][0] == ["openspec", "init", str(tmp_path), "--tools", "none", "--no-animation"]
     assert calls[-1][1]["stdin"] == subprocess.DEVNULL
+
+
+@pytest.mark.parametrize("version", ["1.13.2", "1.14.2"])
+def test_bootstrap_rejects_cli_older_than_bundled_workflows(tmp_path, monkeypatch, version):
+    import powerspec.initialization as m
+    from powerspec.utils.inspection import ExecutableResult
+
+    monkeypatch.setattr(m, "inspect_executable", lambda *a, **k:
+                        ExecutableResult("ok", "openspec", 0, version, "", version))
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        bootstrap(tmp_path)
+        return subprocess.CompletedProcess(argv, 0, "initialized", "")
+    monkeypatch.setattr(m.subprocess, "run", run)
+    with pytest.raises(ConfigurationError, match=r"1\.14\.3"):
+        m.bootstrap_openspec(tmp_path)
+    assert not calls
+    assert not (tmp_path / "openspec").exists()
 
 
 def test_init_cli_reports_availability_and_reuses_configuration(tmp_path, monkeypatch):
