@@ -1,7 +1,7 @@
 scope = "user"
 global = true
 contexts = ["@builtin/archive-temporary-state"]
-traits = []
+traits = ["@builtin/skill-bootstrap"]
 skills = [
   "@builtin/pspec-skill-bootstrap",
   "@builtin/pspec-workset",

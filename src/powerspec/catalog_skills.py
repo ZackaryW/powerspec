@@ -14,6 +14,10 @@ def select_catalog_skill(catalog, bundle, selector):
     elif not NAME.fullmatch(selector):
         raise ConfigurationError(f'invalid skill name or exact reference: {selector!r}; invocation wildcards are unsupported')
     declarations = tuple(dict.fromkeys((*bundle.skill_declarations(), *bundle.skill_declarations('resolve-skills'))))
+    if exact and selector in declarations:
+        # The explicit declaration already establishes membership; an overlapping
+        # broad selector must not pull unrelated source evidence into this request.
+        declarations = (selector,)
     candidates = {}
     for ref in declarations:
         if exact:

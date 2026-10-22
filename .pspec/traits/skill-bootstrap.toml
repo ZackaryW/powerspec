@@ -1,3 +1,5 @@
-# Inert compatibility identity for profiles authored before targeted reminders.
 hooks = ["sessionStart", "afterCompaction"]
-body = ""
+when = "armed('skill', '@builtin/pspec-skill-bootstrap')"
+body = """
+When the current task needs a pspec:<skill> target named by the user or applicable scenario guidance, use <skill:pspec-skill-bootstrap> to retrieve that target only. Do not preload other selected skills.
+"""

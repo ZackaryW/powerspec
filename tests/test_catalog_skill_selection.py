@@ -95,3 +95,15 @@ def test_transient_only_provider_rejected(tmp_path):
     with _origin_scope(tmp_path, None):
         with pytest.raises(ConfigurationError, match='transient-only'):
             durable_skill_root(tmp_path / 'skills/one/SKILL.md')
+
+
+def test_exact_selection_does_not_expand_an_overlapping_unneeded_wildcard(tmp_path):
+    builtin, remote = tmp_path / 'builtin', tmp_path / 'remote'
+    skill(remote, 'one', 'one')
+    bad = remote / 'skills/bad/SKILL.md'
+    bad.parent.mkdir(); bad.write_text('not skill metadata')
+    profile(builtin, 'main', **{'resolve-skills':['tools/skills/*', 'tools/skills/one']})
+    source(builtin, 'main', 'tools')
+    catalog = Catalog(builtin=builtin, gitsources={'tools': remote})
+    bundle = compose(catalog, '@builtin/main', agent='codex', resolve_skills=False)
+    assert select_catalog_skill(catalog, bundle, 'tools/skills/one').name == 'one'

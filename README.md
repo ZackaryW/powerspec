@@ -1,5 +1,11 @@
 <div align="center">
 
+Scenario-specific procedures can stay out of native discovery until needed. Author a profile with bootstrap in `skills`, targets in `resolve-skills`, and lightweight owning rules such as `When reviewing A, use pspec:@local/a`. When that scenario applies, bootstrap retrieves A alone; the user need not name it again. A direct `pspec:a` request is also supported. Lookup is limited to the consumer's effective selected profiles after exclusions.
+
+The builtin profile supplies a compact routing reminder at startup and after compaction, guarded by bootstrap selection. It adds no prompt/tool callbacks or eager skill inventory. Init/upgrade prepare selected source content; only `skills` creates native installation targets. Resolution itself only reads retained sources. See [skill resolution](docs/skill-resolution.md) for both selectors and pending/error handling.
+
+This context reduction applies to resolve-only selections in a fresh native setup. Existing independently installed skills remain discoverable, and previously read session text is not unloaded. Emitting guidance and resolving a procedure do not prove host receipt or agent adherence.
+
 # Powerspec
 
 **Reusable project guidance for OpenSpec and coding agents.**

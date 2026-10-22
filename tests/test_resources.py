@@ -31,7 +31,10 @@ def test_builtin_guidance_uses_canonical_cli_surface():
         trait = (root / "traits/skill-bootstrap.toml").read_text(encoding="utf-8")
         archive = (root / "contexts/archive-temporary-state.toml").read_text(encoding="utf-8")
     assert "pspec resolve skill" in bootstrap and "pspec init --agent" in bootstrap
-    assert tomllib.loads(trait)["body"] == ""
+    parsed = tomllib.loads(trait)
+    assert parsed["hooks"] == ["sessionStart", "afterCompaction"]
+    assert parsed["when"] == "armed('skill', '@builtin/pspec-skill-bootstrap')"
+    assert parsed["body"].strip()
     assert "pspec state clear --change" in archive
     assert "pspec install --agent" not in bootstrap
 
@@ -75,8 +78,8 @@ def test_built_wheel_has_no_checkout_paths(tmp_path):
     with ZipFile(wheels[0]) as archive:
         names = archive.namelist()
         prefix = 'powerspec/_resources/catalog/'
-        assert tomllib.loads(archive.read(prefix + 'traits/skill-bootstrap.toml').decode())['body'] == ''
-        assert '@builtin/skill-bootstrap' not in tomllib.loads(archive.read(prefix + 'profiles/builtin.toml').decode())['traits']
+        assert tomllib.loads(archive.read(prefix + 'traits/skill-bootstrap.toml').decode())['body'].strip()
+        assert '@builtin/skill-bootstrap' in tomllib.loads(archive.read(prefix + 'profiles/builtin.toml').decode())['traits']
         for skill in ('pspec-skill-bootstrap', 'pspec-tdd', 'pspec-smarter-decision'):
             assert 'resolve skill --path' in archive.read(prefix + f'skills/{skill}/SKILL.md').decode()
     assert "powerspec/_resources/catalog/profiles/builtin.toml" in names
