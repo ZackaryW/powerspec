@@ -70,7 +70,7 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 
 ### Requirement: Status and doctor inspect without mutation
 
-`pspec status` SHALL describe the owning consumer, selected profile or global-only mode, effective profiles after exclusions, selected contexts, traits, skills, sources, and pending installation facts without acquiring or modifying resources. `pspec doctor` SHALL check the consumer boundary and required external executables and integrations without repairing them. Both commands SHALL support human-readable output and `--json`.
+`pspec status` SHALL describe the owning consumer, selected profile or global-only mode, effective profiles after exclusions, selected contexts, traits, skills, sources, and pending installation facts without acquiring or modifying resources. `pspec doctor` SHALL check the consumer boundary and required external executables and integrations without repairing them. Both commands SHALL support human-readable output and `--json`. Status SHALL distinguish skills selected for installation from resolve-skills declarations. Its existing skills JSON field SHALL retain installation-selection semantics and an additive resolve_skills field SHALL report resolve-skills selections, including declarations whose identity is also selected for installation. Human output SHALL label these two selection lists separately without implying installation success.
 
 #### Scenario: Inspect a configured consumer
 - **WHEN** a user runs status inside a valid consumer
@@ -79,6 +79,10 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 #### Scenario: Diagnose missing prerequisites
 - **WHEN** doctor finds a missing or incompatible prerequisite
 - **THEN** it reports a failed named check, exits nonzero, and makes no repair attempt
+
+#### Scenario: Inspect resolve-only availability
+- **WHEN** a consumer selects a skill only through resolve-skills
+- **THEN** status reports its resolution selection separately from installation selections without materializing sources or inspecting native copies
 
 ### Requirement: Synchronization is local-aware and atomic
 
@@ -142,7 +146,7 @@ Upgrade SHALL accept `--repair-hooks` as separate explicit authorization to repa
 
 `pspec resolve skill --path <selected-location> --agent <agent>` SHALL consume an explicitly supplied skill directory, SKILL.md, or pspec.toml. Relative locations SHALL be interpreted against the task's process working directory; supplying a path SHALL NOT change the directory used for consumer discovery. The agent option SHALL identify invocation context rather than drive native installation lookup. Skill resolution SHALL preserve Markdown-by-default, optional JSON, literal null for an explicitly supplied ordinary skill, and optional --change inputs. Pending responses SHALL provide a rerun command retaining the complete selected path, agent, and explicit change. JSON pending and resolved responses SHALL identify the canonical skill directory through a skill_path field while retaining their existing status, skill, agent, change, and content/questions fields; the skill name SHALL come from the selected SKILL.md's declared name.
 
-The previous positional-name form, including the old --selected option, SHALL fail with a nonzero diagnostic explaining the new --path invocation and native-selection responsibility. It SHALL NOT perform legacy name discovery, infer a path from a bare name, or silently treat a positional name as a relative path. Missing --path or --agent SHALL be an invalid invocation. Failed invocations SHALL emit no successful payload. Both pspec and powerspec console scripts SHALL expose the same contract.
+The previous positional-name form, including the old --selected option, SHALL fail with a nonzero diagnostic explaining the new --path invocation and native-selection responsibility. It SHALL NOT perform legacy name discovery, infer a path from a bare name, or silently treat a positional name as a relative path. Exactly one of --path or --ref and an explicit --agent SHALL be required. Supplying neither selector or both selectors SHALL be an invalid invocation. --ref SHALL explicitly select the catalog route described below; it SHALL NOT revive the legacy positional-name syntax or inspect native installations. Failed invocations SHALL emit no successful payload. Both pspec and powerspec console scripts SHALL expose the same contract.
 
 `pspec resolve hook <event> --agent <agent>` SHALL select its logical event and supported agent from command arguments and discover the nearest owning consumer from its process working directory. Optional --change SHALL remain the only selector for change-scoped hook inputs. Hook resolution SHALL NOT read, parse, poll, or wait for standard input, including when a native host supplies a payload. Protocol success SHALL write results to stdout; diagnostics SHALL use stderr and documented nonzero exit codes. Hook guidance SHALL retain the supported agent's native additional-context response envelope and an absent contribution SHALL produce no stdout.
 
@@ -187,12 +191,20 @@ The previous positional-name form, including the old --selected option, SHALL fa
 - **THEN** the rerun preserves a correctly quoted path and the same agent and change, and JSON identifies the canonical skill directory
 
 #### Scenario: Missing path is not discovery
-- **WHEN** a caller omits --path even though same-named skills are installed
+- **WHEN** a caller omits both --path and --ref even though same-named skills are installed
 - **THEN** the invocation fails without enumerating installations or selecting a default copy
 
 #### Scenario: Console aliases agree
 - **WHEN** identical explicit-path requests are made through pspec and powerspec
 - **THEN** their stdout, stderr, and exit behavior agree
+
+#### Scenario: Catalog selection is explicit
+- **WHEN** the caller supplies --ref helper instead of --path
+- **THEN** the command uses only selected Powerspec catalog resources and does not interpret the name as an installed skill or a filesystem path
+
+#### Scenario: Conflicting selectors
+- **WHEN** the caller supplies both --path and --ref
+- **THEN** the command fails before resolving either target and emits no successful payload
 
 ### Requirement: Commands present stable human and JSON results
 
@@ -312,3 +324,50 @@ Init --force SHALL authorize provider-verified unmanaged-manager migration when 
 #### Scenario: Later source preparation fails after migration
 - **WHEN** verified manager migration succeeds but a subsequent source operation fails
 - **THEN** init reports overall failure and the completed migration separately, retaining provider backups and recovery evidence without claiming rollback
+
+### Requirement: Explicit catalog skill references resolve under the owning consumer
+
+`pspec resolve skill --ref <selector> --agent <agent>` SHALL retrieve one skill from the owning consumer's effective skills or resolve-skills after exclusions. Bare names SHALL uniquely match declared names; exact references SHALL identify selected resources. Invalid, wildcard, absent, unselected or ambiguous selectors SHALL fail without a successful payload or native lookup. Catalog results SHALL preserve identity, runtime precedence and the output contracts in the scenarios below.
+
+#### Scenario: Unique bare name
+- **WHEN** helper is selected only through resolve-skills and has one distinct selected identity
+- **THEN** --ref helper returns its content and exact identity without installing a native copy
+
+#### Scenario: Ambiguous bare name
+- **WHEN** distinct selected resources declare the same name
+- **THEN** --ref with that bare name fails and identifies the exact selected references instead of preferring a source or installation scope
+
+#### Scenario: Qualified reference disambiguates selected resources
+- **WHEN** the caller supplies one exact reference identified by an ambiguity diagnostic
+- **THEN** that selected resource resolves independently of other same-named resources
+
+#### Scenario: Configured source is not selection
+- **WHEN** a source contains helper but no effective profile selects that resource
+- **THEN** --ref cannot resolve it, even with its exact reference
+
+#### Scenario: Pending catalog invocation
+- **WHEN** a selected dynamic skill needs an unanswered input
+- **THEN** the response withholds its procedure and gives a retry preserving the concrete reference, agent, and explicitly supplied change
+
+#### Scenario: Ordinary catalog content
+- **WHEN** a selected ordinary skill has no pspec.toml
+- **THEN** --ref returns resolved content while --path for that same ordinary directory retains literal null behavior
+
+#### Scenario: No owning consumer
+- **WHEN** --ref is invoked outside a configured consumer's Git boundary
+- **THEN** it reports the missing consumer without searching other repositories or using arbitrary global source registrations
+
+#### Scenario: One target produces one procedure response
+- **WHEN** applicable scenario guidance or a user request leads the agent to invoke --ref A while B and C are also selected
+- **THEN** stdout contains only A's resolution or pending result under the selected representation, without lifecycle progress or other candidates' procedure bodies and discovery descriptions
+
+#### Scenario: Represent one catalog result
+- **WHEN** either console alias resolves a catalog target
+- **THEN** JSON identifies status, skill, skill_ref, durable skill_path, agent and change, plus content or questions as appropriate
+- **AND** resolved content equals default Markdown, including the canonical reference and source directory; runtime input precedence remains unchanged
+- **AND** a pending retry retains the concrete reference, task directory, agent and explicit change
+
+#### Scenario: Invalid catalog selector
+- **WHEN** the caller supplies a wildcard, unknown name, unselected identity or ambiguous bare name
+- **THEN** resolution fails with an actionable diagnostic and no successful payload
+- **AND** ambiguity lists usable exact references without using native installations to establish membership or break ties
