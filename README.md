@@ -182,6 +182,7 @@ refreshes selected sources and reconciles managed skill installations.
 | `pspec sync` | Reconcile selected compile-time contexts into `openspec/config.yaml` |
 | `pspec status [--json]` | Show the effective profile bundle and source availability without mutation |
 | `pspec doctor [--agent codex\|claude] [--json]` | Check prerequisites and, with an agent, guidance publication, hook registrations/settings and resolver output without repair |
+| `pspec check commit [--json]` | Reject active OpenSpec change paths and unresolved conflicts in the entire selected Git index |
 | `pspec config show\|profile\|edit` | Inspect or update committed consumer configuration |
 | `pspec state show\|clear` | Inspect or clear temporary global or change-specific values |
 | `pspec resolve skill --path PATH --agent AGENT` | Assemble content for a native-selected skill |
@@ -193,6 +194,40 @@ refreshes selected sources and reconciles managed skill installations.
 
 `powerspec` is an alias for `pspec`. Run `pspec <command> --help` for complete
 arguments, indexed workset overrides, JSON output options, and exit behavior.
+
+### Commit checkpoints
+
+Keep verified code and test commits incremental while active OpenSpec planning
+stays local. Before every authorized commit, follow `zmem-author-commits`, review
+the staged diff, and run `pspec check commit` immediately before committing.
+Rerun the check if staging changes. This includes documentation, configuration,
+and archive commits; ordinary messages need no invented zmem annotation.
+
+Change artifacts become eligible only after their delta specs have been
+successfully synchronized and the change successfully archived. Stage the
+reviewed main specs and files under `openspec/changes/archive/` at that point.
+Failed sync or archive means withholding that artifact commit. Do not archive
+unfinished work just to make an implementation checkpoint.
+
+The checker reads the whole Git index, including unchanged previously tracked
+files, nested consumers, sparse entries and intent-to-add entries. It supports
+unborn branches, linked worktrees and `GIT_INDEX_FILE`. Active entries fail even
+if an ignore rule exists or they were force-added. Only canonical `archive/`
+contents are exempt; `archive-draft/` and `Archive/` are not. Already tracked
+active files need explicit reconciliation that preserves their local contents;
+an ignore rule alone does not untrack them. This repository ignores active
+changes while retaining archive visibility; consumers manage their own ignore
+rules.
+
+The command needs no Powerspec consumer setup. Exit 0 means the inspected index
+passes the path/conflict check; exit 1 identifies violations or an inspection
+failure, and invalid CLI syntax exits 2. `--json` emits one object with `ok`,
+`repository`, `forbidden_paths`, `unmerged_paths`, and `errors`. Human failures
+use stderr. The checker does not mutate files, staging, refs, or configuration,
+invoke zmem, or install Git hooks. It can be called from an existing pre-commit
+workflow, but direct Git commits are not automatically intercepted. A passing
+check does not prove sync/archive completion, zmem validation or agent adherence,
+and does not protect against later index changes.
 
 ## Documentation
 

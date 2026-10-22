@@ -3,6 +3,7 @@
 import typer
 
 from .flush import flush
+from .check import commit as check_commit
 from .config import edit as edit_config, profile as config_profile, show as show_config
 from .doctor import doctor
 from .hook import hook
@@ -22,6 +23,7 @@ app = typer.Typer(
 )
 
 resolve_app = typer.Typer(help="Resolve agent-facing Powerspec protocols.")
+check_app = typer.Typer(help="Run read-only preflight checks.")
 state_app = typer.Typer(help="Inspect and clear temporary consumer state.")
 config_app = typer.Typer(
     help="Inspect and update persistent consumer configuration.",
@@ -50,6 +52,9 @@ app.add_typer(config_app, name="config")
 app.add_typer(state_app, name="state")
 app.add_typer(resolve_app, name="resolve")
 app.add_typer(workset_app, name="workset")
+app.add_typer(check_app, name="check")
+
+check_app.command(name="commit")(check_commit)
 
 resolve_app.command(name="skill")(skill)
 resolve_app.command(name="hook")(hook)

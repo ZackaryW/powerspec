@@ -5,3 +5,7 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Active OpenSpec planning stays local; commit artifacts only after sync/archive.
+**/openspec/changes/*
+!**/openspec/changes/archive/
