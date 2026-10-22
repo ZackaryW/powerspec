@@ -46,9 +46,13 @@ Keep command handlers focused on parsing inputs, invoking implementation code, a
 [[attach.rules.tasks]]
 body = """
 Plan verification at the changed boundary: focused tests for utilities; actual CLI-entrypoint tests for argument parsing, output, and exit codes; isolated filesystem tests for persistent effects; installation or executable checks when packaging changes. Scale the test selection to the affected behavior and shared dependencies. Complete required project checks without scheduling the full suite after every small increment.
+
+For each planned check, identify the accepted behavior or contract, where its outcome is observable, and a plausible violation it would detect. Never manufacture coverage by matching implementation strings, regex patterns, snapshots, or source fragments. Text assertions are valid when text is the actual contract; prefer parsed semantic checks for structured outputs unless representation is contractual. Reuse relevant coverage and appropriate artifact validation for prose-only changes.
 """
 
 [[attach.operations.apply.guidance]]
 body = """
 When implementing or changing software behavior, use <skill:pspec-tdd> for the accepted implementation segment. For environment-only work, documentation, investigation, or configuration edits without behavioral effects, use appropriate validation without activating TDD. For mixed work, apply TDD to the behavioral portion. Use `<test_command>` with the runner's appropriate selectors for focused checks, broadening when dependencies, failures, or unresolved concerns warrant it.
+
+Review what each assertion proves through the relevant production path. Reject source-text substitutes that still pass when the claimed behavior is missing; preserve genuine text contracts and avoid pinning incidental wording or formatting. Do not add tests merely to confirm a new rule's words or raise a passing count. Distinguish behavioral results, content delivery, and manual review; instruction text alone does not prove agent adherence. This is review guidance, not an automatic test-quality gate.
 """

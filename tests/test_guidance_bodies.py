@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from ruamel.yaml import YAML
 
 from powerspec.catalog import Catalog, ConfigurationError
 
@@ -60,24 +61,23 @@ def test_standing_rule_survives_missing_sources_and_tools(tmp_path, event):
     authored = Path(__file__).resolve().parents[1] / '.pspec'
     root = tmp_path / 'catalog'
     for name in ('profiles/zmem-lifecycle.toml', 'traits/zmem-lifecycle.toml',
-                 'contexts/incremental-checkpoints.toml', 'contexts/zmem-lifecycle.toml',
-                 'guidance/zmem-lifecycle.md'):
+                 'contexts/incremental-checkpoints.toml', 'contexts/zmem-lifecycle.toml'):
         put(root, name, (authored / name).read_text())
+    put(root, 'guidance/zmem-lifecycle.md',
+        'Memory policy fixture: use <skill:zmem-query-memory>.\n\nKeep this second paragraph.\n')
     project = tmp_path / 'project'
     (project / '.git').mkdir(parents=True)
     put(project, 'openspec/.pspec/config.toml', '[vars]\n')
     def missing(*a, **k):
         raise MetadataUnavailable('no selected materialization; run init')
     catalog = Catalog(builtin=root, git_resolver=missing)
+    # The contract here is delivery of the selected body despite unavailable
+    # tools/sources, not the particular prose chosen for the memory policy.
+    expected_body = 'Memory policy fixture: use zmem-query-memory.\n\nKeep this second paragraph.'
     diagnostics = []
     result = dispatch(logical_event=event, agent='codex', cwd=project,
                       catalog=catalog, env={'PATH': ''}, diagnostics=diagnostics)
-    assert result and 'zmem-query-memory' in result
-    assert 'without asking the user to name zmem' in result
-    assert 'unavailable' in result
-    assert 'zmem2' in result and 'TypeScript/Node' in result
-    assert 'check --file' in result and 'executable location' in result
-    assert 'does not install the runtime' in result
+    assert result and expected_body in result
     assert any('no selected materialization' in item for item in diagnostics)
     bundle = compose(catalog, agent='codex', resolve_skills=False)
     assert '@builtin/zmem-lifecycle' in [item.ref for item in bundle.contexts]
@@ -85,12 +85,20 @@ def test_standing_rule_survives_missing_sources_and_tools(tmp_path, event):
     from powerspec.syncing import publish
     target = put(project, 'openspec/config.yaml', 'schema: spec-driven\n')
     publish(target, context_contributions(bundle, None, Invocation(project, env={'PATH': ''})))
-    assert 'before forming a conclusion' in target.read_text()
-    assert 'zmem2' in target.read_text()
-    assert '<skill:' not in target.read_text()
+    published = YAML(typ='safe').load(target.read_text())
+    assert published['schema'] == 'spec-driven'
+    assert expected_body in published['context']
     excluded = compose(catalog, agent='codex', resolve_skills=False,
                        exclude_profiles=['@builtin/zmem-lifecycle'])
     assert not excluded.contexts and not excluded.traits
+    put(project, 'openspec/.pspec/config.toml',
+        'exclude-profiles=["@builtin/zmem-lifecycle"]\n[vars]\n')
+    assert dispatch(logical_event=event, agent='codex', cwd=project,
+                    catalog=catalog, env={'PATH': ''}) is None
+    publish(target, context_contributions(excluded, None, Invocation(project, env={'PATH': ''})))
+    republished = YAML(typ='safe').load(target.read_text())
+    assert republished['schema'] == 'spec-driven'
+    assert expected_body not in republished.get('context', '')
 
 
 def test_memory_profile_uses_zmem2_with_stable_native_names(tmp_path):
