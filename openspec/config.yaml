@@ -32,6 +32,15 @@ schema: spec-driven
 #         - Summarize the archive outcome before finishing
 context: |
   <!-- pspec:contexts:start -->
+  The selected memory skills target zmem2's TypeScript/Node CLI, whose command is still named zmem. When selecting the runtime, verify its executable location, version and help surface, including init, sync and check --file; the Python predecessor shares the command name. Report a mismatch and use an explicitly available compatible executable. Skill provisioning does not install the runtime or authorize replacing it.
+
+  When investigating repository history, provenance, or why or when a prior decision changed, use zmem-query-memory before forming a conclusion, without asking the user to name zmem or approve an already-authorized read-only investigation. Verify recalled decisions against current code, tests, and specifications; reading annotations through git show alone is not a zmem validity check.
+
+  If the selected memory skill or zmem runtime is unavailable or its query fails, report the limitation and continue the authorized investigation using Git and current repository evidence. Do not claim memory verification, silently omit this rule, or install/repair tooling merely to perform a lookup.
+
+  At meaningful implementation checkpoints, use zmem-author-commits to review the diff and validate focused commit messages. Create commits only within the user's existing authorization. Use zmem-design-extensions only when the task changes zmem extensions. Select the applicable skill through native integration; do not load or execute every available skill. Delivery of these instructions does not establish that the agent followed them or that a skill ran.
+  ^@builtin/zmem-lifecycle/context/standing-memory-policy
+
   This project is a small Python CLI using typer, with uv as its build tool and pytest tests run through `uv run pytest`. Follow the existing package layout, dependency management, and framework conventions. Configuration describes the intended setup; verify available tooling before running it. Preserve established tooling rather than migrating it to satisfy a profile default; reconcile configuration with the project's actual choice.
   ^@builtin/python-simple-cli/context/1
 

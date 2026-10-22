@@ -71,3 +71,55 @@ correcting it required no production change.
 `uv build --wheel` succeeded. Inspection of the built wheel verified the zmem2
 origin, stable alias/user scope and runtime guidance in packaged resources.
 No source acquisition or provisioning code needed modification.
+
+## Installed consumer acceptance
+
+Installed the verified Powerspec 0.1.6 wheel through uv. The first ordinary
+`pspec init --agent codex` acquired zmem2 but preserved three conflicting memory
+skills and reported a stale hook receipt. Complete ZuAT inspection proved all
+three owned skills exactly matched the acquired zmem2 source, while their
+ownership baselines still represented the predecessor. Hook contents also
+matched the intended dispatcher.
+
+Reconciled only those three source-matching owned skills with ZuAT's recoverable
+update API and repaired the matching hook receipt through the guarded hook API.
+Each operation reported `native_changed=false`; all 11 recorded memory-skill and
+hook file hashes remained unchanged. No conflicting content was overwritten,
+no automatic skill-repair behavior was added, and no blanket force initialization
+was used. The retry succeeded, reusing all 22 selected skills and the hook group.
+The initial run also updated intact owned OpenSpec skills from the installed
+bundle through the existing provisioning path.
+
+The consumer now pins zmem2 revision
+`b14d257911270565dcb6228da435520ef79cf506`, matching the installed runtime build.
+All predecessor source selections remain unchanged. `pspec sync` published the
+new standing memory guidance; both startup and compaction resolver outputs
+include its intended-runtime and installation-boundary instructions. Doctor
+returned `ok=true`. Its warnings correctly leave source readiness unchecked by
+that command and host enablement, delivery receipts and adherence unverified;
+source provenance was separately verified through the retained selection.
+
+Evidence includes `live-inspection.json`, `live-repair.json`,
+`consumer-init-retry.log`, before/after source snapshots, the two hook outputs and
+`consumer-doctor.json` in the external evidence directory. A duplicated ignore
+entry emitted by initialization was removed without changing ignore semantics.
+
+## Final validation
+
+The complete Powerspec pytest suite passed: **634 passed, 11 skipped** in
+330.12 seconds. Native Saucepan tests used the verified v0.11.0 raw manager and
+release assets; installed acceptance used the updated global pspec executable.
+The log is `full-suite.log` in the evidence directory. Upstream zmem2 remains
+verified by its earlier 75 passing tests; no upstream code changed afterward.
+
+Strict OpenSpec validation and `git diff --check` passed. Both predecessor and
+zmem2 retained selections were independently resolved and their outputs remain
+available. The integration checkpoint `83f3b5c` passed zmem validation; its
+post-commit inspection reported complete 113-commit coverage with no annotations.
+The new change remains active for separately requested spec synchronization and
+archive. No release, tag or push was performed.
+
+At the user's request, removed the standalone migration guide and its links.
+Keep machine-specific setup and rollback evidence in this change; initialization
+documentation retains only the source-selection order and runtime boundary.
+This documentation-only adjustment does not change the tested behavior.

@@ -96,9 +96,9 @@ Basic integrity is the default; credentials and keyring integrity remain opt-in.
 Existing incompatible or damaged stores are rejected, never deleted or rekeyed.
 See [remote sources](remote-sources.md) for retained bindings and recovery.
 
-The zmem profile now acquires its skills from zmem2. Installing those skills does
-not install the Node runtime. Existing consumers should initialize the new
-source before upgrade; see [zmem2 setup and migration](zmem-migration.md).
+The zmem profile acquires its skills from zmem2; it does not install the Node
+runtime. Consumers migrating from the predecessor source should run init before
+upgrade to establish the new source selection.
 
 For a bundled-only consumer, explicitly exclude the external profiles:
 

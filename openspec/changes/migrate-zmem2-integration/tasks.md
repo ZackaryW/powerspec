@@ -14,8 +14,8 @@
 
 ## 3. Installed acceptance
 
-- [ ] 3.1 Reinstall Powerspec from the verified working tree, initialize this consumer against zmem2, reconcile Codex skills and sync persistent guidance; verify source provenance, skill content/ownership and startup/compaction guidance without overwriting native edits.
-- [ ] 3.2 Run relevant integration tests and the complete pytest suite, validate this change strictly, record runtime and installed-consumer evidence with coverage limitations, and create the final local verification checkpoint without pushing.
+- [x] 3.1 Reinstall Powerspec from the verified working tree, initialize this consumer against zmem2, reconcile Codex skills and sync persistent guidance; verify source provenance, skill content/ownership and startup/compaction guidance without overwriting native edits.
+- [x] 3.2 Run relevant integration tests and the complete pytest suite, validate this change strictly, record runtime and installed-consumer evidence with coverage limitations, and create the final local verification checkpoint without pushing.
 
 ## Workflow follow-up
 
