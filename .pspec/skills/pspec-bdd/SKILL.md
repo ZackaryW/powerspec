@@ -23,6 +23,8 @@ Keep behavioral scenarios in OpenSpec when adding executable coverage. Do not de
 
 Choose the smallest meaningful boundary that proves the observable outcome. Keep pure transformations and exhaustive data matrices in focused tests when those suffice. Use BDD where a composed interaction or acceptance example benefits from executable representation; not every requirement needs a feature file.
 
+Identify the accepted behavior or contract each check establishes and a plausible violation it would detect. Never create tests merely to increase coverage or match source strings, regex patterns, snapshots, names, or implementation fragments. Matching feature wording or finding a call in source does not establish the scenario's outcome; changing assertion syntax does not improve that evidence.
+
 For mixed work, distinguish utility contracts from the composed outcome. Utility tests support a journey but do not establish integration behavior they never exercise. Reuse useful tests and harnesses instead of duplicating them to assign each process its own proof.
 
 Environment-only maintenance, documentation, and configuration edits without behavioral effects need appropriate validation rather than a manufactured BDD journey. Planning examples or mapping evidence does not by itself authorize implementation.
@@ -32,6 +34,8 @@ Environment-only maintenance, documentation, and configuration edits without beh
 Use the project's selected framework, test layout, and runner. Establish choices from configuration and accepted scope before asking. The shared procedure does not prescribe a language or framework.
 
 Translate conditions and expected outcomes into concrete examples. Make initial state and triggering action clear through Given/When/Then or the existing readable harness. Assert public outputs, visible state, or externally observable effects through the relevant production path. Fixtures may control external dependencies without replacing the behavior being verified.
+
+Use string, regex, or snapshot assertions when text or an authored artifact is itself the accepted contract, such as CLI diagnostics, serialization, generated guidance, or pattern-matching results. Prefer parsed semantic assertions for structured output unless representation is contractual. Avoid incidental prose and formatting; derive expected outcomes from the accepted scenario rather than copying the implementation's computation.
 
 Retain a direct trace from each executable scenario to its OpenSpec root, capability, requirement, and source scenario. Reuse stable identifiers or binding conventions when present; otherwise a source path plus exact requirement and scenario headings is sufficient. A feature is never its own authoritative behavioral source.
 
@@ -45,6 +49,8 @@ For new or changed behavior under implementation, make the intended acceptance e
 
 Implement or adapt the steps and authorized behavior, then run the affected scenarios through the established runner. Inspect what the assertions prove. A binding, generated test file, successful generator, or count of passing scenarios is not by itself evidence that the intended behavior was exercised.
 
+If the check would still pass with the claimed behavior missing but the expected source text present, strengthen or replace it. This does not mandate mutation tooling. Preserve useful existing coverage and use semantic review or artifact validation for prose-only changes; do not manufacture scenarios that only assert the new rule's wording.
+
 Start with affected features and dependencies. Broaden verification when shared changes, failures, required project checks, or unresolved concerns justify it. Follow the project's generation rules; generation may not be safely narrowed in the same way as test execution.
 
 ## Reconcile examples and evidence
@@ -54,3 +60,5 @@ Compare the owning OpenSpec scenarios, executable examples, and observed results
 Preserve useful existing tests while reporting missing or unclear OpenSpec scenario mappings. Keep references accurate when their source moves or is renamed, including when accepted change scenarios become canonical. This skill does not initiate archival or another workflow stage.
 
 Return the behaviors covered, their examples or other selected checks, commands actually run, observed results, and remaining gaps. Distinguish planned, implemented, passed, failed, and not-run evidence. A passing example establishes only the behavior its assertions cover. Return control to the user or caller when the selected segment is complete.
+
+Separate automated behavior evidence from content or artifact validation and manual review. Delivered instruction text does not establish host receipt, agent adherence, or execution of those instructions.

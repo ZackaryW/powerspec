@@ -37,6 +37,10 @@ Use the project's existing reference convention to identify the owning OpenSpec 
 
 The runner supplies concrete study data, navigation, controlled dependencies, and assertions. For a UI client, exercise the route and observe both the rendered outcome and absence of outgoing history reads. A test of a boolean policy helper alone does not prove the route applies that policy.
 
+Searching component source for `historyEnabled`, matching the scenario title, or snapshotting the feature text would still pass if the route ignored the policy. Those checks do not establish this scenario. Open the disabled route through the production interaction and observe the unavailable state and outgoing requests; an enabled-study example can distinguish genuine suppression from a harness that never starts reads.
+
+If the accepted UI contract specifies an unavailable-state message, asserting that rendered text is legitimate. If only unavailability is contractual, avoid freezing incidental copy. Likewise, parse a structured response to check its state rather than searching its raw JSON for a word. A test that publishes this feature or guidance text can prove publication, but cannot prove the scenario ran or an agent followed the guidance.
+
 Several fixture cases can exercise this behavior. Cases that change the product contract need an accepted decision recorded in OpenSpec; convenience of testing does not authorize new behavior.
 
 ## Existing examples with unclear intent

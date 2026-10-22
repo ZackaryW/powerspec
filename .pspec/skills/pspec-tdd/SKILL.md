@@ -15,6 +15,10 @@ Take the requested behavior, accepted constraints, and test environment from the
 
 Identify the expected outcome, the public boundary where it is observable, and a meaningful example. Resolve material ambiguity from available evidence or the user's decision, preserving choices already settled.
 
+For each test, identify the accepted behavior, regression, or externally meaningful contract and a plausible violation it would detect. Exercise the relevant production path. Never add a test merely to increase coverage or match source strings, regex patterns, snapshots, names, or implementation fragments. Changing assertion syntax does not turn implementation mirroring into behavioral evidence: finding `save(...)` in source does not prove persistence; invoke the operation and inspect its stored result.
+
+Text assertions are appropriate when text or an authored artifact is itself the accepted contract, such as a CLI diagnostic, serialization, generated guidance, or a pattern-matching result. Prefer parsed semantic assertions for structured output unless its representation is contractual. Avoid incidental wording and formatting, and derive expected outcomes from the contract rather than duplicating the implementation's computation.
+
 During planning, describe the behavior, expected failure, and verification approach. Planning alone does not authorize implementation. For changes without behavioral effects, such as environment-only maintenance, use appropriate validation and return to the caller without manufacturing a TDD cycle.
 
 Preserve existing implementation and user-authored work. Keep the segment within its authorized scope. When delegated only utility implementation, leave application wiring and integration work with the caller.
@@ -24,6 +28,8 @@ Preserve existing implementation and user-authored work. Keep the segment within
 Write a focused test expressing the intended outcome and run it before changing production behavior. Confirm it fails because the required behavior is missing. Syntax errors, missing dependencies, and broken test setup do not establish the intended red result.
 
 If the test already passes, determine whether the behavior exists or the test fails to distinguish the change. Do not break working code to manufacture red. For a regression, reproduce the defect with a failing test when possible.
+
+Ask whether the check would still pass if the claimed behavior were absent but the expected source fragment remained. If so, strengthen or replace it. This reasoning check does not require mutation tooling or deliberately breaking working code. Reuse meaningful existing coverage; prose-only changes can use semantic review and artifact validation without tests that merely confirm the new instruction contains particular words.
 
 When joining work in progress, preserve existing implementation and distinguish tests added afterward from an observed test-first cycle. Begin TDD with the next appropriate behavior increment rather than deleting work to recreate an earlier stage.
 
@@ -44,6 +50,8 @@ Return to red for the next accepted behavior increment. Finish the cycle when th
 ## Return evidence to the caller
 
 Report the implemented behavior, checks actually run, observed results, and unresolved work. Distinguish an observed red-to-green cycle from tests added after implementation. Separate implementation failures from environment limitations; do not infer execution from test files or claim verification on an unavailable platform.
+
+Distinguish automated behavior checks, content or artifact validation, and manual review. Verifying generated instructions establishes content delivery only, not host receipt, agent adherence, or execution of those instructions.
 
 For a utility-only segment, identify the utility behavior verified and leave application wiring and integration verification explicitly pending. Passing utility tests does not establish completion of the entire feature. Reuse earlier evidence only while it still covers the current implementation and conditions.
 
