@@ -44,6 +44,7 @@ def delivery(tmp_path, monkeypatch):
     codex.mkdir(parents=True)
     (codex / 'hooks.json').write_text(json.dumps(native_document('codex')))
     monkeypatch.setenv('CODEX_HOME', str(codex))
+    monkeypatch.setenv('POWERSPEC_SAUCEPAN', str(home / 'standalone'))
     calls = []
     def inspect(argv, **kwargs):
         calls.append(argv)

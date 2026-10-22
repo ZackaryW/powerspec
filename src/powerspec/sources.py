@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from saucepan_sdk import Client, SaucepanError, TransportError
 
 from .catalog import ConfigurationError, MetadataUnavailable, NAME
-from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary, inspection_remaining
+from .saucepan_tool import ensure_saucepan_binary, inspect_saucepan_binary, inspection_remaining, standalone
 from .utils.atomic import replace_bytes
 from .progress import stage
 
@@ -68,12 +68,18 @@ class SaucepanSources:
             with stage('Preparing Saucepan manager' if self._manage_binary else 'Checking Saucepan manager'):
                 self._executable = (ensure_saucepan_binary() if self._manage_binary and deadline is None
                                     else inspect_saucepan_binary(**({} if deadline is None else {'deadline': deadline})))
-                self._client = Client(executable=str(self._executable))
+                self._client = Client(executable=str(self._executable), **self._root_options())
         if deadline is not None and self._executable is not None:
-            return Client(executable=str(self._executable), timeout=inspection_remaining(deadline))
+            return Client(executable=str(self._executable), timeout=inspection_remaining(deadline), **self._root_options())
         if deadline is not None:
             inspection_remaining(deadline)
         return self._client
+
+    def _root_options(self):
+        # A managed readiness observation belongs to one explicit root. Ambient
+        # SAUCEPAN_ROOT must not redirect the subsequent source operation.
+        return ({'root': str(self._executable.parent.parent)}
+                if self._executable is not None and not standalone(self._executable) else {})
 
     @staticmethod
     def _source(identity, recipe):
@@ -227,7 +233,7 @@ class SaucepanSources:
             try:
                 registered = client.register_application(request)
             except SaucepanError as error:
-                if error.code != 'unsupported_store':
+                if error.code != 'unsupported_store' or self._root_options():
                     raise
                 # Rust refuses initialization over incompatible/nonempty stores.
                 client.init()

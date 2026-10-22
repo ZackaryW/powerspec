@@ -7,49 +7,48 @@ Ensure Powerspec can obtain and maintain a compatible Saucepan executable for re
 ## Requirements
 
 ### Requirement: Default source clients ensure a compatible Saucepan executable
-Before constructing a default client for an operation authorized to materialize or upgrade remote sources, Powerspec SHALL ensure its configured shared executable contains a validated release on the explicitly supported 0.10 protocol line. Executable path resolution SHALL be owned by Powerspec and independent of the client package. Powerspec SHALL create the parent directory only in that authorized provisioning path, select the host manager asset from official releases, probe its version and required command surface, and publish it atomically using the established managed-release lifecycle. SDK package version and binary protocol version SHALL be tracked independently. The package SHALL declare an immutable current client dependency and SHALL NOT retain a legacy wire fallback.
+Before constructing a default client for an operation authorized to materialize remote sources, Powerspec SHALL ensure that the default shared launcher belongs to a ready Saucepan-managed installation supporting the explicitly pinned setup/SDK protocol. Missing installations SHALL use the verified official installer and Saucepan setup contract. Powerspec SHALL not publish a raw manager, construct Saucepan policies/receipts, adopt an occupant or independently replace the launcher. The provider SHALL own root initialization, application/claim/binding publication, shim ownership and recovery. SDK package version and binary protocol version SHALL remain independent, and the package SHALL declare an immutable compatible SDK dependency without a legacy wire fallback.
 
-Read-only lookup, status and hook inspection SHALL inspect an existing executable within their remaining deadline without provisioning, release discovery or filesystem initialization.
+Read-only lookup, status and hook inspection SHALL inspect an existing executable and applicable setup status within their remaining deadline without provisioning, release discovery, setup, migration or filesystem initialization. Default unmanaged/incomplete installations SHALL report actionable diagnostics, preserving existing files. Bundled-only operations SHALL not trigger installation.
 
 #### Scenario: Shared executable is absent
-- **WHEN** an authorized materialization operation first needs the default client and the shared executable is absent
-- **THEN** a compatible validated manager binary is installed before the client performs source operations
+- **WHEN** an authorized materialization operation first needs the default client and no installation exists
+- **THEN** Powerspec invokes the verified official setup route and creates the source client only after complete managed publication and compatibility verification
 
 #### Scenario: No remote source is resolved
 - **WHEN** a command constructs a catalog whose effective bundle needs no Saucepan identity
-- **THEN** the managed executable lifecycle is not invoked
+- **THEN** the managed executable setup lifecycle is not invoked
 
 #### Scenario: Compatible update is available
-- **WHEN** an authorized provisioning path has a stale check and a newer compatible release is available
-- **THEN** Powerspec validates and atomically publishes that executable before using the default client
+- **WHEN** a newer compatible release exists while a ready compatible installation is already present
+- **THEN** Powerspec reuses the installation without discovery, download or shared self-update
 
 #### Scenario: Read-only operation has no compatible binary
-- **WHEN** status, sync or hook metadata inspection cannot find a compatible installed executable
+- **WHEN** status or hook metadata inspection cannot find a ready compatible default installation
 - **THEN** it reports unavailable metadata within its deadline without downloading, replacing or initializing anything
 
 #### Scenario: Old check cache exists
-- **WHEN** a previous successful binary check belongs to the 0.5/0.6 compatibility policy
-- **THEN** it does not establish compatibility with the new protocol
+- **WHEN** a previous Powerspec release-check cache exists beside a default raw manager
+- **THEN** it establishes neither managed ownership nor migration authority and remains untouched
 
 #### Scenario: Installed consumer outside the checkout
-- **WHEN** a Powerspec distribution is installed with its declared current client dependency and supplied a compatible executable
-- **THEN** remote-source operations work without a Saucepan development checkout, Rust toolchain or mandatory native keyring
+- **WHEN** an installed Powerspec distribution uses its pinned setup-capable SDK and a ready compatible manager
+- **THEN** remote-source operations work without a Saucepan checkout, Rust toolchain or mandatory keyring for a basic store
 
 ### Requirement: Managed checks preserve usable tools and avoid needless discovery
-
-Powerspec SHALL cache successful managed release checks for 24 hours. A fresh cache entry for the same destination, release source, policy, and installed version SHALL reuse the executable without remote discovery. A discovery or upgrade failure SHALL preserve a compatible installed executable according to Zuu's fallback contract. If no compatible executable can be produced, Powerspec SHALL report a configuration error and SHALL NOT claim the source operation succeeded.
+Powerspec SHALL reuse ready compatible installations without its own 24-hour manager release-discovery/update cycle. A failed inspection, dependency setup or explicit external update SHALL not authorize replacing a shared launcher or fabricating success. If compatibility/readiness cannot be established, Powerspec SHALL report the observed state and provider retry/update instructions before attempting the source operation. Manager self-update SHALL remain explicit and provider-owned; Powerspec upgrade SHALL continue to refresh selected resources without implicitly updating the manager. Old check-cache files SHALL not drive writes and SHALL not be deleted merely because they are obsolete.
 
 #### Scenario: Fresh compatible executable
-- **WHEN** the installed executable and matching successful check are younger than 24 hours
-- **THEN** Powerspec reuses the executable without GitHub release discovery
+- **WHEN** a ready compatible managed launcher is available
+- **THEN** Powerspec reuses it without release discovery independently of cache age
 
 #### Scenario: Upgrade fails with a compatible baseline
-- **WHEN** release discovery, download, validation, or publication fails and a compatible executable was already installed
-- **THEN** Powerspec uses that baseline without replacing it with partial or invalid content
+- **WHEN** a provider update fails and its managed contract retains the prior compatible installation
+- **THEN** later Powerspec inspection can reuse that verified baseline without writing a replacement or claiming the update succeeded
 
 #### Scenario: Initial installation fails
-- **WHEN** no compatible executable exists and the managed lifecycle cannot produce one
-- **THEN** Powerspec reports the installation failure before attempting a Saucepan source operation
+- **WHEN** official setup cannot complete a compatible installation
+- **THEN** Powerspec reports the setup outcome and operation identity before attempting source acquisition, without retrying the mutation automatically
 
 ### Requirement: Explicit clients bypass managed provisioning
 
@@ -59,36 +58,28 @@ Powerspec SHALL use an explicitly supplied Saucepan-compatible client without in
 - **WHEN** a caller constructs `SaucepanSources` with an explicit client
 - **THEN** source lookup and acquisition use that client without invoking the managed binary lifecycle
 
-### Requirement: Default bootstrap initializes the store before executable publication
-When provisioning the default `~/.saucepan/bin` manager into a missing or empty shared root, PowerSpec SHALL obtain and validate the manager outside the root, initialize the root through the public Saucepan SDK, and only then publish the manager. Successful release-check caching SHALL survive publication at the final destination. Existing store contents SHALL remain under Saucepan's validation authority. Explicit executable destinations outside the default location and injected clients SHALL retain their existing behavior. Read-only operations SHALL NOT bootstrap or recover stores.
+### Requirement: Official installer invocation preserves authorization and receipts
+Powerspec SHALL stage an official installer identified by immutable release evidence and verified checksum outside the store, then invoke it with literal arguments, selected root/tag and a stable operation ID. It SHALL not silently choose latest, evaluate unverified downloaded text, bypass host execution policy or substitute raw publication when prerequisites are missing. Source lifecycle authorization SHALL permit first setup but SHALL not imply consent to migrate an existing file. Complete setup SHALL be checked through the returned launcher and status contract; recorded pending/failure/conflict and uncertain transport outcomes SHALL retain their operation identities and diagnostics without automatic retry. Setup progress SHALL remain on stderr and protocol stdout SHALL retain its existing representation.
 
-#### Scenario: First installation in an empty home
-- **WHEN** an authorized source operation needs the default manager and no shared store exists
-- **THEN** initialization runs with an empty root and an external executable before final publication, and source acquisition can proceed
+#### Scenario: Response lost after setup might have committed
+- **WHEN** installer invocation loses its response after possible execution
+- **THEN** Powerspec reports uncertainty with the original operation/root rather than retrying under a new ID or claiming success
 
-#### Scenario: Repeated installation
-- **WHEN** the store and a freshly checked compatible manager already exist
-- **THEN** the operation reuses them without initialization or release discovery
+#### Scenario: Missing shell prerequisite
+- **WHEN** the official installer cannot run on the host
+- **THEN** Powerspec reports how to use the supported official setup route and does not publish a raw manager as fallback
 
-#### Scenario: Initialization failure
-- **WHEN** the manager cannot initialize the new store
-- **THEN** PowerSpec reports the initialization failure and does not publish a binary into that root or claim successful setup
+### Requirement: Standalone overrides and explicit migration remain distinct
+An explicit POWERSPEC_SAUCEPAN executable override SHALL be inspected for protocol compatibility and used without installing, updating, adopting or requiring managed ownership of that file. Explicit SDK clients SHALL retain their existing bypass. An unmanaged manager at the default shared path SHALL instead require the provider's explicit migration route or a separately selected standalone override. Powerspec SHALL not pass migration consent based on filename, version, cache records, init or upgrade alone. A completed provider migration SHALL be consumed through its verified managed launcher; backups and migration receipts remain provider-owned.
 
-### Requirement: Binary-only bootstrap recovery preserves installer assets
-PowerSpec SHALL recover only a plain default root containing a plain `bin` directory with regular installer files named for the manager and its release-check record, and no other content. A present manager SHALL pass compatibility and command checks before recovery. Recovery SHALL preserve the original directory in an external backup before invoking Saucepan initialization. Unknown files, links, junctions, and existing store data SHALL NOT be moved or deleted by this recovery. Concurrent PowerSpec bootstrap attempts SHALL serialize or fail clearly before conflicting mutations. Recovery diagnostics SHALL identify preserved backup locations on failure; backups SHALL survive failure and success. Interrupted initialization SHALL remain subject to Saucepan's own resume guards.
+#### Scenario: Compatible explicit override
+- **WHEN** a caller selects a standalone executable explicitly
+- **THEN** source operations use it without provisioning or changing that executable
 
-#### Scenario: Previous installer left only a manager and check record
-- **WHEN** initialization encounters the recognized binary-only root
-- **THEN** its original files are preserved outside the root and initialization precedes publishing the validated manager
+#### Scenario: Existing default raw manager
+- **WHEN** init encounters the existing default raw manager without explicit migration
+- **THEN** it preserves that file and reports the provider migration command and observed digest without executing displacement
 
-#### Scenario: Unknown files or linked paths
-- **WHEN** the uninitialized default root contains other data or linked recovery paths
-- **THEN** PowerSpec refuses automatic recovery and leaves those paths untouched
-
-#### Scenario: Failed recovery can be retried
-- **WHEN** initialization or publication fails after preserving the original bin directory
-- **THEN** the originals remain in the reported backup, and a later attempt handles an empty or Saucepan-recognized interrupted root without deleting data
-
-#### Scenario: Another bootstrap is active
-- **WHEN** a second PowerSpec bootstrap targets the same default location
-- **THEN** it does not move or publish over the first operation's files
+#### Scenario: Provider migration completed
+- **WHEN** the user explicitly completes Saucepan's verified migration and reruns Powerspec
+- **THEN** Powerspec verifies and uses the owned launcher without deleting backups or replacing it through Zuu

@@ -1,0 +1,349 @@
+{
+  "platform": "Windows x64",
+  "provider_tag": "v0.11.0",
+  "sdk_version": "0.3.0",
+  "sdk_revision": "324282bac14fd0e0032a07e0fbed85ee95447dbb",
+  "installer_sha256": "40bfe6d67766b1f0f31cd87847ed982dcf910b789dcb930cd66b119047f3e471",
+  "archive_sha256": "2e4ca74531dbd5b8374a2947ab3287b2353af192f860e6cdbe1fddd4ebe927c2",
+  "wheel_sha256": "64e5b1337ed1c15347b37d75bac4c0ae4abba035b5cf7026fe7eda7d67cfaea6",
+  "runs": [
+    {
+      "migrated": false,
+      "setup_operation": "348cf7e3-3976-4f4a-8aef-d11d7e9d4c51",
+      "managed_status": {
+        "app": "07976987-3228-45d4-9875-a60278ffecd7",
+        "claim": "3cf04836-4e2a-482d-a461-3af5a2f54bd8",
+        "diagnostics": [],
+        "installed_version": "v0.11.0",
+        "launcher_path": "\\\\?\\C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-e7mjj0ae\\home\\.saucepan\\bin\\saucepan.exe",
+        "operation": null,
+        "output": "6a8ec4d0-197c-4c74-9224-3349abe3978d",
+        "root": "\\\\?\\C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-e7mjj0ae\\home\\.saucepan",
+        "schema_version": 1,
+        "state": "ready"
+      },
+      "launcher_sha256": "283f347daa117e6ca563765ffdeb177036f838a2eb75ef7ed1fe5f610f76c04c",
+      "backup_paths": [],
+      "selected_before": {
+        "59346120192379ba0bf14eb3557ca379679a6bc92952ec44ba9ec07044d4684b": {
+          "recipe": {
+            "provider": "git",
+            "origin": "C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-e7mjj0ae\\remote",
+            "reference": "main"
+          },
+          "source": "60c90fb2-7d6d-4012-8509-2e8391050b0e",
+          "key": "consumer-e583de54f0570754b7f8e86416ce0fd97f5aea8da4a32f548af4c72be7a7c8c5:73e82484-aa84-4b57-b3f6-6b06ff7f74a9",
+          "refresh": false,
+          "policies": {
+            "catalog": [
+              {
+                "mode": "cached",
+                "type": "cache_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0001"
+              },
+              {
+                "mode": "always",
+                "type": "refresh_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0004"
+              },
+              {
+                "allow_stale": false,
+                "type": "stale_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0005"
+              },
+              {
+                "mode": "manual",
+                "type": "update_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0006"
+              },
+              {
+                "strategy": "reuse",
+                "type": "identical_pull_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0007"
+              },
+              {
+                "history": "latest",
+                "keep": 10,
+                "type": "revision_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0008"
+              },
+              {
+                "strategy": "report_unavailable",
+                "type": "reclaim_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+              },
+              {
+                "uuid": "87193db4-526b-51f6-975c-28bb2a90e34f",
+                "type": "pin_policy",
+                "retention": "until_released"
+              }
+            ],
+            "policy_refs": [
+              "acf53062-66cd-4dd9-94bb-c9f849eb0001",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0004",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0005",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0006",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0007",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0008",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+            ],
+            "pin_refs": [
+              "87193db4-526b-51f6-975c-28bb2a90e34f"
+            ]
+          },
+          "group": "277d9939-441e-49de-b055-9a8cc1dafced",
+          "expected_revision": 1,
+          "pin": "23c78e71-878f-455b-9e32-aa03dbf420e7",
+          "output": "3a320775-f5e4-4565-8086-b0e54f05023c",
+          "commit": "cb6a0fd170d591e2d4e2e2214bbb9bcdc3f3b5db",
+          "claim": "b7117fee-5ee8-45f0-a587-65d43426c490"
+        }
+      },
+      "selected_after": {
+        "59346120192379ba0bf14eb3557ca379679a6bc92952ec44ba9ec07044d4684b": {
+          "recipe": {
+            "provider": "git",
+            "origin": "C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-e7mjj0ae\\remote",
+            "reference": "main"
+          },
+          "source": "60c90fb2-7d6d-4012-8509-2e8391050b0e",
+          "key": "consumer-e583de54f0570754b7f8e86416ce0fd97f5aea8da4a32f548af4c72be7a7c8c5:fa4ded8d-47af-42b8-8025-10b65ce9ac12",
+          "refresh": true,
+          "policies": {
+            "catalog": [
+              {
+                "mode": "cached",
+                "type": "cache_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0001"
+              },
+              {
+                "mode": "always",
+                "type": "refresh_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0004"
+              },
+              {
+                "allow_stale": false,
+                "type": "stale_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0005"
+              },
+              {
+                "strategy": "reuse",
+                "type": "identical_pull_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0007"
+              },
+              {
+                "history": "latest",
+                "keep": 10,
+                "type": "revision_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0008"
+              },
+              {
+                "strategy": "report_unavailable",
+                "type": "reclaim_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+              },
+              {
+                "mode": "always",
+                "type": "update_policy",
+                "uuid": "d83ef01f-e54c-5dcb-9ea4-7a96d925d3f2"
+              },
+              {
+                "uuid": "87193db4-526b-51f6-975c-28bb2a90e34f",
+                "type": "pin_policy",
+                "retention": "until_released"
+              }
+            ],
+            "policy_refs": [
+              "acf53062-66cd-4dd9-94bb-c9f849eb0001",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0004",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0005",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0007",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0008",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0009",
+              "d83ef01f-e54c-5dcb-9ea4-7a96d925d3f2"
+            ],
+            "pin_refs": [
+              "87193db4-526b-51f6-975c-28bb2a90e34f"
+            ]
+          },
+          "group": "ebf5b897-5454-47dd-ad99-dd292b064b91",
+          "expected_revision": 1,
+          "pin": "bd9d7a82-4aa3-42ae-b595-c91dbf6e29fd",
+          "output": "e99d180f-be7f-481a-ac58-c4785b3bb670",
+          "commit": "3c23ffb86211164b2b07677ba85df318da836a65",
+          "claim": "b7117fee-5ee8-45f0-a587-65d43426c490"
+        }
+      }
+    },
+    {
+      "migrated": true,
+      "setup_operation": "62d0fed1-d517-4fef-bee4-390abaf431cf",
+      "managed_status": {
+        "app": "598c0336-ef3b-4a84-a671-a7d1d59ffc8e",
+        "claim": "13c9dae3-3482-4a0e-8874-b4d6098020a5",
+        "diagnostics": [],
+        "installed_version": "v0.11.0",
+        "launcher_path": "\\\\?\\C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-vaoocueh\\home\\.saucepan\\bin\\saucepan.exe",
+        "operation": null,
+        "output": "81d8c990-2865-4d4e-9a20-c705c0b17b97",
+        "root": "\\\\?\\C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-vaoocueh\\home\\.saucepan",
+        "schema_version": 1,
+        "state": "ready"
+      },
+      "launcher_sha256": "283f347daa117e6ca563765ffdeb177036f838a2eb75ef7ed1fe5f610f76c04c",
+      "backup_paths": [
+        "\\\\?\\C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-vaoocueh\\home\\.saucepan\\.staging\\setup\\62d0fed1-d517-4fef-bee4-390abaf431cf\\saucepan.exe"
+      ],
+      "selected_before": {
+        "16fa3f3919ac58739dc4ff2edfedeb0068bea0135900ce0efafde0c350bd21fe": {
+          "recipe": {
+            "provider": "git",
+            "origin": "C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-vaoocueh\\remote",
+            "reference": "main"
+          },
+          "source": "689732f1-a041-464e-a324-78a64368c963",
+          "key": "consumer-540c004ccec008ee5f5a0fcc556b737d58125b6d8776d7fd059c6a217fe87fca:4c8d655f-fb5e-4424-9c45-f7cb05afaa54",
+          "refresh": false,
+          "policies": {
+            "catalog": [
+              {
+                "mode": "cached",
+                "type": "cache_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0001"
+              },
+              {
+                "mode": "always",
+                "type": "refresh_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0004"
+              },
+              {
+                "allow_stale": false,
+                "type": "stale_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0005"
+              },
+              {
+                "mode": "manual",
+                "type": "update_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0006"
+              },
+              {
+                "strategy": "reuse",
+                "type": "identical_pull_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0007"
+              },
+              {
+                "history": "latest",
+                "keep": 10,
+                "type": "revision_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0008"
+              },
+              {
+                "strategy": "report_unavailable",
+                "type": "reclaim_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+              },
+              {
+                "uuid": "87193db4-526b-51f6-975c-28bb2a90e34f",
+                "type": "pin_policy",
+                "retention": "until_released"
+              }
+            ],
+            "policy_refs": [
+              "acf53062-66cd-4dd9-94bb-c9f849eb0001",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0004",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0005",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0006",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0007",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0008",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+            ],
+            "pin_refs": [
+              "87193db4-526b-51f6-975c-28bb2a90e34f"
+            ]
+          },
+          "group": "0e07d752-9e9f-49cf-835c-487d671fada5",
+          "expected_revision": 1,
+          "pin": "8f579683-bc12-4ff4-abf1-292d30e5cbe5",
+          "output": "a201376f-b629-4732-8c54-7380eb45947b",
+          "commit": "c9c6a7aa47c2be766feaa103069c98abf7eec901",
+          "claim": "2d445bfe-4ae5-4164-ac6d-79530eefeb15"
+        }
+      },
+      "selected_after": {
+        "16fa3f3919ac58739dc4ff2edfedeb0068bea0135900ce0efafde0c350bd21fe": {
+          "recipe": {
+            "provider": "git",
+            "origin": "C:\\Users\\ZackaryW\\AppData\\Local\\Temp\\ps-wheel-vaoocueh\\remote",
+            "reference": "main"
+          },
+          "source": "689732f1-a041-464e-a324-78a64368c963",
+          "key": "consumer-540c004ccec008ee5f5a0fcc556b737d58125b6d8776d7fd059c6a217fe87fca:97508e2b-9187-4ff3-88d9-0c6ab6beddd5",
+          "refresh": true,
+          "policies": {
+            "catalog": [
+              {
+                "mode": "cached",
+                "type": "cache_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0001"
+              },
+              {
+                "mode": "always",
+                "type": "refresh_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0004"
+              },
+              {
+                "allow_stale": false,
+                "type": "stale_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0005"
+              },
+              {
+                "strategy": "reuse",
+                "type": "identical_pull_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0007"
+              },
+              {
+                "history": "latest",
+                "keep": 10,
+                "type": "revision_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0008"
+              },
+              {
+                "strategy": "report_unavailable",
+                "type": "reclaim_policy",
+                "uuid": "acf53062-66cd-4dd9-94bb-c9f849eb0009"
+              },
+              {
+                "mode": "always",
+                "type": "update_policy",
+                "uuid": "d83ef01f-e54c-5dcb-9ea4-7a96d925d3f2"
+              },
+              {
+                "uuid": "87193db4-526b-51f6-975c-28bb2a90e34f",
+                "type": "pin_policy",
+                "retention": "until_released"
+              }
+            ],
+            "policy_refs": [
+              "acf53062-66cd-4dd9-94bb-c9f849eb0001",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0004",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0005",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0007",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0008",
+              "acf53062-66cd-4dd9-94bb-c9f849eb0009",
+              "d83ef01f-e54c-5dcb-9ea4-7a96d925d3f2"
+            ],
+            "pin_refs": [
+              "87193db4-526b-51f6-975c-28bb2a90e34f"
+            ]
+          },
+          "group": "163e2405-068b-45ed-8262-ecde0212c21e",
+          "expected_revision": 1,
+          "pin": "d3081f66-dade-4560-8283-aa443620df37",
+          "output": "fc8bbfea-247d-47a8-8853-0d20a6d24203",
+          "commit": "9ba5c6912de747e25dadede153a8d09b1762bbae",
+          "claim": "2d445bfe-4ae5-4164-ac6d-79530eefeb15"
+        }
+      }
+    }
+  ]
+}

@@ -1,118 +1,103 @@
-"""Initialize the default store before publishing a manager inside it."""
+"""Delegate first setup to a verified official installer outside the store."""
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import replace
-import os
+import hashlib
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
+import urllib.request
 from uuid import uuid4
 
-from zuu.case17 import FileCheckStateStore
-
 from .catalog import ConfigurationError
+from .saucepan_provider import PROVIDER, Provider, SetupOutcome
+
+MANUAL_SETUP = 'https://github.com/ZackaryW/saucepan/blob/v0.11.0/docs/managed-setup.md'
 
 
-def _plain(path: Path, *, directory: bool = False) -> None:
-    if path.is_symlink() or path.is_junction():
-        raise ConfigurationError(f'refusing linked Saucepan bootstrap path: {path}')
-    if path.exists() and not (path.is_dir() if directory else path.is_file()):
-        raise ConfigurationError(f'unrecognized Saucepan bootstrap path: {path}')
-    if not directory and path.exists() and path.stat().st_nlink != 1:
-        raise ConfigurationError(f'refusing linked Saucepan bootstrap file: {path}')
+class SetupFailure(ConfigurationError):
+    """Retain the exact provider receipt for callers inspecting failed setup."""
+    def __init__(self, message, *, root, operation, outcome=None):
+        self.root, self.operation, self.outcome = root, operation, outcome
+        receipt = f'; receipt={outcome.model_dump_json()}' if outcome is not None else ''
+        super().__init__(f'{message}; root={root}; operation={operation}{receipt}; '
+                         f'inspect/recover this provider operation before rerunning init. Official setup: {MANUAL_SETUP}')
 
 
-def _layout(target: Path) -> str:
+def _progress(value):
+    if value:
+        print(value.decode('utf-8', errors='replace') if isinstance(value, bytes) else value,
+              end='' if value.endswith(b'\n' if isinstance(value, bytes) else '\n') else '\n', file=sys.stderr)
+
+
+def run_installer(argv, target, operation, *, timeout=600):
+    """One literal invocation; noncomplete receipts are not transport errors."""
     root = target.parent.parent
-    _plain(root, directory=True)
-    _plain(target.parent, directory=True)
-    _plain(target)
-    _plain(target.with_name('saucepan-check.json'))
-    marker = root / 'root.json'
-    _plain(marker)
-    if marker.is_file():
-        return 'existing'  # Contents and credentials remain Saucepan's responsibility.
-    if not root.exists() or not any(root.iterdir()):
-        return 'empty'
-    staging = root / '.staging'
-    _plain(staging, directory=True)
-    initializing = staging / 'initializing.json'
-    _plain(initializing)
-    if initializing.is_file():
-        return 'resume'  # Saucepan decides whether this interrupted root is valid.
-    if {path.name for path in root.iterdir()} == {'bin'}:
-        for path in target.parent.iterdir():
-            if path.name not in {target.name, 'saucepan-check.json'}:
-                break
-            _plain(path)
+    print(f'Saucepan setup: root={root}; operation={operation}', file=sys.stderr)
+    try:
+        process = subprocess.run(argv, cwd=Path(argv[0]).parent if Path(argv[0]).is_absolute() else Path.cwd(),
+            capture_output=True, text=True, encoding='utf-8', errors='replace', shell=False,
+            timeout=timeout, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except subprocess.TimeoutExpired as error:
+        _progress(error.stderr)
+        raise SetupFailure('Saucepan setup timed out; mutation may have committed (response lost)',
+                           root=root, operation=operation) from error
+    except OSError as error:
+        raise SetupFailure(f'cannot launch official installer: {error}', root=root, operation=operation) from error
+    _progress(process.stderr)
+    try:
+        result = SetupOutcome.model_validate_json(process.stdout)
+        result.check_target(target)
+        if result.operation != operation:
+            raise ValueError('setup operation mismatch')
+        if process.returncode != (0 if result.status == 'complete' else 2):
+            raise ValueError('setup exit/result mismatch')
+    except ValueError as error:
+        raise SetupFailure(f'Saucepan setup response unavailable or invalid (exit {process.returncode}); '
+                           'mutation may have committed; no automatic retry', root=root, operation=operation) from error
+    if result.status != 'complete':
+        raise SetupFailure(f'Saucepan setup {result.status}', root=root, operation=operation, outcome=result)
+    return result
+
+
+def _download(url, destination, expected):
+    limit = 1024 * 1024
+    with urllib.request.urlopen(url, timeout=30) as response:
+        content = response.read(limit + 1)
+    if len(content) > limit or hashlib.sha256(content).hexdigest() != expected:
+        raise ConfigurationError('official Saucepan installer checksum mismatch or size limit exceeded')
+    destination.write_bytes(content)
+
+
+def ensure_default(target: Path, *, provider: Provider = PROVIDER) -> Path:
+    """Provider owns all root validation, initialization, receipts and publication."""
+    from .saucepan_tool import inspect_saucepan_binary
+
+    name, url, digest = provider.installer()
+    shell = shutil.which('powershell.exe' if name == 'install.ps1' else 'sh')
+    if shell is None:
+        raise ConfigurationError(f'missing official installer prerequisite: {name}; follow {MANUAL_SETUP}')
+    operation = str(uuid4())
+    with tempfile.TemporaryDirectory(prefix='powerspec-saucepan-') as directory:
+        stage = Path(directory).resolve()
+        root = target.parent.parent.resolve()
+        if stage.is_relative_to(root):
+            raise ConfigurationError('official installer staging must be outside the Saucepan store')
+        installer = stage / name
+        _download(url, installer, digest)
+        if name == 'install.ps1':
+            argv = [shell, '-NoLogo', '-NoProfile', '-NonInteractive', '-File', str(installer),
+                    '-Version', provider.tag, '-Root', str(root), '-Operation', operation]
+            if provider.fixture_api is not None:
+                argv += ['-TestReleaseBase', provider.release_base, '-TestGithubApi', provider.fixture_api]
         else:
-            return 'binary-only'
-    raise ConfigurationError(f'unrecognized uninitialized Saucepan root: {root}; preserve its contents and resolve manually')
-
-
-@contextmanager
-def _locked(root: Path):
-    lock = root.parent / '.powerspec-saucepan-bootstrap.lock'
-    root.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as error:
-        raise ConfigurationError(f'Saucepan bootstrap already in progress: {lock}; confirm its PID stopped before removing a stale lock') from error
-    try:
-        os.write(descriptor, str(os.getpid()).encode())
-        yield
-    finally:
-        os.close(descriptor)
-        lock.unlink()
-
-
-def _copy_check(source: Path, destination: Path) -> None:
-    """Relocate only a matching check identity; missing/bad cache is optional."""
-    try:
-        state = FileCheckStateStore(source.with_name('saucepan-check.json')).load()
-        if state is not None and state.destination == os.path.normcase(os.path.abspath(source)):
-            FileCheckStateStore(destination.with_name('saucepan-check.json')).save(
-                replace(state, destination=os.path.normcase(os.path.abspath(destination))))
-    except (OSError, ValueError):
-        pass  # A later normal check can rebuild this optional cache.
-
-
-def ensure_default(target: Path, *, manager_factory, downloader, validate) -> Path:
-    """Preserve recognized leftovers, initialize externally, then publish."""
-    from saucepan_sdk import Client
-
-    root = target.parent.parent
-    backup = None
-    with _locked(root):
-        layout = _layout(target)
-        if layout == 'existing':
-            target.parent.mkdir(exist_ok=True)
-            return manager_factory(target).ensure(downloader=downloader).destination
+            argv = [shell, str(installer), '--version', provider.tag, '--root', str(root), '--operation', operation]
+            if provider.fixture_api is not None:
+                argv += ['--test-release-base', provider.release_base, '--test-github-api', provider.fixture_api]
+        result = run_installer(argv, target, operation)
         try:
-            with tempfile.TemporaryDirectory(prefix='.powerspec-saucepan-stage-', dir=root.parent) as temporary:
-                staged = Path(temporary) / target.name
-                if target.exists():
-                    validate(target)
-                    shutil.copy2(target, staged)
-                    _copy_check(target, staged)
-                manager_factory(staged).ensure(downloader=downloader)
-                validate(staged)
-                if _layout(target) != layout:
-                    raise ConfigurationError('Saucepan root changed during bootstrap; retry after resolving concurrent changes')
-                if layout == 'binary-only':
-                    backup = root.parent / f'.powerspec-saucepan-backup-{uuid4().hex}'
-                    target.parent.rename(backup)
-                Client(executable=str(staged), root=str(root)).init()
-                # Do not follow a linked publication path introduced during init.
-                _plain(root, directory=True)
-                _plain(target.parent, directory=True)
-                _plain(target)
-                _plain(target.with_name('saucepan-check.json'))
-                target.parent.mkdir(exist_ok=True)
-                os.replace(staged, target)
-                _copy_check(staged, target)
-                return target
-        except Exception as error:
-            preserved = f'; originals preserved at {backup}' if backup is not None else ''
-            raise ConfigurationError(f'Saucepan store bootstrap failed: {error}{preserved}') from error
+            return inspect_saucepan_binary(Path(result.launcher_path))
+        except ConfigurationError as error:
+            raise SetupFailure(f'setup completed but reinspection failed: {error}', root=root,
+                               operation=operation, outcome=result) from error

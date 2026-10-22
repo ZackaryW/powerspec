@@ -10,7 +10,11 @@ import tempfile
 
 import pytest
 from typer.testing import CliRunner
-from zuu.case16 import GitHubReleaseResolver
+from saucepan_release_fixture import released_provider
+from saucepan_sdk import Client
+import subprocess
+import hashlib
+from uuid import uuid4
 
 from powerspec.cli import app
 from powerspec.installation import install_consumer
@@ -19,12 +23,18 @@ from powerspec.sources import SaucepanSources
 from test_sources_integration import git
 
 
+ASSETS = os.environ.get('SAUCEPAN_RELEASE_ASSETS')
 BINARY = os.environ.get('SAUCEPAN_TEST_BINARY')
-pytestmark = pytest.mark.skipif(not BINARY, reason='set SAUCEPAN_TEST_BINARY for native bootstrap acceptance')
+pytestmark = pytest.mark.skipif(not ASSETS or not BINARY, reason='set SAUCEPAN_RELEASE_ASSETS and SAUCEPAN_TEST_BINARY for native bootstrap acceptance')
 
 
 @pytest.mark.parametrize('recovery', [False, True])
 def test_default_bootstrap_acquisition_repeat_and_upgrade(monkeypatch, recovery):
+    with released_provider(ASSETS) as (provider, requests):
+        _bootstrap_acquisition(monkeypatch, recovery, provider, requests)
+
+
+def _bootstrap_acquisition(monkeypatch, recovery, provider, requests):
     with tempfile.TemporaryDirectory(prefix='ps-init-') as temporary, monkeypatch.context() as patch:
         root = Path(temporary)
         home = root / 'home'
@@ -37,14 +47,29 @@ def test_default_bootstrap_acquisition_repeat_and_upgrade(monkeypatch, recovery)
         patch.setattr(Path, 'home', classmethod(lambda cls: home))
         patch.setenv('CODEX_HOME', str(home / '.codex'))
         target = home / '.saucepan/bin' / ('saucepan.exe' if os.name == 'nt' else 'saucepan')
+        from powerspec import saucepan_bootstrap as bootstrap
+        patch.setattr(bootstrap, 'ensure_default', partial(bootstrap.ensure_default, provider=provider))
         if recovery:
-            target.parent.mkdir(parents=True)
+            Client(executable=BINARY, root=str(target.parent.parent)).init()
             shutil.copy2(BINARY, target)
-        from powerspec.saucepan_tool import _probe
-        version = _probe(Path(BINARY))
-        discovery = []
-        patch.setattr(GitHubReleaseResolver, 'resolve_version', lambda self: discovery.append(1) or version)
-        patch.setattr(GitHubReleaseResolver, 'resolve', lambda self, version, destination, **kwargs: shutil.copy2(BINARY, destination))
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            operation = str(uuid4())
+            args = [str(Path(ASSETS) / 'install.ps1'), '-Version', provider.tag, '-Root', str(target.parent.parent),
+                    '-Operation', operation, '-MigrateUnmanaged', '-ExpectedSha256', digest,
+                    '-TestReleaseBase', provider.release_base, '-TestGithubApi', provider.fixture_api]
+            if os.name == 'nt':
+                command = ['powershell.exe', '-NoProfile', '-File', *args]
+            else:
+                command = ['sh', str(Path(ASSETS) / 'install.sh'), '--version', provider.tag,
+                    '--root', str(target.parent.parent), '--operation', operation, '--migrate-unmanaged',
+                    '--expected-sha256', digest, '--test-release-base', provider.release_base,
+                    '--test-github-api', provider.fixture_api]
+            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=180)
+            assert result.returncode == 0, result.stderr
+            receipt = json.loads(result.stdout)
+            assert receipt['status'] == 'complete'
+            assert hashlib.sha256(Path(receipt['backup_paths'][0]).read_bytes()).hexdigest() == digest
+        setup_requests = None
         remote = root / 'remote'
         remote.mkdir()
         git(remote, 'init', '-b', 'main')
@@ -83,6 +108,10 @@ def test_default_bootstrap_acquisition_repeat_and_upgrade(monkeypatch, recovery)
             result = runner.invoke(app, ['init', '--agent', 'codex'])
             assert result.exit_code == 0, result.output
             assert expected in result.stdout
+            if setup_requests is None:
+                setup_requests = len(requests)
+            else:
+                assert len(requests) == setup_requests
         assert (home / '.saucepan/root.json').is_file()
         installed = home / '.codex/skills/example/SKILL.md'
         assert 'Version one' in installed.read_text()
@@ -96,5 +125,5 @@ def test_default_bootstrap_acquisition_repeat_and_upgrade(monkeypatch, recovery)
         latest = SaucepanSources(consumer_path=config).lookup('tools', source)
         assert latest.resolved_revision != first.resolved_revision
         assert latest.resolved_revision == git(remote, 'rev-parse', 'HEAD')
-        assert discovery == [1]
-        assert len(list(home.glob('.powerspec-saucepan-backup-*'))) == int(recovery)
+        assert len(requests) == setup_requests
+        assert not list(home.glob('.powerspec-saucepan-backup-*'))

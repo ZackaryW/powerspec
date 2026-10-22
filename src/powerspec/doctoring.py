@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 
 from .consumer import discover_consumer
 from .saucepan_tool import _compatible, saucepan_executable_path
+from . import saucepan_tool
 from .utils.inspection import ExecutableResult, inspect_executable, semantic_version
 
 
@@ -65,8 +67,10 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str 
         root = consumer.git_root if consumer is not None else cwd
     git = inspect_executable(["git", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
     openspec = inspect_executable(["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
+    target = saucepan_path or saucepan_executable_path()
+    deadline = monotonic() + 15
     saucepan = inspect_executable(
-        [str(saucepan_path or saucepan_executable_path()), "--version"],
+        [str(target), "--version"],
         cwd=root,
         timeout=15,
         parse_version=semantic_version,
@@ -74,12 +78,34 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str 
     saucepan_check = _check("saucepan", saucepan, compatible=_compatible)
     if saucepan_check.status == 'ok':
         saucepan_check = DoctorCheck('saucepan', 'ok',
-            f'executable compatible ({saucepan.version}); store/source readiness not checked')
+            f'executable compatible ({saucepan.version})')
+    if saucepan_tool.standalone(target):
+        installation = DoctorCheck('saucepan-installation', 'warning',
+            'explicit standalone executable; managed ownership not required or inspected')
+    elif not saucepan.ok:
+        installation = DoctorCheck('saucepan-installation', 'failed',
+            'absent or uninspectable managed installation; use official setup/recovery')
+    elif (saucepan_tool._version(saucepan.version or '') or (0,)) < (0, 11, 0):
+        try:
+            detail = saucepan_tool.migration_guidance(target)
+        except OSError:
+            detail = 'unmanaged old manager; explicit verified migration required'
+        installation = DoctorCheck('saucepan-installation', 'failed', detail)
+    else:
+        try:
+            status = saucepan_tool.inspect_managed_status(target, deadline=deadline)
+            saucepan_tool.require_ready(target, status, saucepan.version)
+        except (OSError, ValueError) as error:
+            installation = DoctorCheck('saucepan-installation', 'failed', str(error))
+        else:
+            installation = DoctorCheck('saucepan-installation', 'ok', f'managed state ready; root={status.root}')
     checks = (
         consumer_check,
         _check("git", git),
         _check("openspec", openspec, minimum=(1, 13, 2)),
         saucepan_check,
+        installation,
+        DoctorCheck('saucepan-sources', 'warning', 'selected-source readiness not checked'),
     )
     if agent is None:
         return DoctorResult((*checks, DoctorCheck('guidance', 'warning',

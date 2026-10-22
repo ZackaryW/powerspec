@@ -1,235 +1,172 @@
-"""Default provisioning must not poison the store it is about to initialize."""
-import os
+"""Official installer boundary; failures retain provider evidence and never retry."""
+import hashlib
+import json
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
-from powerspec import saucepan_tool as tool
+from powerspec import saucepan_bootstrap as bootstrap
 from powerspec.catalog import ConfigurationError
+from test_managed_setup_contract import observation
 
-REAL_MANAGER_FACTORY = tool._managed_saucepan
 
-@pytest.fixture
-def installation(tmp_path, monkeypatch):
+def outcome(target, operation, status='complete'):
+    value = observation(target)
+    value.pop('state')
+    return dict(value, status=status, changed=status == 'complete', operation=operation,
+                lifecycle_operation=None, backup_paths=[], retry_shim=None)
+
+
+def test_installer_exit_two_retains_receipt_and_does_not_retry(tmp_path, monkeypatch, capsys):
+    target = tmp_path / 'home/.saucepan/bin/saucepan.exe'
+    operation = str(uuid4())
+    calls = []
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=2, stdout=json.dumps(outcome(target, operation, 'failed')), stderr='provider progress\n')
+    monkeypatch.setattr(subprocess, 'run', run)
+    # Public first-use boundary must preserve exit-2 output, not downgrade to launch failure.
+    with pytest.raises(ConfigurationError, match=operation):
+        bootstrap.run_installer(['fixture', str(target)], target, operation)
+    assert len(calls) == 1
+    assert calls[0][1]['shell'] is False
+    assert calls[0][1]['timeout'] > 0
+    captured = capsys.readouterr()
+    assert captured.out == '' and 'provider progress' in captured.err
+
+@pytest.mark.parametrize('status', ['preparing', 'commit_intent', 'cleanup_pending', 'failed', 'conflict'])
+def test_noncomplete_receipts_preserve_backup_and_retry(tmp_path, monkeypatch, status):
+    target, operation = tmp_path / 'store/bin/saucepan', str(uuid4())
+    value = outcome(target, operation, status)
+    value.update(backup_paths=['preserved-original'], retry_shim='durable-shim')
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: SimpleNamespace(returncode=2, stdout=json.dumps(value), stderr=''))
+    with pytest.raises(bootstrap.SetupFailure) as error:
+        bootstrap.run_installer(['fixture'], target, operation)
+    assert error.value.outcome.status == status
+    assert error.value.outcome.backup_paths == ['preserved-original']
+    assert 'durable-shim' in str(error.value)
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'empty', 'wrong-operation', 'wrong-exit', 'wrong-root'])
+def test_uncertain_results_report_original_operation_without_retry(tmp_path, monkeypatch, failure):
+    target, operation = tmp_path / 'store/bin/saucepan', str(uuid4())
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        if failure == 'timeout':
+            raise subprocess.TimeoutExpired(argv, 1, stderr=b'last progress')
+        value = outcome(target, operation)
+        if failure == 'wrong-operation':
+            value['operation'] = str(uuid4())
+        if failure == 'wrong-root':
+            value['root'] = str(tmp_path / 'other')
+        return SimpleNamespace(returncode=2 if failure == 'wrong-exit' else 0,
+                               stdout='' if failure == 'empty' else json.dumps(value), stderr='')
+    monkeypatch.setattr(subprocess, 'run', run)
+    with pytest.raises(bootstrap.SetupFailure, match='may have committed') as error:
+        bootstrap.run_installer(['fixture'], target, operation)
+    assert error.value.operation == operation and error.value.root == target.parent.parent
+    assert len(calls) == 1 and not target.parent.parent.exists()
+
+
+def test_verified_installer_stages_externally_and_reinspects_complete(tmp_path, monkeypatch):
+    from powerspec import saucepan_tool as tool
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
     monkeypatch.delenv('POWERSPEC_SAUCEPAN', raising=False)
     target = tool.saucepan_executable_path()
-    events = []
-
-    class Manager:
-        def __init__(self, destination):
-            self.destination = destination
-
-        def ensure(self, **kwargs):
-            events.append(('ensure', self.destination))
-            self.destination.write_bytes(b'manager')
-            return SimpleNamespace(destination=self.destination)
-
-    class Client:
-        def __init__(self, *, executable, root):
-            self.root = Path(root)
-            self.executable = Path(executable)
-
-        def init(self):
-            events.append(('init', self.executable))
-            assert not self.executable.is_relative_to(self.root)
-            assert not self.root.exists() or not list(self.root.iterdir())
-            self.root.mkdir(exist_ok=True)
-            (self.root / 'root.json').write_text('{}')
-
-    monkeypatch.setattr(tool, '_managed_saucepan', Manager)
-    monkeypatch.setattr(tool, '_probe', lambda path: '0.10.0')
-    monkeypatch.setattr(tool, '_validate', lambda *args: None)
-    monkeypatch.setattr('saucepan_sdk.Client', Client)
-    return SimpleNamespace(home=tmp_path, target=target, root=target.parent.parent, events=events)
+    monkeypatch.setattr(bootstrap.shutil, 'which', lambda name: 'shell')
+    staged, inspected = [], []
+    def download(url, path, digest):
+        assert not path.is_relative_to(target.parent.parent)
+        path.write_text('verified fixture')
+        staged.append(path)
+    monkeypatch.setattr(bootstrap, '_download', download)
+    def run(argv, target, operation):
+        assert 'ExecutionPolicy' not in ' '.join(argv)
+        assert 'MigrateUnmanaged' not in ' '.join(argv)
+        assert operation in argv and str(target.parent.parent) in argv
+        # Only the provider creates anything in its root.
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b'provider-owned')
+        return bootstrap.SetupOutcome.model_validate(outcome(target, operation))
+    monkeypatch.setattr(bootstrap, 'run_installer', run)
+    monkeypatch.setattr(tool, 'inspect_saucepan_binary', lambda path: inspected.append(path) or path)
+    assert bootstrap.ensure_default(target) == target
+    assert inspected == [target] and all(not path.exists() for path in staged)
 
 
-def test_default_initializes_before_publication_and_reuses_store(installation):
-    data = installation
-    assert tool.ensure_saucepan_binary() == data.target
-    assert (data.root / 'root.json').is_file()
-    assert data.target.read_bytes() == b'manager'
-    assert [event[0] for event in data.events] == ['ensure', 'init']
-    tool.ensure_saucepan_binary()
-    assert [event[0] for event in data.events].count('init') == 1
+def test_bad_checksum_never_executes_or_writes_store(tmp_path, monkeypatch):
+    import io
+    target = tmp_path / 'store/bin/saucepan'
+    monkeypatch.setattr(bootstrap.shutil, 'which', lambda name: 'shell')
+    monkeypatch.setattr(bootstrap.urllib.request, 'urlopen', lambda *a, **k: io.BytesIO(b'tampered'))
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: pytest.fail('unverified execution'))
+    with pytest.raises(ConfigurationError, match='checksum'):
+        bootstrap.ensure_default(target)
+    assert not target.parent.parent.exists()
 
 
-def test_binary_only_recovery_preserves_originals(installation):
-    data = installation
-    data.target.parent.mkdir(parents=True)
-    data.target.write_bytes(b'original')
-    data.target.with_name('saucepan-check.json').write_text('invalid but preserved')
-    tool.ensure_saucepan_binary()
-    backups = list(data.home.glob('.powerspec-saucepan-backup-*'))
-    assert len(backups) == 1
-    assert (backups[0] / data.target.name).read_bytes() == b'original'
-    assert (backups[0] / 'saucepan-check.json').read_text() == 'invalid but preserved'
+def test_missing_shell_provides_manual_setup_without_download(tmp_path, monkeypatch):
+    monkeypatch.setattr(bootstrap.shutil, 'which', lambda name: None)
+    monkeypatch.setattr(bootstrap.urllib.request, 'urlopen', lambda *a, **k: pytest.fail('download before prerequisites'))
+    with pytest.raises(ConfigurationError, match='missing.*prerequisite'):
+        bootstrap.ensure_default(tmp_path / 'store/bin/saucepan')
 
 
-@pytest.mark.parametrize('location', ['root', 'bin'])
-def test_unknown_content_is_never_relocated(installation, location):
-    data = installation
-    directory = data.root if location == 'root' else data.target.parent
-    directory.mkdir(parents=True)
-    unknown = directory / 'keep.txt'
-    unknown.write_text('mine')
-    with pytest.raises(ConfigurationError, match='unrecognized'):
+def test_override_missing_is_never_installed(tmp_path, monkeypatch):
+    from powerspec import saucepan_tool as tool
+    target = tmp_path / 'missing/saucepan'
+    monkeypatch.setenv('POWERSPEC_SAUCEPAN', str(target))
+    monkeypatch.setattr(bootstrap, 'ensure_default', lambda *a, **k: pytest.fail('override provisioned'))
+    with pytest.raises(ConfigurationError, match='not installed'):
         tool.ensure_saucepan_binary()
-    assert unknown.read_text() == 'mine'
-    assert not data.events
+    assert not target.parent.exists()
 
-
-def test_init_failure_preserves_backup_and_retry(installation, monkeypatch):
-    data = installation
-    data.target.parent.mkdir(parents=True)
-    data.target.write_bytes(b'original')
-    from saucepan_sdk import Client
-    normal = Client.init
-    monkeypatch.setattr(Client, 'init', lambda self: (_ for _ in ()).throw(ValueError('init refused')))
-    with pytest.raises(ConfigurationError, match='preserved.*powerspec-saucepan-backup'):
-        tool.ensure_saucepan_binary()
-    assert not data.target.exists()
-    assert len(list(data.home.glob('.powerspec-saucepan-backup-*'))) == 1
-    monkeypatch.setattr(Client, 'init', normal)
-    assert tool.ensure_saucepan_binary() == data.target
-
-
-def test_occupied_lock_does_not_touch_root(installation):
-    data = installation
-    lock = data.home / '.powerspec-saucepan-bootstrap.lock'
-    lock.write_text('another process')
-    with pytest.raises(ConfigurationError, match='already in progress'):
-        tool.ensure_saucepan_binary()
-    assert not data.root.exists()
-    assert lock.read_text() == 'another process'
-
-
-def test_linked_bin_is_not_recovered(installation):
-    data = installation
-    external = data.home / 'elsewhere'
-    external.mkdir()
-    data.root.mkdir()
-    try:
-        data.target.parent.symlink_to(external, target_is_directory=True)
-    except OSError:
-        pytest.skip('symlink creation unavailable')
-    with pytest.raises(ConfigurationError, match='linked'):
-        tool.ensure_saucepan_binary()
-    assert not list(external.iterdir())
-
-
-def test_invalid_recovery_binary_is_preserved(installation, monkeypatch):
-    data = installation
-    data.target.parent.mkdir(parents=True)
-    data.target.write_bytes(b'old')
-    monkeypatch.setattr(tool, '_probe', lambda path: '0.1.0')
-    with pytest.raises(ConfigurationError, match='unsupported'):
-        tool.ensure_saucepan_binary()
-    assert data.target.read_bytes() == b'old'
-    assert not data.events
-
-
-def test_publication_failure_keeps_initialized_store_and_backup(installation, monkeypatch):
-    from powerspec import saucepan_bootstrap as bootstrap
-    data = installation
-    data.target.parent.mkdir(parents=True)
-    data.target.write_bytes(b'original')
-    normal = bootstrap.os.replace
-    monkeypatch.setattr(bootstrap.os, 'replace', lambda *args: (_ for _ in ()).throw(OSError('disk error')))
-    with pytest.raises(ConfigurationError, match='preserved at'):
-        tool.ensure_saucepan_binary()
-    assert (data.root / 'root.json').is_file()
-    assert not data.target.exists()
-    assert len(list(data.home.glob('.powerspec-saucepan-backup-*'))) == 1
-    monkeypatch.setattr(bootstrap.os, 'replace', normal)
-    tool.ensure_saucepan_binary()
-    assert [event[0] for event in data.events].count('init') == 1
-
-
-def test_interrupted_initialization_is_delegated(installation, monkeypatch):
-    from saucepan_sdk import Client
-    data = installation
-    marker = data.root / '.staging/initializing.json'
-    marker.parent.mkdir(parents=True)
-    marker.write_text('owned by Saucepan')
-    def resume(self):
-        assert marker.read_text() == 'owned by Saucepan'
-        (self.root / 'root.json').write_text('{}')
-    monkeypatch.setattr(Client, 'init', resume)
-    assert tool.ensure_saucepan_binary() == data.target
-
-
-def test_new_unknown_file_during_staging_prevents_relocation(installation, monkeypatch):
-    data = installation
-    data.target.parent.mkdir(parents=True)
-    data.target.write_bytes(b'original')
-    original = tool._managed_saucepan
-    def manager(path):
-        result = original(path)
-        ensure = result.ensure
-        def changed(**kwargs):
-            (data.root / 'foreign').write_text('keep')
-            return ensure(**kwargs)
-        result.ensure = changed
-        return result
-    monkeypatch.setattr(tool, '_managed_saucepan', manager)
-    with pytest.raises(ConfigurationError, match='unrecognized'):
-        tool.ensure_saucepan_binary()
-    assert data.target.read_bytes() == b'original'
-    assert not list(data.home.glob('.powerspec-saucepan-backup-*'))
-
-
-@pytest.mark.parametrize('recovery', [False, True])
-def test_real_zuu_check_cache_survives_stage_and_final_identity(installation, monkeypatch, recovery):
-    from zuu.case16 import GitHubReleaseResolver
-    from zuu.case17 import FileCheckStateStore
-    data = installation
-    discovery = []
-    monkeypatch.setattr(tool, '_managed_saucepan', REAL_MANAGER_FACTORY)
-    monkeypatch.setattr(GitHubReleaseResolver, 'resolve_version', lambda self: discovery.append(1) or '0.10.0')
-    monkeypatch.setattr(GitHubReleaseResolver, 'resolve', lambda self, version, destination, **kwargs: destination.write_bytes(b'manager'))
-    if recovery:
-        data.target.parent.mkdir(parents=True)
-        REAL_MANAGER_FACTORY(data.target).ensure()
-        assert discovery == [1]
-    tool.ensure_saucepan_binary()
-    state = FileCheckStateStore(data.target.with_name('saucepan-check.json')).load()
-    assert state.destination == os.path.normcase(os.path.abspath(data.target))
-    assert state.installed_version == '0.10.0'
-    tool.ensure_saucepan_binary()
-    assert discovery == [1]
-
-
-@pytest.mark.parametrize('name', ['root', 'binary', 'record'])
-def test_linked_recovery_paths_are_preserved(installation, name):
-    data = installation
-    external = data.home / 'external'
-    external.mkdir()
-    if name == 'root':
-        link, value = data.root, external
-    else:
-        data.target.parent.mkdir(parents=True)
-        value = external / 'value'
-        value.write_text('untouched')
-        link = data.target if name == 'binary' else data.target.with_name('saucepan-check.json')
-    try:
-        link.symlink_to(value, target_is_directory=name == 'root')
-    except OSError:
-        pytest.skip('symlink creation unavailable')
-    with pytest.raises(ConfigurationError, match='linked'):
-        tool.ensure_saucepan_binary()
-    assert link.is_symlink()
-    assert not data.events
-
-
-def test_unwritable_check_cache_does_not_lose_working_binary(installation, monkeypatch):
-    from zuu.case16 import GitHubReleaseResolver
-    from zuu.case17 import FileCheckStateStore
-    data = installation
-    monkeypatch.setattr(tool, '_managed_saucepan', REAL_MANAGER_FACTORY)
-    monkeypatch.setattr(GitHubReleaseResolver, 'resolve_version', lambda self: '0.10.0')
-    monkeypatch.setattr(GitHubReleaseResolver, 'resolve', lambda self, version, destination, **kwargs: destination.write_bytes(b'manager'))
-    monkeypatch.setattr(FileCheckStateStore, 'save', lambda *args: (_ for _ in ()).throw(OSError('read only')))
-    assert tool.ensure_saucepan_binary().read_bytes() == b'manager'
-    assert (data.root / 'root.json').is_file()
+@pytest.mark.parametrize('sidecar', [False, True])
+def test_actual_init_refuses_raw_manager_and_preserves_existing_state(tmp_path, monkeypatch, sidecar):
+    from contextlib import contextmanager
+    from typer.testing import CliRunner
+    from powerspec.cli import app
+    from powerspec import saucepan_tool as tool
+    from powerspec.sources import SaucepanSources
+    from test_initialization import setup_repo
+    project, catalog = setup_repo(tmp_path)
+    home = tmp_path / 'home'
+    home.mkdir()
+    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: home))
+    monkeypatch.delenv('POWERSPEC_SAUCEPAN', raising=False)
+    target = tool.saucepan_executable_path()
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b'old manager')
+    cache = target.with_name('saucepan-check.json')
+    cache.write_bytes(b'old cache')
+    credential = target.parent.parent / 'private-credentials'
+    credential.write_bytes(b'preserved credential fixture')
+    if sidecar:
+        target.with_suffix('.json').write_bytes(b'unknown sidecar')
+    before = {p: p.read_bytes() for p in target.parent.parent.rglob('*') if p.is_file()}
+    monkeypatch.setattr(tool, '_probe', lambda *a, **k: '0.10.0')
+    monkeypatch.setattr(bootstrap, 'ensure_default', lambda *a, **k: pytest.fail('raw manager installation'))
+    builtin = tmp_path / 'catalog'
+    (builtin / 'profiles/base.toml').write_text('scope="user"\nskills=["fixture/skills/*"]\n'
+        '[[source]]\nid="fixture"\nprovider="git"\norigin="https://example.invalid/repository"\nreference="main"\n')
+    @contextmanager
+    def resources():
+        yield builtin
+    monkeypatch.setattr('powerspec.workspace.builtin_catalog_root', resources)
+    (project / 'openspec/config.yaml').write_text('schema: spec-driven\n')
+    store = SaucepanSources(consumer_path=project / 'openspec/.pspec/config.toml')
+    store._write(store._state())
+    receipt = store.state_path.read_bytes()
+    config = store.consumer_path.read_bytes()
+    monkeypatch.chdir(project)
+    result = CliRunner().invoke(app, ['init'])
+    assert result.exit_code == 1 and 'migration' in result.stderr
+    assert hashlib.sha256(target.read_bytes()).hexdigest() in result.stderr
+    assert {p: p.read_bytes() for p in target.parent.parent.rglob('*') if p.is_file()} == before
+    assert store.state_path.read_bytes() == receipt
+    assert store.consumer_path.read_bytes() == config
+    assert not list(home.glob('.powerspec-saucepan-backup-*'))

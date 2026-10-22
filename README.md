@@ -132,12 +132,12 @@ pspec status
 pspec config show
 ```
 
-A successful Saucepan doctor check means the executable is compatible; it does
-not confirm that the store or selected sources are ready. After an incomplete
-setup, rerun `pspec init` with the same options before using `upgrade`. Default
-bootstrap initializes the store before publishing its manager and preserves
-recognized binary-only leftovers in an external backup. See
-[recovery instructions](docs/remote-sources.md#retention-and-recovery).
+Saucepan doctor checks report executable compatibility and managed installation
+state separately; selected-source readiness remains uninspected. First remote
+source setup uses the verified official Saucepan installer. Existing raw managers
+require explicit verified migration. Resolve incomplete provider operations before
+rerunning `pspec init`; `pspec upgrade` refreshes resources, not the shared manager.
+See [recovery instructions](docs/remote-sources.md#retention-and-recovery).
 
 ## How Powerspec works
 
