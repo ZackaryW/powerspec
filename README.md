@@ -1,10 +1,5 @@
 <div align="center">
 
-Scenario-specific procedures can stay out of native discovery until needed. Author a profile with bootstrap in `skills`, targets in `resolve-skills`, and lightweight owning rules such as `When reviewing A, use pspec:@local/a`. When that scenario applies, bootstrap retrieves A alone; the user need not name it again. A direct `pspec:a` request is also supported. Lookup is limited to the consumer's effective selected profiles after exclusions.
-
-The builtin profile supplies a compact routing reminder at startup and after compaction, guarded by bootstrap selection. It adds no prompt/tool callbacks or eager skill inventory. Init/upgrade prepare selected source content; only `skills` creates native installation targets. Resolution itself only reads retained sources. See [skill resolution](docs/skill-resolution.md) for both selectors and pending/error handling.
-
-This context reduction applies to resolve-only selections in a fresh native setup. Existing independently installed skills remain discoverable, and previously read session text is not unloaded. Emitting guidance and resolving a procedure do not prove host receipt or agent adherence.
 
 # Powerspec
 
@@ -13,6 +8,12 @@ This context reduction applies to resolve-only selections in a fresh native setu
 [Getting started](#quick-start) · [How it works](#how-powerspec-works) · [Commands](#commands) · [Documentation](#documentation)
 
 </div>
+
+Scenario-specific procedures can stay out of native discovery until needed. Author a profile with bootstrap in `skills`, targets in `resolve-skills`, and lightweight owning rules such as `When reviewing A, use pspec:@local/a`. When that scenario applies, bootstrap retrieves A alone; the user need not name it again. A direct `pspec:a` request is also supported. Lookup is limited to the consumer's effective selected profiles after exclusions.
+
+The builtin profile supplies a compact routing reminder at startup and after compaction, guarded by bootstrap selection. It adds no prompt/tool callbacks or eager skill inventory. Init/upgrade prepare selected source content; only `skills` creates native installation targets. Resolution itself only reads retained sources. See [skill resolution](docs/skill-resolution.md) for both selectors and pending/error handling.
+
+This context reduction applies to resolve-only selections in a fresh native setup. Existing independently installed skills remain discoverable, and previously read session text is not unloaded. Emitting guidance and resolving a procedure do not prove host receipt or agent adherence.
 
 Powerspec gives a repository a reusable operating model. Profiles select the
 contexts, runtime traits, and agent skills that belong to a kind of project.
@@ -184,6 +185,7 @@ refreshes selected sources and reconciles managed skill installations.
 | `pspec config show\|profile\|edit` | Inspect or update committed consumer configuration |
 | `pspec state show\|clear` | Inspect or clear temporary global or change-specific values |
 | `pspec resolve skill --path PATH --agent AGENT` | Assemble content for a native-selected skill |
+| `pspec resolve skill --ref REF --agent AGENT` | Retrieve one selected catalog procedure on demand |
 | `pspec resolve hook EVENT --agent AGENT` | Resolve runtime trait guidance for a native callback |
 | `pspec upgrade --agent AGENT [--force]` | Refresh sources and reconcile agent assets, optionally replacing selected conflicts |
 | `pspec workset add NAME --path PATH` | Add a Git repository to an OpenSpec source workset |

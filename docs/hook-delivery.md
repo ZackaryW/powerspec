@@ -232,4 +232,4 @@ subsequent adherence, and execution of a referenced skill are separate outcomes.
 Skill reminders are targeted to referenced dynamic skills; they do not activate
 TDD, BDD, or any other workflow by itself.
 
-The universal pre-skill lookup is retired. Native integrations select skills; ordinary skills need no Powerspec call. The former builtin bootstrap trait is an inert compatibility identity. Dynamic entrypoints describe `pspec resolve skill --path "<selected-location>" --agent <agent>` and recognize already-assembled content to avoid recursion.
+The universal pre-skill lookup is retired. Native integrations select skills; ordinary native skills need no Powerspec call. The builtin bootstrap trait now provides a compact reminder for on-demand pspec: targets, guarded by effective bootstrap selection; it does not restore universal native lookup. Dynamic entrypoints describe `pspec resolve skill --path "<selected-location>" --agent <agent>` and recognize already-assembled content to avoid recursion.

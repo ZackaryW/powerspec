@@ -94,9 +94,7 @@ The snapshot SHALL be computed before condition evaluation. Membership SHALL NOT
 
 ### Requirement: Resolve-only selection preserves lifecycle boundaries
 
-Source preparation through init and explicit refresh through upgrade SHALL cover remote resources selected through either skills or resolve-skills. Explicit reference resolution, status, hooks, and ordinary path resolution SHALL NOT acquire or refresh sources. Only skills contributions SHALL create native provisioning targets or establish evidence for obsolete native-copy removal. A resolve-only declaration or removal of that declaration SHALL NOT itself install, adopt, update, or uninstall a native copy, including a copy retained from earlier configuration. Existing selected installation ownership and recovery checks SHALL remain in force.
-
-Resolve-only skill names SHALL be available through pspec: references selected by a user request or applicable scenario guidance. They SHALL NOT be advertised as discoverable native skills merely because they are in the effective bundle. Existing authored <skill:name> native-handoff references SHALL continue to require installation selections; an exclusively resolve-only target SHALL produce an actionable authoring diagnostic directing the author to use a pspec: reference in its owning guidance instead.
+Init and upgrade SHALL prepare or refresh remote selections from both skills and resolve-skills. Runtime resolution, status and hooks SHALL NOT acquire or refresh sources. Only skills contributions SHALL create native targets or obsolete-copy evidence. Resolve-only changes SHALL NOT install, adopt, update or remove native copies. Native handoff tokens SHALL require installation selections; resolve-only targets SHALL use literal pspec: guidance.
 
 #### Scenario: Prepare and refresh a resolve-only remote source
 - **WHEN** a consumer selects a remote resource only through resolve-skills
@@ -114,9 +112,14 @@ Resolve-only skill names SHALL be available through pspec: references selected b
 - **WHEN** authored guidance contains pspec:helper for a resolve-only skill
 - **THEN** the text is delivered without a native dynamic-handoff heading or executing that skill during rendering
 
+#### Scenario: Preserve ownership and deferred native boundaries
+- **WHEN** source or delivery declarations change
+- **THEN** existing installation ownership and recovery checks remain in force
+- **AND** resolve-only selections do not advertise native discoverability or independently authorize adoption, updates or removal of retained native copies
+
 ### Requirement: Resolve-only selection means availability rather than session loading
 
-Selecting a skill through resolve-skills SHALL make it available for retrieval when a relevant task scenario or user request requires it. Selection, profile composition, source preparation, and status inspection SHALL NOT themselves request its procedure for the agent or add that target to Powerspec's native skill installation plan. Lightweight owning guidance SHALL be able to reference the selected skill and its applicability without embedding its procedure. Existing shared body_file guidance and distinct persistent/runtime evaluation timing SHALL remain supported.
+resolve-skills SHALL make procedures available for relevant scenarios or user requests without requesting them for the agent during selection, composition, source preparation or status inspection. It SHALL NOT add native installation targets. Lightweight owning guidance SHALL express applicability and target references without embedding procedures, preserving shared body_file support and separate persistent/runtime evaluation timing.
 
 #### Scenario: Several scenario skills are selected
 - **WHEN** a profile selects bootstrap for native installation and A, B, and C only through resolve-skills

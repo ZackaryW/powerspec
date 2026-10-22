@@ -88,9 +88,7 @@ The previous positional-name form, including the old --selected option, SHALL fa
 
 ### Requirement: Explicit catalog skill references resolve under the owning consumer
 
-pspec resolve skill --ref <name-or-qualified-reference> --agent <agent> SHALL resolve one resource selected by the task directory's owning consumer through effective skills or resolve-skills entries after exclusions. A bare name SHALL match the declared SKILL.md name only when it identifies exactly one distinct selected resource. An exact qualified catalog identity or concrete source-relative Git identity SHALL select only that identity when it is in the effective selections. Wildcard invocation selectors, unknown names, unselected identities, absent consumers, and ambiguous names SHALL fail with actionable diagnostics; ambiguity diagnostics SHALL identify usable exact references. Native installation state SHALL NOT establish selection or break ties.
-
-The route SHALL support Markdown by default, --json, and explicit --change with the existing runtime value precedence. Catalog pending and resolved JSON SHALL identify status, skill, skill_ref, skill_path, agent, and change, with questions or content as appropriate. Pending retries SHALL retain the exact resolved skill_ref, task directory, agent, and explicit change. Resolved Markdown SHALL include the canonical reference and durable source root alongside the procedure; the JSON content field SHALL contain that same Markdown. An ordinary catalog skill SHALL return its procedure with resolved status rather than native-path null. Failure SHALL emit no successful payload, and both console aliases SHALL expose the same contract.
+`pspec resolve skill --ref <selector> --agent <agent>` SHALL retrieve one skill from the owning consumer's effective skills or resolve-skills after exclusions. Bare names SHALL uniquely match declared names; exact references SHALL identify selected resources. Invalid, wildcard, absent, unselected or ambiguous selectors SHALL fail without a successful payload or native lookup. Catalog results SHALL preserve identity, runtime precedence and the output contracts in the scenarios below.
 
 #### Scenario: Unique bare name
 - **WHEN** helper is selected only through resolve-skills and has one distinct selected identity
@@ -123,3 +121,14 @@ The route SHALL support Markdown by default, --json, and explicit --change with 
 #### Scenario: One target produces one procedure response
 - **WHEN** applicable scenario guidance or a user request leads the agent to invoke --ref A while B and C are also selected
 - **THEN** stdout contains only A's resolution or pending result under the selected representation, without lifecycle progress or other candidates' procedure bodies and discovery descriptions
+
+#### Scenario: Represent one catalog result
+- **WHEN** either console alias resolves a catalog target
+- **THEN** JSON identifies status, skill, skill_ref, durable skill_path, agent and change, plus content or questions as appropriate
+- **AND** resolved content equals default Markdown, including the canonical reference and source directory; runtime input precedence remains unchanged
+- **AND** a pending retry retains the concrete reference, task directory, agent and explicit change
+
+#### Scenario: Invalid catalog selector
+- **WHEN** the caller supplies a wildcard, unknown name, unselected identity or ambiguous bare name
+- **THEN** resolution fails with an actionable diagnostic and no successful payload
+- **AND** ambiguity lists usable exact references without using native installations to establish membership or break ties

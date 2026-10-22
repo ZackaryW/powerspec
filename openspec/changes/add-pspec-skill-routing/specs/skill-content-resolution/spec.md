@@ -40,9 +40,7 @@ Available project values SHALL come from the invoking project's nearest applicab
 
 ### Requirement: Catalog resolution returns selected procedures without provisioning
 
-Explicit catalog resolution SHALL select only resources contributed by the owning consumer's effective skills and resolve-skills entries. Repeated selections of one identity SHALL count once for name matching; distinct identities with the same declared name SHALL require an exact reference. An inability to inspect selected candidates SHALL NOT be treated as evidence of absence or uniqueness. A bare-name lookup with unresolved selected candidates SHALL fail rather than guess. An exact reference SHALL inspect only selection evidence needed to establish that resource's membership and content, without requiring unrelated remote materializations.
-
-A selected skill with a valid manifest SHALL use the existing dynamic assembly, required-input, pending, containment, and error contracts. A selected skill without a manifest SHALL return its ordinary entrypoint procedure with frontmatter removed. Broken or escaping manifests SHALL fail rather than fall back to ordinary content. Resolution SHALL NOT install, adopt, execute, update, or remove native skills, write answers, acquire sources, or run a repair fallback. Unavailable source content SHALL produce a source-specific diagnostic directing explicit preparation or upgrade as appropriate.
+Catalog resolution SHALL use effective skills and resolve-skills, deduplicate identities and reject ambiguous names or incomplete evidence. Exact requests SHALL inspect only necessary membership evidence. Valid manifests SHALL use existing assembly/input contracts; ordinary skills SHALL return frontmatter-stripped entrypoints. Failures SHALL NOT become ordinary fallback. Lookup SHALL NOT provision or execute skills, write answers, acquire sources or repair state.
 
 #### Scenario: Installation and resolution declarations overlap
 - **WHEN** several retained profiles select the same resource through both lists
@@ -68,9 +66,19 @@ A selected skill with a valid manifest SHALL use the existing dynamic assembly, 
 - **WHEN** a selected skill has an unreadable, malformed, or escaping pspec.toml
 - **THEN** catalog resolution fails without returning an ordinary fallback or partial procedure
 
+#### Scenario: Preserve dynamic assembly safety
+- **WHEN** a catalog skill declares a manifest
+- **THEN** resolution preserves existing dynamic assembly, required-input, pending and containment contracts
+- **AND** unreadable, malformed or escaping manifests fail without ordinary fallback
+
+#### Scenario: Lookup stays read-only
+- **WHEN** a selected catalog procedure is requested
+- **THEN** resolution performs no native installation, adoption, execution, update or removal, writes no answers and runs no acquisition or repair fallback
+- **AND** unavailable source content produces a source-specific diagnostic directing explicit preparation or upgrade as appropriate
+
 ### Requirement: Catalog results retain usable source locations
 
-Catalog pending and resolved results SHALL identify a canonical source directory usable after the resolver process exits. Relative references, scripts, and assets in the procedure SHALL remain grounded in that selected complete skill directory. Source identity and provenance SHALL match the content returned. Resolver-owned temporary merged or extracted directories SHALL NOT be exposed as durable skill paths. Resolution SHALL use existing source locations rather than installing a native copy or creating a persistent extracted skill cache. A provider that cannot supply a durable complete skill root SHALL report an explicit unsupported-location diagnostic instead of success with a disappearing path.
+Catalog pending and resolved results SHALL identify a complete canonical skill directory usable after process exit. Content, provenance and supporting resources SHALL agree on that source tree. Resolution SHALL use existing source locations without native installation or persistent extraction caches. Temporary merged or extracted roots SHALL NOT be exposed as durable paths; providers without a durable complete tree SHALL fail explicitly.
 
 #### Scenario: Editable installation merges catalog metadata
 - **WHEN** an editable installation combines checkout-authored resources with packaged upstream skills
@@ -88,9 +96,13 @@ Catalog pending and resolved results SHALL identify a canonical source directory
 - **WHEN** a provider offers only a directory whose lifetime ends with the resolution context
 - **THEN** the command fails with a located diagnostic rather than returning that path as usable
 
+#### Scenario: Partial authored tree cannot borrow packaged files
+- **WHEN** an authored skill overrides packaged content but lacks required selected files
+- **THEN** resolution reports the incomplete source instead of combining incompatible trees or returning a misleading supporting-file root
+
 ### Requirement: Procedure retrieval remains limited to the needed skill
 
-A catalog request SHALL return only the selected target's procedure and its active dynamic additions. Candidate-identity inspection needed for selection and name disambiguation SHALL remain internal and SHALL NOT emit other candidates' procedure bodies, per-skill discovery descriptions, inactive branches, or unrelated supporting documents into the agent-facing result. The resolver SHALL NOT evaluate unrelated skills' procedural inputs or resolve them as speculative dependencies. Pending results SHALL continue to withhold procedural content. Necessary exact identities in ambiguity diagnostics and explicitly requested status output SHALL remain available under their existing contracts.
+Catalog responses SHALL contain only the requested procedure and active additions, or its pending questions without procedure text. Candidate identity inspection SHALL remain internal without emitting sibling procedures, descriptions, inactive branches or unrelated supporting content. Resolution SHALL NOT evaluate sibling procedural inputs or speculative dependencies. Ambiguity diagnostics and explicit status SHALL retain their required identity output.
 
 #### Scenario: Resolve A while other skills remain available
 - **WHEN** A, B, and C are selected and the current request needs A

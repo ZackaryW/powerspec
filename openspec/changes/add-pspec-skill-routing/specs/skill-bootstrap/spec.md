@@ -60,11 +60,7 @@ An explicit pspec: invocation SHALL select Powerspec catalog content through --r
 
 ### Requirement: Bootstrap routes needed Powerspec skill content
 
-When the user requests pspec:<name-or-qualified-reference>, or applicable configured scenario guidance identifies that target as needed for the current task, bootstrap SHALL run pspec resolve skill --ref with that selector and the actual invoking agent from the task working directory. Presence of a reference in guidance SHALL NOT trigger retrieval before its owning task condition applies. Bootstrap SHALL search only the current consumer's effective profile selections, including resolve-only selections. An explicit active change SHALL be forwarded and retained on retries; no change SHALL be inferred. Bootstrap itself SHALL remain an ordinary native-discoverable skill and SHALL NOT recursively resolve itself merely to learn the routing procedure.
-
-Bootstrap SHALL follow resolved catalog content directly and use the returned source root for supporting resources. It SHALL not repeat assembly because a resolved dynamic entrypoint contains native handoff instructions. For pending results it SHALL obtain only required missing answers, preserve confirmed answers and the exact returned reference on retry, and withhold dependent work. Suggestions, preselection, elapsed time, and silence SHALL NOT be treated as answers. Missing consumers, unknown or unselected references, ambiguous names, unavailable sources, invalid manifests, and unavailable commands SHALL remain explicit failures without native-installation, guessed-path, or ordinary-content fallback.
-
-If owning guidance explicitly permits continuing separate work when the skill or its tooling is unavailable, bootstrap SHALL report the limitation and preserve that permitted fallback. It SHALL NOT present the fallback as successful resolution, follow an unresolved dynamic procedure, or claim a memory check that did not occur. Bootstrap SHALL retrieve supporting resources and other skill procedures only when the active task or selected procedure actually requires them, without speculative loading of sibling scenarios.
+Bootstrap SHALL retrieve a needed pspec: target through --ref from the task directory, using the actual agent and explicit change only. Applicable scenario guidance SHALL suffice without another user mention. Selection alone SHALL NOT trigger retrieval. Bootstrap SHALL follow resolved content directly, preserve pending identity and confirmed answers, and report failures without substitution. Supporting resources and further procedures SHALL be retrieved only when needed.
 
 #### Scenario: Resolve an uninstalled selected skill
 - **WHEN** the user requests pspec:helper and helper is selected only through resolve-skills
@@ -105,3 +101,24 @@ If owning guidance explicitly permits continuing separate work when the skill or
 #### Scenario: Owning guidance permits unavailable-memory fallback
 - **WHEN** required memory tooling is unavailable and the owning standing rule permits Git and current-source investigation
 - **THEN** bootstrap preserves that work with an explicit limitation without claiming successful memory verification or loading an unrelated substitute procedure
+
+#### Scenario: Routing invocation and discovery
+- **WHEN** a user request or applicable configured rule requires pspec:<name-or-qualified-reference>
+- **THEN** bootstrap removes only pspec:, supplies that selector to --ref, and searches only effective profile selections including resolve-only entries
+- **AND** it retains task cwd, invoking agent and any explicit change without inferring a change
+- **AND** bootstrap follows its own ordinary native entrypoint without recursive resolution
+
+#### Scenario: Pending answers remain explicit
+- **WHEN** catalog resolution returns pending questions
+- **THEN** bootstrap obtains only missing required answers, preserves confirmed answers, withholds dependent work and retries with the concrete reference
+- **AND** suggestions, preselection, silence and elapsed time are not treated as answers
+
+#### Scenario: Catalog failure remains visible
+- **WHEN** the consumer, selected source, command or requested target is unavailable, a name is unknown or unselected, or a manifest is invalid
+- **THEN** bootstrap reports failure without installing skills, guessing paths, substituting native copies or following ordinary-content fallback
+- **AND** ambiguity is presented as the returned exact-reference choice
+
+#### Scenario: Supporting resources remain deferred
+- **WHEN** resolved content refers to relative resources or later skill dependencies
+- **THEN** bootstrap uses the durable source directory and reads those resources only when the active task or procedure requires them
+- **AND** an explicitly permitted owning-guidance fallback is reported as limited separate work, never successful resolution, execution or memory verification

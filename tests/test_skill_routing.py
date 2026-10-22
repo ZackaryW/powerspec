@@ -52,7 +52,6 @@ def test_scenarios_retrieve_one_at_a_time_and_compaction_does_not_prefetch(tmp_p
     from powerspec.workspace import open_workspace
     from powerspec.provisioning import plan_skills, provision_skills
     from test_skill_resolution import skill as dynamic
-    import powerspec.cli.skill as cli_skill
     import importlib
     cli_skill = importlib.import_module('powerspec.cli.skill')
     project, root = consumer(tmp_path)
