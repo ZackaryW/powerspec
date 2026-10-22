@@ -2,6 +2,8 @@
 
 Powerspec delegates Git acquisition and retained materialization to Saucepan. Profiles declare friendly aliases and exact Git recipes; Powerspec does not clone repositories or keep a separate user-level source registry.
 
+Ordinary `pspec init` reuses an existing consumer's exact retained selection without fetching, regardless of age. When a new folder needs its own selection, Saucepan may reuse valid shared retrieval material younger than **24 hours**. At 24 hours, or when material is missing, it retrieves upstream again. Cache age comes from the provider's retrieval evidence; initializing another folder does not restart the clock. Recent cached material works offline, but an expired cache requires successful retrieval rather than silent stale fallback. Explicit `pspec upgrade --agent <agent>` refreshes immediately. Each consumer retains its own pins, so refreshing one does not change another's selected revision.
+
 ## Managed Saucepan executable
 
 Powerspec uses Saucepan's official managed setup when an authorized source-materializing operation needs a missing default installation at `~/.saucepan/bin/saucepan` (`saucepan.exe` on Windows). It downloads the **v0.11.0** installer, verifies its pinned SHA256, and runs it outside the store with an explicit operation UUID. Saucepan owns initialization, managed launcher publication, receipts and recovery. First setup requires PowerShell 5.1+/.NET on Windows, or POSIX sh, curl, unzip, standard utilities and sha256sum/shasum on Unix. Powerspec never bypasses execution policy.

@@ -252,6 +252,9 @@ class SaucepanSources:
         if refresh:
             update = policy({'type': 'update_policy', 'mode': 'always'})
             options = {'catalog': [update], 'acquisition_policy_refs': [update['uuid']]}
+        else:
+            freshness = policy({'type': 'refresh_policy', 'mode': 'max_age', 'seconds': 86400})
+            options = {'catalog': [freshness], 'retrieval_policy_refs': [freshness['uuid']]}
         expansion = self._client_or_default().profile('explicit-update', **options)
         pin = policy({'type': 'pin_policy', 'retention': 'until_released'})
         return {'catalog': [*expansion['catalog'], pin],

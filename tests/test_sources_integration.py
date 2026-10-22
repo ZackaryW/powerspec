@@ -32,9 +32,13 @@ def assert_profile_adoption(client, sources, *, refresh):
     assert all(item['type'] != 'pin_policy' for item in selected)
     update = next(item for item in selected if item['type'] == 'update_policy')
     assert update['mode'] == ('always' if refresh else 'manual')
+    freshness = next(item for item in selected if item['type'] == 'refresh_policy')
+    assert freshness['mode'] == ('always' if refresh else 'max_age')
+    if not refresh:
+        assert freshness['seconds'] == 86400
     expected = client.profile('explicit-update', **({
         'catalog': [update], 'acquisition_policy_refs': [update['uuid']],
-    } if refresh else {}))
+    } if refresh else {'catalog': [freshness], 'retrieval_policy_refs': [freshness['uuid']]}))
     assert policies['policy_refs'] == expected['combined_policy_refs']
     explanation = client.for_app(state['app']).explain_policies({
         'operation': 'claim', 'app': state['app'], 'claim': record['claim'],

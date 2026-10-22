@@ -234,7 +234,10 @@ def test_preparation_keeps_manager_expansion_for_uncertain_retry(tmp_path, monke
         assert override['type'] == 'update_policy' and override['mode'] == 'always'
         assert options['acquisition_policy_refs'] == [override['uuid']]
     else:
-        assert options == {}
+        override, = options['catalog']
+        assert override['type'] == 'refresh_policy'
+        assert override['mode'] == 'max_age' and override['seconds'] == 86400
+        assert options['retrieval_policy_refs'] == [override['uuid']]
     intent = next(iter(pending.values()))['policies']
     assert intent['policy_refs'] == ['manager-policy']
     assert intent['catalog'][0]['uuid'] == 'manager-policy'
