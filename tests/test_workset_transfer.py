@@ -137,6 +137,56 @@ def test_publication_failure_preserves_source_and_retry(tmp_path, adapter, monke
     assert not selected.exists()
 
 
+def test_receipt_write_failure_preserves_source_and_retry(tmp_path, adapter, monkeypatch):
+    from powerspec.utils import atomic
+    from powerspec.workset_openspec import Member, Workset
+    from powerspec.workset_launch import launch
+
+    source = repo(tmp_path / "source")
+    planning_root(source)
+    commit(source)
+    selected = change(source)
+    original = {p.name: p.read_bytes() for p in selected.iterdir()}
+    adapter.publish(Workset("base", (Member("source", source),)))
+    replace = atomic.os.replace
+    attempted = []
+
+    def fail_receipt(staging, destination):
+        if destination.parent.name == "transfers":
+            assert staging.parent == destination.parent
+            assert json.loads(staging.read_bytes())["stage"] == "prepared"
+            attempted.append(destination)
+            raise OSError("receipt publication failure")
+        return replace(staging, destination)
+
+    with monkeypatch.context() as failure:
+        failure.setattr(atomic.os, "replace", fail_receipt)
+        result = launch(adapter, "base", "topic", {}, change="feature")
+    assert not result["ok"] and result["stage"] == "transfer", result
+    assert "receipt publication failure" in result["errors"][0]
+    assert not result["workspace_ready"]
+    assert [m["action"] for m in result["members"]] == ["created"]
+    target = tmp_path / "source-topic"
+    assert target.is_dir() and not (target / "openspec/changes/feature").exists()
+    assert {p.name: p.read_bytes() for p in selected.iterdir()} == original
+    assert "base-topic" not in adapter.list_worksets()
+    assert len(attempted) == 1
+    receipt = attempted[0]
+    assert list(receipt.parent.iterdir()) == []
+
+    retry = launch(adapter, "base", "topic", {}, change="feature")
+    assert retry["ok"] and retry["workspace_ready"], retry
+    assert [m["action"] for m in retry["members"]] == ["reused"]
+    assert not selected.exists()
+    assert json.loads(receipt.read_bytes())["stage"] == "complete"
+    assert set(receipt.parent.iterdir()) == {receipt}
+    document = target / "openspec/changes/feature/proposal.md"
+    document.write_text("later implementation")
+    repeated = launch(adapter, "base", "topic", {}, change="feature")
+    assert repeated["ok"] and repeated["transfer"]["action"] == "already-moved", repeated
+    assert document.read_text() == "later implementation"
+
+
 def test_partial_cleanup_retry_and_index_preservation(tmp_path, adapter, monkeypatch):
     from powerspec.workset_openspec import Member, Workset
     from powerspec.workset_launch import launch
