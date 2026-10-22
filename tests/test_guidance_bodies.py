@@ -75,6 +75,9 @@ def test_standing_rule_survives_missing_sources_and_tools(tmp_path, event):
     assert result and 'zmem-query-memory' in result
     assert 'without asking the user to name zmem' in result
     assert 'unavailable' in result
+    assert 'zmem2' in result and 'TypeScript/Node' in result
+    assert 'check --file' in result and 'executable location' in result
+    assert 'does not install the runtime' in result
     assert any('no selected materialization' in item for item in diagnostics)
     bundle = compose(catalog, agent='codex', resolve_skills=False)
     assert '@builtin/zmem-lifecycle' in [item.ref for item in bundle.contexts]
@@ -83,7 +86,42 @@ def test_standing_rule_survives_missing_sources_and_tools(tmp_path, event):
     target = put(project, 'openspec/config.yaml', 'schema: spec-driven\n')
     publish(target, context_contributions(bundle, None, Invocation(project, env={'PATH': ''})))
     assert 'before forming a conclusion' in target.read_text()
+    assert 'zmem2' in target.read_text()
     assert '<skill:' not in target.read_text()
     excluded = compose(catalog, agent='codex', resolve_skills=False,
                        exclude_profiles=['@builtin/zmem-lifecycle'])
     assert not excluded.contexts and not excluded.traits
+
+
+def test_memory_profile_uses_zmem2_with_stable_native_names(tmp_path):
+    from powerspec.profiles import compose
+    from powerspec.sources import SourceBinding
+
+    authored = Path(__file__).resolve().parents[1] / '.pspec'
+    root = tmp_path / 'catalog'
+    for name in ('profiles/zmem-lifecycle.toml', 'traits/zmem-lifecycle.toml',
+                 'contexts/incremental-checkpoints.toml', 'contexts/zmem-lifecycle.toml',
+                 'guidance/zmem-lifecycle.md'):
+        put(root, name, (authored / name).read_text())
+    remote = tmp_path / 'remote'
+    names = {'zmem-query-memory', 'zmem-author-commits', 'zmem-design-extensions'}
+    for name in names:
+        put(remote, f'skills/{name}/SKILL.md',
+            f'---\nname: {name}\ndescription: Memory workflow.\n---\n')
+    seen = []
+    def resolve(identity, recipe):
+        seen.append((identity, dict(recipe)))
+        assert identity == 'zmem'
+        assert recipe == dict(provider='git', origin='https://github.com/ZackaryW/zmem2', reference='main')
+        return SourceBinding(identity, recipe['origin'], 'main', 'a' * 40, 'source', 'output', remote)
+    catalog = Catalog(builtin=root, git_resolver=resolve)
+    bundle = compose(catalog, agent='codex', project_root=tmp_path)
+    assert {target.resource.name for target in bundle.skills} == names
+    assert all(target.scope == 'user' and target.profile == '@builtin/zmem-lifecycle'
+               for target in bundle.skills)
+    assert seen
+    seen.clear()
+    excluded = compose(Catalog(builtin=root, git_resolver=resolve), agent='codex',
+                       exclude_profiles=['@builtin/zmem-lifecycle'])
+    assert not excluded.skills and not excluded.contexts and not excluded.traits
+    assert not seen

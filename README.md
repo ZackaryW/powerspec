@@ -125,6 +125,10 @@ immediately and permits verified migration of an unmanaged default Saucepan
 installation. With `--agent`, it also permits guarded repair of matching hook
 receipts, preserving edited content and provider recovery records.
 
+Memory skills come from zmem2; the separate Node runtime still uses the `zmem`
+command. See [zmem2 setup and migration](docs/zmem-migration.md) to replace a
+legacy executable or move an existing consumer to the new source.
+
 Init and upgrade show active stages and individual outcomes immediately on
 stderr, with elapsed waiting updates every five seconds during blocked work.
 These updates identify the wait; they do not measure download progress. See

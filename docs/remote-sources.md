@@ -24,7 +24,7 @@ skills = ["zmem/skills/*"]
 [[source]]
 id = "zmem"
 provider = "git"
-origin = "https://github.com/ZackaryW/zmem"
+origin = "https://github.com/ZackaryW/zmem2"
 reference = "main"
 ```
 

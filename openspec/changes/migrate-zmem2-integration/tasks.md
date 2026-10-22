@@ -8,9 +8,9 @@
 
 ## 2. Powerspec integration
 
-- [ ] 2.1 Change the bundled source to zmem2 and clarify the shared runtime guidance; use focused red/green composition and delivery tests to verify canonical origin, stable identities, exclusions and visibility without a compatible tool.
-- [ ] 2.2 Verify changed-origin initialization and native skill preservation using isolated source/installation fixtures, including matching, intact owned and locally edited targets; preserve old selections and existing hook ownership behavior.
-- [ ] 2.3 Document setup, migration order, runtime detection and rollback, update current source examples, and verify the rebuilt distribution carries the new profile/guidance before committing this integration checkpoint.
+- [x] 2.1 Change the bundled source to zmem2 and clarify the shared runtime guidance; use focused red/green composition and delivery tests to verify canonical origin, stable identities, exclusions and visibility without a compatible tool.
+- [x] 2.2 Verify changed-origin initialization and native skill preservation using isolated source/installation fixtures, including matching, intact owned and locally edited targets; preserve old selections and existing hook ownership behavior.
+- [x] 2.3 Document setup, migration order, runtime detection and rollback, update current source examples, and verify the rebuilt distribution carries the new profile/guidance before committing this integration checkpoint.
 
 ## 3. Installed acceptance
 

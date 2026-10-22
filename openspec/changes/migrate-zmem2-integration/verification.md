@@ -51,3 +51,23 @@ saved tool environment to its exact original location, and restore its saved
 launcher to the original receipt path. Verify normal command resolution after
 restoration. Do not delete either product's data or copy generated indexes
 between environments. The verified tarball remains available to reinstall zmem2.
+
+## Integration checkpoint
+
+The runtime/planning commit is `0412ba6`. Its proposed message passed zmem check
+with `ok=true`, no diagnostics and complete 111-commit attention. Post-commit
+show succeeded with complete 112-commit coverage and no annotations.
+
+Observed red results for the previous repository origin and absent runtime
+guidance before changing the bundled resources. Focused composition, guidance,
+doctor, installation and native migration tests then passed: 29 passed, 1 skipped.
+The native test uses real Saucepan and ZuAT with isolated local origins, home and
+registry. It verifies distinct recipe selection, retained predecessor outputs,
+unchanged matching skill bytes/mtime, intact owned updates, preserved edits on
+failure, successful retry after the fixture owner restores its edit, and unchanged
+hook bytes. A test assertion initially used the wrong SourceBinding field name;
+correcting it required no production change.
+
+`uv build --wheel` succeeded. Inspection of the built wheel verified the zmem2
+origin, stable alias/user scope and runtime guidance in packaged resources.
+No source acquisition or provisioning code needed modification.
