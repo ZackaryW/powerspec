@@ -28,6 +28,33 @@ and [Claude Code hooks reference](https://code.claude.com/docs/en/hooks). ZuAT o
 the native settings merge, ownership record, conflict checks, and repeated-install
 reuse. Powerspec owns logical event selection and response serialization.
 
+Provisioning requires complete ZuAT inspection. It reuses current owned hooks,
+updates safely owned older registrations, adopts exact unowned matches without
+rewriting settings, and installs only verified absent groups. Unresolved legacy
+groups, duplicate candidates, and edited hooks stop reconciliation with diagnostics;
+Powerspec does not append another dispatcher as a fallback. Resolve the reported
+identity or ownership conflict before retrying. Unrelated hooks and settings remain
+preserved.
+
+If the native hooks already match Powerspec's desired registrations but their valid
+ZuAT ownership receipt is stale, ordinary provisioning reports explicit repair
+guidance. Authorized receipt repair uses ZuAT's recoverable targeted update,
+preserves native bytes and modification time, and returns a recovery operation ID.
+It cannot replace edited hooks, guess among duplicates, or override ownership by
+array position. ZuAT rechecks source equality and valid ownership inside the
+update operation; hooks changed after Powerspec's inspection cause repair to
+fail instead of becoming a forced content replacement. Powerspec does not edit
+ZuAT's private receipt files.
+
+To authorize that receipt-only repair, run
+`pspec upgrade --agent codex --repair-hooks` (or `--agent claude`). This remains a
+normal upgrade: selected sources refresh and skills reconcile before hooks.
+The existing `--force` option authorizes selected skill replacement only; it does
+not authorize hook repair. Initialization never grants repair authorization.
+Upgrade prints the ZuAT hook operation ID for recovery, including on a failed
+operation that returns an ID. A failed hook reconciliation preserves obsolete
+skills and exits unsuccessfully.
+
 Powerspec installs only these context-delivery callbacks. It does not install
 native callbacks for resume, prompt submission, tool use, permission requests,
 stop, subagent start or stop, or session end. An ordinary Codex turn represented

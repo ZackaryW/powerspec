@@ -153,7 +153,7 @@ requires-dist = [
     { name = "saucepan-sdk", git = "https://github.com/ZackaryW/saucepan?subdirectory=sdk%2Fpython&rev=324282bac14fd0e0032a07e0fbed85ee95447dbb" },
     { name = "tomlkit", specifier = ">=0.13,<1" },
     { name = "typer", specifier = ">=0.27.2" },
-    { name = "zuat", git = "https://github.com/ZackaryW/zuat?rev=e42dbfe64f071da145dc33d728f92ef6edd1195b" },
+    { name = "zuat", git = "https://github.com/ZackaryW/zuat?rev=b2cb2dc72d31a0aed5b55d5597fc2f56e3017941" },
     { name = "zuu", git = "https://github.com/ZackaryW/zuu?rev=731be142933d05fe06697c17c1083c4ea2fb5f12" },
 ]
 
@@ -466,8 +466,8 @@ wheels = [
 
 [[package]]
 name = "zuat"
-version = "0.1.1"
-source = { git = "https://github.com/ZackaryW/zuat?rev=e42dbfe64f071da145dc33d728f92ef6edd1195b#e42dbfe64f071da145dc33d728f92ef6edd1195b" }
+version = "0.1.2"
+source = { git = "https://github.com/ZackaryW/zuat?rev=b2cb2dc72d31a0aed5b55d5597fc2f56e3017941#b2cb2dc72d31a0aed5b55d5597fc2f56e3017941" }
 dependencies = [
     { name = "gitpython" },
     { name = "pyyaml" },

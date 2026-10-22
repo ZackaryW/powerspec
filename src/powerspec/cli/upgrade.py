@@ -20,6 +20,13 @@ def upgrade(
             help="Replace selected unowned or locally modified skills through ZuAT.",
         ),
     ] = False,
+    repair_hooks: Annotated[
+        bool,
+        typer.Option(
+            "--repair-hooks",
+            help="Repair stale ownership receipts only for hooks already matching Powerspec.",
+        ),
+    ] = False,
 ) -> None:
     """Refresh selected remote skills and safely remove confirmed obsolete copies."""
     with lifecycle_progress():
@@ -40,6 +47,7 @@ def upgrade(
                         agent=agent,
                         source_store=SaucepanSources(consumer_path=consumer.config_path),
                         force=force,
+                        repair_hooks=repair_hooks,
                     )
                     if not result.ok:
                         task.result('failed', '; '.join(result.diagnostics))
@@ -53,6 +61,9 @@ def upgrade(
                 typer.echo(f"{result.hooks.status}: Powerspec hook dispatcher ({result.hooks.agent}/user)")
                 for diagnostic in result.hooks.diagnostics:
                     typer.echo(f"  {diagnostic}", err=True)
+                if result.hooks.operation_id:
+                    typer.echo(f"  ZuAT hook operation: {result.hooks.operation_id}",
+                               err=not result.hooks.ok)
             for item in result.removed:
                 typer.echo(f"removed: {item.ref} ({item.agent}/{item.scope})")
             for diagnostic in result.diagnostics:

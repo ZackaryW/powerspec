@@ -341,6 +341,7 @@ def test_hook_provisioning_updates_safely_owned_legacy_dispatchers(tmp_path, mon
     import powerspec.provisioning as provisioning
 
     home, registry = tmp_path / "home", tmp_path / "registry"
+    (home / ".codex").mkdir(parents=True)
     current = native_document("codex")
     legacy = deepcopy(current)
     legacy_entries = legacy["hooks"]["SessionStart"]
@@ -369,6 +370,7 @@ def test_unsupported_hook_host_is_reported_without_native_writes(tmp_path):
 
 def test_modified_owned_hook_is_reported_without_overwrite(tmp_path):
     home, registry = tmp_path / "home", tmp_path / "registry"
+    (home / ".codex").mkdir(parents=True)
     first = provision_hooks("codex", home=home, registry=registry)
     assert first.ok
     native = home / ".codex/hooks.json"

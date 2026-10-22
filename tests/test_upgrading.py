@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+import json
 
 import pytest
 
@@ -232,6 +233,7 @@ def test_no_remote_selection_is_a_successful_noop(tmp_path):
     builtin = tmp_path / "catalog"
     project = tmp_path / "project"
     project.mkdir()
+    (tmp_path / "home/.codex").mkdir(parents=True)
     put(builtin / "profiles/main.toml", 'scope="user"\n')
     consumer = SimpleNamespace(config=ConsumerConfig(profile="@builtin/main"), git_root=project)
     store = Store(None, None)
@@ -240,3 +242,42 @@ def test_no_remote_selection_is_a_successful_noop(tmp_path):
         home=tmp_path / "home", registry=tmp_path / "registry",
     )
     assert result.ok and store.calls == []
+
+
+@pytest.mark.parametrize("repair", [False, True])
+def test_stale_hook_receipt_requires_separate_repair_authorization(tmp_path, monkeypatch, repair):
+    import powerspec.provisioning as provisioning
+    from powerspec.hooks import native_document
+
+    data = fixture(tmp_path)
+    legacy = native_document("codex")
+    legacy["hooks"]["SessionStart"][0]["matcher"] = "startup|resume|clear"
+    with monkeypatch.context() as patch:
+        patch.setattr(provisioning, "native_document", lambda _: legacy)
+        assert provisioning.provision_hooks("codex", home=data.home, registry=data.registry).ok
+    native = data.home / ".codex/hooks.json"
+    native.write_text(json.dumps(native_document("codex")), encoding="utf-8")
+    before = native.read_bytes(), native.stat().st_mtime_ns
+    result = run_upgrade(data, force=True, repair_hooks=repair)
+    assert result.ok is repair, result.diagnostics
+    assert (native.read_bytes(), native.stat().st_mtime_ns) == before
+    assert (data.home / ".codex/skills/b").exists() is not repair
+    if repair:
+        assert result.hooks.operation_id
+    else:
+        assert "--repair-hooks" in " ".join(result.diagnostics)
+
+
+def test_ambiguous_hooks_preserve_obsolete_skills_even_with_repair(tmp_path):
+    from powerspec.hooks import native_document
+    data = fixture(tmp_path)
+    native = data.home / ".codex/hooks.json"
+    document = native_document("codex")
+    entries = document["hooks"]["SessionStart"]
+    entries.append(entries[0].copy())
+    native.write_text(json.dumps(document), encoding="utf-8")
+    before = native.read_bytes()
+    result = run_upgrade(data, repair_hooks=True)
+    assert not result.ok and result.removed == ()
+    assert (data.home / ".codex/skills/b").exists()
+    assert native.read_bytes() == before

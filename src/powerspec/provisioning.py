@@ -175,8 +175,9 @@ def provision_skills(plans, *, home: Path | None = None,
 
 
 def provision_hooks(agent: str, *, home: Path | None = None,
-                    registry: Path | None = None) -> HookOutcome:
-    """Provision the generic user-level dispatcher as one semantic hook asset."""
+                    registry: Path | None = None,
+                    repair_hooks: bool = False) -> HookOutcome:
+    """Reconcile one hook group; explicit repair only accepts source-matching receipts."""
     try:
         document = native_document(agent)
     except ConfigurationError as error:
@@ -189,25 +190,40 @@ def provision_hooks(agent: str, *, home: Path | None = None,
                               encoding="utf-8")
             asset = AssetInput(agent=agent, kind="hook", scope="user", source=str(source))
             observed = inspect_asset(asset, **context)
-            if observed.classification == "current" and observed.owned and observed.source_matches:
+            kind = observed.classification
+            if observed.completeness != "complete" or kind in {"indeterminate", "unsupported"}:
+                return HookOutcome(agent, "failed", tuple(observed.diagnostics) or (
+                    f"native hook identity could not be verified ({kind}); resolve the reported ambiguity before retrying",
+                ))
+            if kind == "current" and observed.owned and observed.source_matches is True:
                 return HookOutcome(agent, "reused")
-            if (observed.owned and observed.observed_fingerprint is not None
+            repaired = False
+            if (kind == "outdated" and observed.owned and observed.observed_fingerprint is not None
                     and observed.observed_fingerprint == observed.baseline_fingerprint):
                 result = update_asset(asset, **context)
-                return HookOutcome(
-                    agent, "updated" if result.ok else "failed",
-                    tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
-                    result.operation_id,
-                )
-            if observed.classification in {"unsupported", "unowned", "conflict"}:
-                return HookOutcome(
-                    agent, "failed",
-                    observed.diagnostics or (f"native hook target is {observed.classification}",),
-                )
-            result = install(ZuatRequest(agents=(agent,), assets=(asset,)), **context)
+                status = "updated"
+            elif kind == "conflict" and observed.owned and observed.source_matches is True:
+                if not repair_hooks:
+                    return HookOutcome(agent, "failed", (*observed.diagnostics,
+                        "hook ownership receipt is stale; explicitly repair with "
+                        f"pspec upgrade --agent {agent} --repair-hooks",
+                    ))
+                result = update_asset(asset, force=True, receipt_only=True, **context)
+                status, repaired = "updated", True
+            elif (kind == "absent"
+                  or (kind == "unowned" and observed.source_matches is True)):
+                result = install(ZuatRequest(agents=(agent,), assets=(asset,)), **context)
+                status = "reused" if kind == "unowned" else "installed"
+            else:
+                return HookOutcome(agent, "failed", tuple(observed.diagnostics) or (
+                    f"native hook target is {kind}; resolve the ownership conflict before retrying",
+                ))
+            diagnostics = tuple(result.diagnostics)
+            if repaired and result.ok:
+                diagnostics += ("hook ownership receipt repaired; native hooks were unchanged",)
             return HookOutcome(
-                agent, "installed" if result.ok else "failed",
-                tuple(result.diagnostics) or (() if result.ok else (f"ZuAT returned {result.status}",)),
+                agent, status if result.ok else "failed",
+                diagnostics or (() if result.ok else (f"ZuAT returned {result.status}",)),
                 result.operation_id,
             )
     except (OSError, ValueError) as error:

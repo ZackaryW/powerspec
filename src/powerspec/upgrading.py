@@ -85,6 +85,7 @@ def upgrade_consumer(
     home: Path | None = None,
     registry: Path | None = None,
     force: bool = False,
+    repair_hooks: bool = False,
     provision=provision_skills,
     reconcile_hooks=provision_hooks,
     inspect=inspect_asset,
@@ -161,7 +162,7 @@ def upgrade_consumer(
             diagnostics=("selected skill provisioning did not complete; obsolete copies were preserved",),
         )
     with stage(f'Reconciling {agent} hooks') as task:
-        hooked = reconcile_hooks(agent, home=home, registry=registry)
+        hooked = reconcile_hooks(agent, home=home, registry=registry, repair_hooks=repair_hooks)
         task.result(hooked.status, '; '.join(hooked.diagnostics))
     if not hooked.ok:
         if callable(getattr(store, "reject", None)):

@@ -65,6 +65,7 @@ def test_plain_init_prepares_sources_without_agent(environment, tmp_path):
 
 def test_fresh_global_init_preserves_profile_scope(environment, tmp_path):
     project, builtin, _, _ = environment
+    (tmp_path / "home/.codex").mkdir(parents=True)
     config = project / "openspec/.pspec/config.toml"
     config.unlink()
     profile = builtin / "profiles/main.toml"
