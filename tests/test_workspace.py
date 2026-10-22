@@ -86,14 +86,17 @@ def test_workspace_only_manages_saucepan_binary_for_acquisition(tmp_path, monkey
     modes = []
 
     class Sources:
-        def __init__(self, *, manage_binary):
-            modes.append(manage_binary)
+        def __init__(self, *, manage_binary, migrate_unmanaged):
+            modes.append((manage_binary, migrate_unmanaged))
 
         def lookup(self, *_args, **_kwargs):
             raise AssertionError("local-only workspace performed remote lookup")
 
         def ensure(self, *_args, **_kwargs):
             raise AssertionError("local-only workspace performed remote acquisition")
+
+        def acquire(self, *_args, **_kwargs):
+            raise AssertionError("local-only workspace performed remote refresh")
 
     @contextmanager
     def resources():
@@ -105,4 +108,8 @@ def test_workspace_only_manages_saucepan_binary_for_acquisition(tmp_path, monkey
         pass
     with open_workspace(project, agent="codex", source_mode="ensure"):
         pass
-    assert modes == [False, True]
+    with open_workspace(project, agent="codex", source_mode="refresh"):
+        pass
+    with open_workspace(project, agent="codex", source_mode="refresh", migrate_unmanaged=True):
+        pass
+    assert modes == [(False, False), (True, False), (True, False), (True, True)]

@@ -82,9 +82,10 @@ def migration_guidance(target):
         command = (f'sh <verified-install.sh> --version {PROVIDER.tag} --root {shlex.quote(root)} '
                    f'--operation <UUID> --migrate-unmanaged --expected-sha256 {digest}')
     return (f'Saucepan unmanaged manager needs explicit verified migration; observed SHA256 {digest}. '
-            f'Preserve the root and run the verified official installer externally: {command}. '
+            'Use pspec init --force to authorize provider-verified migration of a supported default installation, '
+            f'or preserve the root and run the verified official installer externally: {command}. '
             'Binary-only/uninitialized roots require manual preservation or a separate root; '
-            'do not rerun init to authorize migration. See docs/remote-sources.md#retention-and-recovery')
+            'ordinary init does not authorize migration. See docs/remote-sources.md#retention-and-recovery')
 
 
 def inspect_managed_status(target: Path, *, deadline=None) -> SetupStatus:

@@ -10,7 +10,6 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from uuid import uuid4
 
 import pytest
 
@@ -64,18 +63,23 @@ def test_installed_entrypoint_released_setup_reuse_upgrade(migrate):
         if migrate:
             staged = root / 'provider'
             staged.mkdir()
-            for name in ('saucepan.exe', 'install.ps1'):
-                shutil.copyfile(Path(ASSETS) / name, staged / name)
+            manager = Path(ASSETS) / 'bin/saucepan.exe'
+            if not manager.exists():
+                manager = Path(ASSETS) / 'saucepan.exe'
+            shutil.copyfile(manager, staged / 'saucepan.exe')
             call([staged / 'saucepan.exe', '--root', target.parent.parent, 'init'], cwd=project, env=env)
             shutil.copyfile(staged / 'saucepan.exe', target)
             digest = hashlib.sha256(target.read_bytes()).hexdigest()
-            migration = json.loads(call(['powershell.exe', '-NoProfile', '-File', staged / 'install.ps1',
-                '-Version', 'v0.11.0', '-Root', target.parent.parent, '-Operation', str(uuid4()),
-                '-MigrateUnmanaged', '-ExpectedSha256', digest], cwd=project, env=env).stdout)
-            assert migration['status'] == 'complete'
-            assert hashlib.sha256(Path(migration['backup_paths'][0]).read_bytes()).hexdigest() == digest
-        first = call([ENTRYPOINT, 'init', '--agent', 'codex'], cwd=project, env=env)
+        first = call([ENTRYPOINT, 'init', '--agent', 'codex', *(['--force'] if migrate else [])], cwd=project, env=env)
         assert 'Initialization complete' in first.stdout
+        if migrate:
+            records = list((home / '.powerspec/saucepan-setup').glob('*.json'))
+            assert len(records) == 1
+            migration = json.loads(records[0].read_text())
+            backup = target.parent.parent / '.staging/setup' / migration['operation'] / 'saucepan.exe'
+            assert migration['expected_sha256'] == digest
+            assert hashlib.sha256(backup.read_bytes()).hexdigest() == digest
+            assert migration['operation'] in first.stderr
         status = json.loads(call([target, '--root', target.parent.parent, 'setup-status'], cwd=project, env=env).stdout)
         assert status['state'] == 'ready' and status['installed_version'] == 'v0.11.0'
         before = hashlib.sha256(target.read_bytes()).hexdigest()

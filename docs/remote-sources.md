@@ -2,7 +2,7 @@
 
 Powerspec delegates Git acquisition and retained materialization to Saucepan. Profiles declare friendly aliases and exact Git recipes; Powerspec does not clone repositories or keep a separate user-level source registry.
 
-Ordinary `pspec init` reuses an existing consumer's exact retained selection without fetching, regardless of age. When a new folder needs its own selection, Saucepan may reuse valid shared retrieval material younger than **24 hours**. At 24 hours, or when material is missing, it retrieves upstream again. Cache age comes from the provider's retrieval evidence; initializing another folder does not restart the clock. Recent cached material works offline, but an expired cache requires successful retrieval rather than silent stale fallback. Explicit `pspec upgrade --agent <agent>` refreshes immediately. Each consumer retains its own pins, so refreshing one does not change another's selected revision.
+Ordinary `pspec init` reuses an existing consumer's exact retained selection without fetching, regardless of age. When a new folder needs its own selection, Saucepan may reuse valid shared retrieval material younger than **24 hours**. At 24 hours, or when material is missing, it retrieves upstream again. Cache age comes from the provider's retrieval evidence; initializing another folder does not restart the clock. Recent cached material works offline, but an expired cache requires successful retrieval rather than silent stale fallback. Explicit `pspec init --force` or `pspec upgrade --agent <agent>` refreshes immediately. Each consumer retains its own pins, so refreshing one does not change another's selected revision.
 
 ## Managed Saucepan executable
 
@@ -47,10 +47,11 @@ default registration requires no credential and no OS keyring.
 
 Saucepan expands its `explicit-update` policy profile when Powerspec prepares a
 missing source or an explicit upgrade. Powerspec registers those flat immutable
-policies and adopts their UUID references. This means fresh source retrieval,
-manual copied-result updates and the profile's managed revision settings; upgrade
-explicitly overrides copied-result updates to `always`. The Rust manager owns
-these defaults. Powerspec's authored profiles still own source aliases and skill
+policies and adopts their UUID references. Ordinary missing-selection preparation
+overrides retrieval freshness to `max_age` of 86400 seconds, retaining manual
+copied-result updates and the profile's managed revision settings. Upgrade and
+`init --force` override retrieval and copied-result updates to `always`. The Rust
+manager expands these policies. Powerspec's authored profiles still own source aliases and skill
 selection, and are a separate concept from Saucepan policy profiles.
 
 Pinned retention and consumer scope remain explicit Powerspec choices. Policy
@@ -75,8 +76,13 @@ Recipe declaration, materialization, selection, installation, synchronization, a
 - Saucepan owns source acquisition and retained content;
 - ZuAT owns native agent installation and installation provenance.
 - `pspec sync` reuses existing materializations without refresh and does not install or remove skills.
-- `pspec init` may acquire a selected recipe only when it is missing;
-- explicit upgrade is the only Powerspec operation that refreshes an existing selected recipe.
+- ordinary `pspec init` may acquire a selected recipe only when it is missing;
+- explicit upgrade and `pspec init --force` refresh existing selected recipes.
+
+Avoiding a clone or fetch does not eliminate provider work. A new consumer still
+needs policy registration, retained output preparation and verification; local
+copying and hashing may take time. Cache reuse promises bounded retrieval
+freshness, not a fixed initialization latency.
 
 An unavailable Powerspec app during read-only lookup, ambiguous matching source, missing full-root artifact, failed acquisition, or invalid replacement produces a source-specific diagnostic. Such failure does not turn an earlier valid binding into a successful replacement.
 

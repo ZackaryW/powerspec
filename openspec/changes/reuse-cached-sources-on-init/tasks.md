@@ -20,8 +20,8 @@
 
 ## 4. Integrated acceptance
 
-- [ ] 4.1 Run the relevant source, CLI, managed-provider, installation, hook, upgrade and progress tests followed by the complete pytest suite once; repeat isolated cold/warm/second-consumer/forced-init smoke experiments with Git tracing and record observed operations/revisions without timing thresholds or mutations to the user's ready installation.
-- [ ] 4.2 Validate this change with openspec validate reuse-cached-sources-on-init --strict and review implementation against all three delta specs; record provider-side materialization costs separately and prepare focused local commit checkpoints using session commit-authoring rules when authorized.
+- [x] 4.1 Run the relevant source, CLI, managed-provider, installation, hook, upgrade and progress tests followed by the complete pytest suite once; repeat isolated cold/warm/second-consumer/forced-init smoke experiments with Git tracing and record observed operations/revisions without timing thresholds or mutations to the user's ready installation.
+- [x] 4.2 Validate this change with openspec validate reuse-cached-sources-on-init --strict and review implementation against all three delta specs; record provider-side materialization costs separately and prepare focused local commit checkpoints using session commit-authoring rules when authorized.
 
 ## Workflow follow-up
 
