@@ -110,3 +110,21 @@ def test_upgrade_refreshes_resolve_source_preserving_previous_native_copies(tmp_
     assert [method for method, *_ in store.calls] == ['lookup', 'acquire']
     assert result.removed == ()
     assert {p: p.read_bytes() for p in before} == before
+
+
+def test_resolve_only_native_diagnostic_uses_bounded_metadata_lookup(tmp_path, monkeypatch):
+    import powerspec.skill_references as references
+    builtin, remote = tmp_path / 'builtin', tmp_path / 'remote'
+    profile(builtin, 'main', **{'resolve-skills':['tools/skills/*']})
+    source(builtin, 'main', 'tools')
+    skill(remote, 'a', 'a')
+    calls = []
+    monkeypatch.setattr(references, 'monotonic', lambda: 10.0)
+    def lookup(identity, recipe, *, deadline):
+        calls.append((identity, deadline))
+        return remote
+    catalog = Catalog(builtin=builtin, git_resolver=lookup)
+    bundle = compose(catalog, '@builtin/main', agent='codex', resolve_skills=False)
+    with pytest.raises(ConfigurationError, match='pspec:a'):
+        SkillReferences(bundle, catalog=catalog).classify('a')
+    assert calls == [('tools', 11.0)]

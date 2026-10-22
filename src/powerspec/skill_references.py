@@ -1,6 +1,6 @@
 """Catalog evidence and targeted handoff text for authored skill references."""
 from time import monotonic
-from .catalog import ConfigurationError, MetadataUnavailable, is_git_skill_reference
+from .catalog import ConfigurationError, MetadataUnavailable
 from .skills import manifest_supported
 
 
@@ -33,6 +33,7 @@ class SkillReferences:
         self.deferred = sorted(ref for ref in bundle.skill_declarations() if ref not in materialized)
         self.resolve_only = {t.resource.name for t in bundle.resolve_skills}
         self.resolve_deferred = bundle.skill_declarations('resolve-skills')
+        self.resolve_inspected = False
         self.catalog = catalog
         self.diagnostics = diagnostics
         self.inspected = False
@@ -42,7 +43,7 @@ class SkillReferences:
         if self.inspected:
             return
         self.inspected = True
-        deadline = monotonic() + 1.0
+        self.deadline = deadline = monotonic() + 1.0
         failed_sources = set()
         for ref in self.deferred:
             source = ref.split('/', 1)[0]
@@ -67,12 +68,17 @@ class SkillReferences:
         if not resources and not self.unavailable:
             # Consult resolve-only identity metadata only to explain an invalid
             # native token. These resources never become native candidates.
-            if self.catalog is not None and name not in self.resolve_only:
+            if self.catalog is not None and name not in self.resolve_only and not self.resolve_inspected:
+                self.resolve_inspected = True
                 for ref in self.resolve_deferred:
                     try:
-                        self.resolve_only.update(r.name for r in self.catalog.select('skill', ref, distinct_names=False))
-                    except MetadataUnavailable:
-                        continue
+                        if monotonic() >= self.deadline:
+                            raise MetadataUnavailable(f'{ref}: skill metadata inspection budget exhausted')
+                        self.resolve_only.update(r.name for r in self.catalog.select(
+                            'skill', ref, distinct_names=False, deadline=self.deadline))
+                    except MetadataUnavailable as error:
+                        if self.diagnostics is not None:
+                            self.diagnostics.append(str(error))
             if name in self.resolve_only:
                 raise ConfigurationError(f'{name} is resolve-only; use literal pspec:{name} in its owning guidance')
             raise ConfigurationError(f'unknown selected skill reference {name}')
