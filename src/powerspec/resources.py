@@ -1,10 +1,46 @@
 """Access complete bundled resources from source or an installed distribution."""
 from contextlib import contextmanager
+from contextvars import ContextVar
 from importlib.metadata import PackageNotFoundError, distribution
 from importlib.resources import as_file, files
 from pathlib import Path
 import shutil
 import tempfile
+
+# Origins are scoped to the resource handle, including nested workspace calls.
+_origins = ContextVar('builtin_skill_origins', default=())
+
+
+@contextmanager
+def _origin_scope(root, origins):
+    token = _origins.set((*_origins.get(), (Path(root).resolve(), origins)))
+    try:
+        yield Path(root)
+    finally:
+        _origins.reset(token)
+
+
+def durable_skill_root(entry: Path) -> Path:
+    """Map a discovered entry to one whole source tree, never a temporary merge."""
+    from .catalog import ConfigurationError, skill_metadata
+    entry = entry.resolve()
+    for catalog, origins in reversed(_origins.get()):
+        if not entry.is_relative_to(catalog):
+            continue
+        if origins is None:
+            raise ConfigurationError(f'{entry}: unsupported transient-only skill location; use a filesystem installation')
+        relative = entry.relative_to(catalog)
+        for origin in origins:
+            directory = origin / relative.parent
+            if directory.exists():
+                original = directory / entry.name
+                if not original.is_file():
+                    raise ConfigurationError(f'{directory}: incomplete authored skill tree; supply its SKILL.md')
+                if skill_metadata(original, directory)[0] != skill_metadata(entry, catalog)[0]:
+                    raise ConfigurationError(f'{directory}: skill identity differs from discovered resource')
+                return directory.resolve()
+        raise ConfigurationError(f'{entry}: no durable complete skill origin')
+    return entry.parent
 
 
 
@@ -30,7 +66,9 @@ def builtin_catalog_root():
     packaged = files("powerspec").joinpath("_resources", "catalog")
     if packaged.is_dir():
         with as_file(packaged) as root:
-            yield Path(root)
+            origins = (Path(packaged).resolve(),) if isinstance(packaged, Path) else None
+            with _origin_scope(root, origins) as located:
+                yield located
         return
     checkout = _checkout_catalog_root()
     installed = _distribution_catalog_root()
@@ -41,7 +79,8 @@ def builtin_catalog_root():
             merged = Path(name) / "catalog"
             shutil.copytree(installed, merged)
             shutil.copytree(checkout, merged, dirs_exist_ok=True)
-            yield merged
+            with _origin_scope(merged, (checkout, installed)) as located:
+                yield located
         return
     if installed is not None:
         yield installed

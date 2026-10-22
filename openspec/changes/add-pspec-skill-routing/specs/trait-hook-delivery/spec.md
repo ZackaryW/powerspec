@@ -51,4 +51,3 @@ Hook selectors and authored guidance SHALL remain trait-owned. Supported native 
 #### Scenario: More unused targets do not expand routing context
 - **WHEN** additional resolve-only skills are selected without changing applicable scenario rules
 - **THEN** the bootstrap routing reminder remains the same compact instruction rather than listing their names, descriptions, or procedures
-

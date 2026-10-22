@@ -37,7 +37,17 @@ All destinations use the original entrypoint's section coordinates. Inserted con
 
 Declared `<name>` values are substituted once after assembly. Values introduced by substitution are not interpreted again, and undeclared angle-bracket prose remains literal. Dynamic path selection must resolve inside the skill root; missing files, ambiguous sections, path escapes, and symlink escapes fail the entire resolution without partial output. The manifest does not need a static sequence, inline markers, the old `after` field, or numbered insertion positions.
 
-## Command outcomes
+## On-demand catalog retrieval
+
+Use `pspec resolve skill --ref "@local/a" --agent codex` when the current task matches an owning scenario rule such as `When reviewing A, use pspec:@local/a`, or when the user requests `pspec:a`. Remove only the `pspec:` prefix: `pspec:pspec-tdd` means `--ref pspec-tdd`. Selection alone does not request a procedure.
+
+Exactly one of `--ref` or `--path` and an explicit agent are required. The catalog route requires the nearest owning consumer and searches only its effective `skills` plus `resolve-skills`, after exclusions. Bare names match declared SKILL.md names. Exact catalog or concrete Git references disambiguate; invocation wildcards are rejected. An unavailable selected source prevents a bare-name uniqueness claim, while an exact local selection can work without unrelated remote sources. Missing materializations direct explicit init; resolution never acquires or refreshes them.
+
+Catalog Markdown includes the canonical reference and durable source directory, then just the selected procedure and active additions. JSON adds `skill_ref` and `skill_path`; `content` equals the Markdown response. Ordinary catalog skills return resolved content. Other candidates' descriptions, procedures, questions, inactive branches and supporting-file contents are not returned. Read supporting resources relative to the returned directory only when needed.
+
+Pending catalog results withhold the procedure and retain the exact reference, agent and explicit change on retry from the same task cwd. Confirm and record only required answers at the reported location; the resolver writes none. Unknown/unselected names, ambiguity, missing consumers, malformed manifests and unavailable sources fail without native-copy or ordinary-content fallback. Retrieval grants no additional task authority.
+
+## Native path command outcomes
 
 Run `pspec resolve skill --path "<native-selected-location>" --agent <agent>` (or `powerspec`). Supply the directory, SKILL.md, or pspec.toml selected by the agent's native integration. Powerspec does not search installations or validate scope precedence. Keep the task cwd for project configuration; add `--change` only for an explicit active change. Former positional-name and `--selected` calls fail with migration instructions.
 

@@ -39,3 +39,9 @@ actually reproduced.
 If an installation lacks its packaged catalog, Powerspec reports a configuration
 error. Reinstall or repair the distribution; runtime fallback to a network source
 is deliberately unsupported.
+
+## Durable catalog skill locations
+
+Catalog `--ref` results expose complete underlying skill directories. In editable installations, authored skills use their checkout tree and packaged-only upstream skills use their installed package tree, even though metadata discovery uses a temporary merged catalog. Returned content and relative supporting files come from the same tree. A partial authored tree fails if required selected content is missing; installed files are not borrowed to fill it.
+
+Normal filesystem wheel installations are supported. A provider offering only transient extraction fails explicitly instead of returning a path that disappears after the CLI exits. Resolution creates no extracted cache or native copy. Retained remote source paths remain bound to the consumer's pinned selection.
