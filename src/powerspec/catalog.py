@@ -116,9 +116,9 @@ def validate(kind: str, data: dict) -> None:
     except ValidationError as error:
         raise ConfigurationError(str(error)) from error
     if isinstance(parsed, Profile):
-        for field in ("profiles", "contexts", "traits", "skills", "exclude_profiles"):
+        for field in ("profiles", "contexts", "traits", "skills", "resolve_skills", "exclude_profiles"):
             for item in getattr(parsed, field):
-                if field == "skills":
+                if field in {"skills", "resolve_skills"}:
                     skill_reference(item, wildcard=True)
                 else:
                     reference(item)
@@ -263,13 +263,13 @@ class Catalog:
         except KeyError:
             raise ConfigurationError(f"missing {kind}: {ref}") from None
 
-    def select(self, kind, ref, *, allow_empty=False, deadline=None):
+    def select(self, kind, ref, *, allow_empty=False, deadline=None, distinct_names=True):
         if kind == "skill":
             skill_reference(ref, wildcard=True)
         else:
             reference(ref)
         if kind == "skill" and is_git_skill_reference(ref):
-            return self._select_git(ref, allow_empty=allow_empty, deadline=deadline)
+            return self._select_git(ref, allow_empty=allow_empty, deadline=deadline, distinct_names=distinct_names)
         if "*" not in ref:
             return (self.get(kind, ref),)
         prefix, pattern = ref.rsplit("/", 1)
@@ -282,7 +282,7 @@ class Catalog:
             raise ConfigurationError(f"no materialized resources for selector: {ref}")
         return matched
 
-    def _select_git(self, ref, *, allow_empty=False, deadline=None):
+    def _select_git(self, ref, *, allow_empty=False, deadline=None, distinct_names=True):
         parts = ref.split("/")
         source, selector = parts[0], parts[1:]
         try:
@@ -322,7 +322,7 @@ class Catalog:
             self._contained(entry, root)
             name, data = self._skill(entry, root)
             relative = entry.parent.resolve().relative_to(root).as_posix()
-            if name in names:
+            if distinct_names and name in names:
                 raise ConfigurationError(
                     f"{entry}: duplicate selected skill name {name}; already declared by {names[name]}"
                 )

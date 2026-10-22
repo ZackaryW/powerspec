@@ -22,7 +22,8 @@ def status(
         typer.echo(f"Consumer: {result.root}")
         typer.echo(f"Profile: {result.profile or '(global profiles only)'}")
         for label, values in (("Profiles", result.profiles), ("Contexts", result.contexts),
-                              ("Traits", result.traits), ("Skills", result.skills)):
+                              ("Traits", result.traits), ("Skills selected for installation", result.skills),
+                              ("Resolve-only declarations", result.resolve_skills)):
             typer.echo(f"{label}: {', '.join(values) if values else '(none)'}")
         for source in result.sources:
             detail = source.revision or source.diagnostic or ""

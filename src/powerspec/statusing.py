@@ -27,6 +27,7 @@ class StatusResult:
     traits: tuple[str, ...]
     skills: tuple[str, ...]
     sources: tuple[SourceStatus, ...]
+    resolve_skills: tuple[str, ...] = ()
 
 
 def inspect_status(cwd: Path, *, source_store=None) -> StatusResult:
@@ -46,7 +47,6 @@ def inspect_status(cwd: Path, *, source_store=None) -> StatusResult:
                 statuses.append(SourceStatus(identity, "unavailable", diagnostic=str(error)))
             else:
                 statuses.append(SourceStatus(identity, "available", binding.resolved_revision))
-        selection = workspace.bundle.selection
         return StatusResult(
             workspace.consumer.git_root,
             workspace.consumer.config_path,
@@ -54,6 +54,7 @@ def inspect_status(cwd: Path, *, source_store=None) -> StatusResult:
             tuple(item.ref for item in workspace.bundle.profiles),
             tuple(item.ref for item in workspace.bundle.contexts),
             tuple(item.ref for item in workspace.bundle.traits),
-            tuple(sorted(ref for kind, ref in selection if kind == "skill")),
+            tuple(sorted(workspace.bundle.skill_declarations())),
             tuple(statuses),
+            tuple(sorted(workspace.bundle.skill_declarations('resolve-skills'))),
         )

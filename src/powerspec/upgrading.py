@@ -39,7 +39,7 @@ def _remote_refs(bundle):
     return tuple(dict.fromkeys(
         ref
         for profile in bundle.profiles
-        for ref in profile.data.get("skills", [])
+        for ref in (*profile.data.get("skills", []), *profile.data.get("resolve-skills", []))
         if is_git_skill_reference(ref)
     ))
 
@@ -132,7 +132,7 @@ def upgrade_consumer(
         )
         allowed_empty = tuple(
             ref for ref in refs
-            if not new_catalog.select("skill", ref, allow_empty=True)
+            if not new_catalog.select("skill", ref, allow_empty=True, distinct_names=False)
         )
         with stage('Resolving refreshed profiles and sources'):
             new_bundle = compose(

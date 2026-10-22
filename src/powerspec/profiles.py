@@ -26,6 +26,12 @@ class SkillTarget:
 
 
 @dataclass(frozen=True)
+class SkillAvailability:
+    resource: Resource
+    profile: str
+
+
+@dataclass(frozen=True)
 class Bundle:
     profiles: tuple[Resource, ...]
     contexts: tuple[Resource, ...]
@@ -35,6 +41,11 @@ class Bundle:
     selected_defaults: Mapping
     global_defaults: Mapping
     selection: frozenset[tuple[str, str]]
+    resolve_skills: tuple[SkillAvailability, ...] = ()
+
+    def skill_declarations(self, field="skills"):
+        return tuple(dict.fromkeys(ref for profile in self.profiles
+                                   for ref in profile.data.get(field, [])))
 
     def armed(self, kind: str, ref: str) -> bool:
         if not isinstance(kind, str) or kind not in KINDS:
@@ -100,6 +111,7 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
             source_owners[source] = identity
     catalog.set_git_recipes(sources)
     contexts, traits, targets, names, deferred_skill_refs = {}, {}, {}, {}, []
+    available = {}
     for identity in order:
         resource = resources[identity]
         data = resource.data
@@ -117,6 +129,15 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
                     raise ConfigurationError(f"{identity}: {error}") from error
                 destination.setdefault(item.ref, item)
         scope = data.get("scope", "user")
+        for ref in data.get("resolve-skills", []):
+            source = git_skill_source(ref)
+            if source is not None and source not in sources:
+                raise ConfigurationError(f"{identity}: missing source declaration for Git source alias: {source}")
+            if not resolve_skills or (not resolve_remote_skills and is_git_skill_reference(ref)):
+                deferred_skill_refs.append(ref)
+                continue
+            for item in catalog.select("skill", ref, allow_empty=ref in allowed_empty, distinct_names=False):
+                available.setdefault(item.ref, SkillAvailability(item, identity))
         for ref in data.get("skills", []):
             source = git_skill_source(ref)
             if source is not None and source not in sources:
@@ -139,7 +160,9 @@ def compose(catalog: Catalog, selected: str | None = None, *, agent: str, projec
     profiles = tuple(resources[name] for name in order)
     selection = frozenset([(r.kind, r.ref) for r in (*profiles, *contexts.values(), *traits.values())]
                           + [("skill", t.resource.ref) for t in targets.values()]
+                          + [("skill", t.resource.ref) for t in available.values()]
                           + [("skill", ref) for ref in deferred_skill_refs])
     source_view = MappingProxyType({key: MappingProxyType(dict(value)) for key, value in sources.items()})
     return Bundle(profiles, tuple(contexts.values()), tuple(traits.values()), tuple(targets.values()), source_view,
-                  MappingProxyType(defaults["selected"]), MappingProxyType(defaults["global"]), selection)
+                  MappingProxyType(defaults["selected"]), MappingProxyType(defaults["global"]), selection,
+                  tuple(available.values()))

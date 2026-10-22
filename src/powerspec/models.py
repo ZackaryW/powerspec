@@ -42,6 +42,7 @@ class Profile(ConfigurationModel):
     contexts: list[str] = Field(default_factory=list)
     traits: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
+    resolve_skills: list[str] = Field(default_factory=list, alias="resolve-skills")
     source: list[GitSource] = Field(default_factory=list)
     exclude_profiles: list[str] = Field(default_factory=list, alias="exclude-profiles")
     vars: dict[str, Any] = Field(default_factory=dict)

@@ -25,7 +25,7 @@ def test_status_reports_effective_bundle_and_source_availability_without_acquisi
     put(
         builtin / "profiles/main.toml",
         'contexts=["@builtin/context"]\ntraits=["@builtin/trait"]\n'
-        'skills=["tools/skills/*"]\n'
+        'skills=["tools/skills/*"]\nresolve-skills=["tools/skills/*","@builtin/deferred"]\n'
         '[[source]]\nid="tools"\nprovider="git"\norigin="https://example.test/tools"\nreference="main"\n',
     )
     put(builtin / "contexts/context.toml", '[[attach.context]]\nbody="Context"\n')
@@ -54,6 +54,7 @@ def test_status_reports_effective_bundle_and_source_availability_without_acquisi
     assert result.contexts == ("@builtin/context",)
     assert result.traits == ("@builtin/trait",)
     assert result.skills == ("tools/skills/*",)
+    assert result.resolve_skills == ("@builtin/deferred", "tools/skills/*")
     assert result.sources[0].status == "available"
     assert calls == [("lookup", "tools")]
     assert snapshot(project) == before

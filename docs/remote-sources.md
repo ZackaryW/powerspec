@@ -180,3 +180,7 @@ and run init to establish the new scope. The old receipts remain cleanup evidenc
 Mutations serialize through `saucepan-state.lock`. If a process crashes, confirm its
 recorded PID is no longer running before removing that lock and retrying the same
 operation. Never delete pending receipts to retry an uncertain mutation.
+
+## Resolve-only remote selections
+
+Authored profiles may use `resolve-skills = ["tools/skills/*"]` with the same `[[source]]` recipe as installation selections. Init prepares those selected sources and upgrade refreshes them, without creating native targets for resolve-only resources. Runtime lookup, hooks, and status remain read-only. Removing resolve-only declarations or moving an installation declaration into that list does not establish obsolete-copy removal evidence. Only current installation contributions participate in that evidence.

@@ -30,9 +30,9 @@ class SkillReferences:
             self.resources.setdefault(target.resource.name, {})[target.resource.path] = target.resource
         self.classified = {}
         materialized = {t.resource.ref for t in bundle.skills}
-        self.deferred = sorted(ref for kind, ref in bundle.selection
-                               if kind == 'skill' and is_git_skill_reference(ref)
-                               and ref not in materialized)
+        self.deferred = sorted(ref for ref in bundle.skill_declarations() if ref not in materialized)
+        self.resolve_only = {t.resource.name for t in bundle.resolve_skills}
+        self.resolve_deferred = bundle.skill_declarations('resolve-skills')
         self.catalog = catalog
         self.diagnostics = diagnostics
         self.inspected = False
@@ -65,6 +65,16 @@ class SkillReferences:
         self._inspect_deferred()
         resources = self.resources.get(name, {})
         if not resources and not self.unavailable:
+            # Consult resolve-only identity metadata only to explain an invalid
+            # native token. These resources never become native candidates.
+            if self.catalog is not None and name not in self.resolve_only:
+                for ref in self.resolve_deferred:
+                    try:
+                        self.resolve_only.update(r.name for r in self.catalog.select('skill', ref, distinct_names=False))
+                    except MetadataUnavailable:
+                        continue
+            if name in self.resolve_only:
+                raise ConfigurationError(f'{name} is resolve-only; use literal pspec:{name} in its owning guidance')
             raise ConfigurationError(f'unknown selected skill reference {name}')
         states = set()
         for path in resources:
