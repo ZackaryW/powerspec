@@ -44,6 +44,7 @@ class Progress:
         self._stack: list[Stage] = []
         self._thread = None
         self._closed = False
+        self._paused = 0
 
     def __enter__(self):
         if self._thread is not None or self._closed:
@@ -70,7 +71,7 @@ class Progress:
     def _wait(self) -> None:
         with self._condition:
             while not self._closed:
-                if not self._stack or self.emit is None:
+                if not self._stack or self.emit is None or self._paused:
                     self._condition.wait()
                     continue
                 task = self._stack[-1]
@@ -80,6 +81,20 @@ class Progress:
                 else:
                     task.last_wait = self.clock()
                     self._send(task, 'waiting')
+
+    @contextmanager
+    def paused(self):
+        """Suppress waiting events, for example while a person answers a prompt."""
+        with self._condition:
+            self._paused += 1
+        try:
+            yield
+        finally:
+            with self._condition:
+                self._paused -= 1
+                if self._stack:
+                    self._stack[-1].last_wait = self.clock()
+                self._condition.notify_all()
 
     @contextmanager
     def stage(self, label):

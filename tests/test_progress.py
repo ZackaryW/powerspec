@@ -75,3 +75,20 @@ def test_no_observer_starts_no_thread(capsys):
         with progress.stage('offline'):
             assert set(threading.enumerate()) == before
     assert capsys.readouterr() == ('', '')
+
+
+def test_paused_observation_suppresses_waits_until_resumed():
+    import time
+    events = []
+    resumed = threading.Event()
+    def observe(event):
+        events.append(event)
+        if event.state == 'waiting':
+            resumed.set()
+    with Progress(observe, interval=.02) as progress:
+        with progress.stage('confirm'):
+            with progress.paused():
+                time.sleep(.1)
+                assert not any(event.state == 'waiting' for event in events)
+            assert resumed.wait(2)
+    assert [event.state for event in events][-1] == 'done'

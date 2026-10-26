@@ -41,3 +41,14 @@ def stage(label: str):
     else:
         with reporter.stage(label) as task:
             yield task
+
+
+@contextmanager
+def paused():
+    """Hold lifecycle heartbeats while the user is answering a prompt."""
+    reporter = _current.get()
+    if reporter is None:
+        yield
+    else:
+        with reporter.paused():
+            yield
