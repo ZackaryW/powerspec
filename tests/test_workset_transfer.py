@@ -32,6 +32,9 @@ def adapter(tmp_path, monkeypatch):
     from powerspec.workset_openspec import OpenSpec
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "global-config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "global-data"))
+    # The OpenSpec CLI records telemetry state in the global config it shares
+    # with these assertions; keep that tool side effect out of the fixture.
+    monkeypatch.setenv("OPENSPEC_TELEMETRY", "0")
     return OpenSpec(tmp_path)
 
 
