@@ -231,3 +231,14 @@ def test_current_ignore_rule_overrides_earlier_negation(tmp_path, monkeypatch):
     m.initialize(m.plan_initialization(project))
     assert ignore.read_text().startswith('/current.toml\n!current.toml\n')
     assert subprocess.run(["git", "check-ignore", "openspec/.pspec/current.toml"], cwd=project).returncode == 0
+
+
+def test_current_ignore_rule_is_not_repeated_after_later_unrelated_rules(tmp_path, monkeypatch):
+    import powerspec.initialization as m
+    project, catalog = setup_repo(tmp_path)
+    ignore = project / "openspec/.pspec/.gitignore"
+    original = '/current.toml\n/saucepan-state.json\n/saucepan-state.lock\n'
+    ignore.write_text(original)
+    monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
+    m.initialize(m.plan_initialization(project))
+    assert ignore.read_text() == original

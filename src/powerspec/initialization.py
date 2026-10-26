@@ -101,7 +101,11 @@ def initialize(plan: InitializationPlan) -> InitializationResult:
             stream.write("[vars]\n")
     ignore = plan.config_path.parent / ".gitignore"
     existing = ignore.read_text(encoding="utf-8") if ignore.exists() else ""
-    if not existing.splitlines() or existing.splitlines()[-1] != "/current.toml":
+    # Git applies the last matching rule, so only a later negation (not later
+    # unrelated rules) can undo an earlier /current.toml entry.
+    rules = [line.strip() for line in existing.splitlines()
+             if line.strip().lstrip("!").lstrip("/") == "current.toml"]
+    if not rules or rules[-1] != "/current.toml":
         with ignore.open("a", encoding="utf-8") as stream:
             stream.write(("\n" if existing and not existing.endswith("\n") else "") + "/current.toml\n")
     tracked = subprocess.run(["git", "ls-files", "--error-unmatch", "--", "openspec/.pspec/current.toml"],
