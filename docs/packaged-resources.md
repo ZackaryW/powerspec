@@ -10,9 +10,12 @@ The OpenSpec repository, immutable commit, selected skill roots, and license pat
 are declared under `[tool.hatch.build.hooks.custom.source]` in `pyproject.toml`.
 They are not copied into `.pspec/skills`.
 
-The bundled workflow snapshot is OpenSpec v1.14.3, pinned to
-`c794978f4f8845ce59693373c9dd882ee776588c`. Fresh bootstrap requires OpenSpec
-CLI 1.14.3 or later, and `pspec doctor` checks the same minimum. Updating the
+The bundled workflow snapshot is OpenSpec v1.15.0, pinned to
+`8e0288df12d401b0e183e2f47254d22528c1dffb`. Fresh bootstrap requires OpenSpec
+CLI 1.14.3 or later, and `pspec doctor` checks the same minimum. The minimum is
+the oldest CLI release that the bundled skills and Powerspec's own OpenSpec
+commands work with, so it can be older than the snapshot. It rises only when a
+bundled skill or a Powerspec command needs newer CLI behavior. Updating the
 CLI alone does not refresh the snapshot shipped inside an installed Powerspec
 package; that requires a rebuilt distribution. Repository-local generated
 instructions are separate and can be refreshed with `openspec update`.
