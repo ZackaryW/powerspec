@@ -7,9 +7,8 @@ Declare remote recipes in profiles, materialize them through one Powerspec Sauce
 ## Requirements
 
 ### Requirement: Remote acquisition uses profile recipes and one Saucepan application
-Profiles SHALL declare each friendly Git source alias with an exact provider, origin and reference recipe. Powerspec SHALL merge declarations across the effective profile graph, accept identical declarations, reject conflicting recipes for one alias and reserve builtin. Every selected recipe SHALL be materialized through one registered Saucepan application named powerspec, identified by its returned UUID. Friendly aliases SHALL NOT become Saucepan applications. Claims SHALL use explicit owning-consumer scopes so independent consumers can update separately while sharing cached content.
 
-Ordinary init SHALL lazily initialize an absent store and register the application when a selected recipe needs materialization. It SHALL acquire and retain a missing selected recipe and reuse an existing exact selected binding without refresh. Sync, status, hooks and ordinary installed skill lookup SHALL NOT initialize, register, acquire, update, pin, unpin or install sources. Upgrade and init --force SHALL explicitly refresh selected recipes, including existing consumer selections. Acquisition failures SHALL identify the affected alias and SHALL NOT report success. Default registration SHALL require neither credentials nor native keyring integrity, while explicitly configured restrictions SHALL remain enforced.
+Profiles SHALL declare each friendly Git source alias with an exact provider, origin and reference recipe, merged across the profile graph: identical declarations are accepted, conflicting ones rejected, and builtin reserved. Every selected recipe SHALL be materialized through one registered Saucepan application named powerspec, identified by its UUID; aliases SHALL NOT become applications. Claims SHALL use owning-consumer scopes, so consumers update independently yet share cached content.
 
 #### Scenario: Fresh init needs a remote recipe
 - **WHEN** init selects a declared recipe and no store or application exists
@@ -33,7 +32,7 @@ Ordinary init SHALL lazily initialize an absent store and register the applicati
 
 ### Requirement: Only valid source catalogs become registered bindings
 
-Powerspec SHALL discover .pspec resources for reusable catalog registration and bind validated catalogs to an explicit external identity. A requested reusable catalog containing no .pspec SHALL NOT remain bound. Direct @gitsource skill-path references SHALL follow their separate selection contract without requiring a remote .pspec catalog. Invalid or ambiguous catalogs SHALL produce source-specific diagnostics rather than a partial successful registration or source-order selection. Registration SHALL preserve existing valid bindings on a failed replacement. The reserved builtin identity SHALL remain unavailable to external registration; folder names SHALL NOT confer builtin identity.
+Powerspec SHALL discover .pspec resources for reusable catalog registration and bind validated catalogs to an explicit external identity; a requested catalog with no .pspec SHALL NOT stay bound. Direct @gitsource skill-path references SHALL follow their separate selection contract without a remote .pspec catalog. Invalid or ambiguous catalogs SHALL produce source-specific diagnostics, not partial registration or source-order selection, and a failed replacement SHALL keep existing valid bindings.
 
 #### Scenario: No catalog in repository
 - **WHEN** a repository acquired for reusable catalog registration contains no .pspec resource catalog
@@ -47,9 +46,13 @@ Powerspec SHALL discover .pspec resources for reusable catalog registration and 
 - **WHEN** discovered catalogs under one source expose duplicate declared skill identities
 - **THEN** discovery reports the ambiguity instead of choosing the first path
 
+#### Scenario: Folder name does not confer builtin identity
+- **WHEN** an external catalog lives in a folder named builtin
+- **THEN** it does not receive the reserved builtin identity
+
 ### Requirement: Remote selection preserves installed names and provenance
 
-A qualified remote skill reference SHALL resolve through its registered source catalog using the name declared in SKILL.md. The selected resource SHALL pass through the existing composition and ZuAT provisioning contracts with its source, revision, and location provenance. Its installed name SHALL remain the declared name without a source prefix. Same-name resources in unselected sources SHALL not conflict; different selected resources targeting the same agent/name/scope/project destination SHALL be diagnosed under the existing selection contract. Remote registration SHALL not itself install a skill.
+A qualified remote skill reference SHALL resolve through its registered source catalog by the name declared in SKILL.md, and pass through composition and ZuAT provisioning with its source, revision and location provenance, installed under that declared name without a source prefix. Same-name resources in unselected sources SHALL NOT conflict, while different selected resources targeting one agent/name/scope/project destination SHALL be diagnosed. Registration alone SHALL NOT install a skill.
 
 #### Scenario: Remote skill selected
 - **WHEN** a profile selects @team-tools/pspec-tdd from a validated saucepan-managed source
@@ -65,11 +68,7 @@ A qualified remote skill reference SHALL resolve through its registered source c
 
 ### Requirement: Git source references select declared recipe paths directly
 
-Profile skills SHALL support `<alias>/<path-pattern>` strings for direct Git-path selection. The first segment SHALL resolve to a `[[source]]` declaration in the effective profile graph, and the remaining segments SHALL be the source-relative selector. Powerspec SHALL NOT derive a URL from the alias, create a `sources/` resource folder, silently bind an undeclared alias, or require an `@gitsource` namespace. Parsing, status, and runtime arming SHALL retain the alias and selector without fetching. Materialization SHALL use the declared recipe and retain resolved revision and artifact provenance.
-
-Selectors SHALL be source-relative and contained after canonicalization including symlinks. Direct directories SHALL select one skill root; `*` SHALL match immediate child directories and recursive selection SHALL require `**`. Candidate roots SHALL carry `SKILL.md`; unrelated files and folders SHALL not be installed. Empty initial selections, malformed declarations, duplicate declared names, and escaping paths SHALL produce diagnostics. A valid upgrade replacement may be empty for an established selection. Expansion SHALL be deterministic by source-relative path.
-
-Direct Git-path selection SHALL NOT require `.pspec` or write synthetic catalog files into the acquired checkout. Each selected skill SHALL retain its complete resources, declared installed name, alias, source/revision/path provenance, and declaring profile scope. Legacy `@gitsource/...` strings SHALL be rejected rather than maintained as a second authored syntax.
+Profile skills SHALL support `<alias>/<path-pattern>` strings for Git-path selection, where the alias names a `[[source]]` declaration in the effective profile graph and the rest is the selector. Powerspec SHALL NOT derive URLs from aliases, create a `sources/` folder, bind undeclared aliases or require an `@gitsource` namespace. Parsing, status and arming SHALL keep alias and selector without fetching, and materialization SHALL use the declared recipe with revision and artifact provenance.
 
 #### Scenario: Zmem wildcard selects its skills
 - **WHEN** a profile declares the zmem recipe and selects `zmem/skills/*`
@@ -97,7 +96,7 @@ Direct Git-path selection SHALL NOT require `.pspec` or write synthetic catalog 
 
 ### Requirement: Sync reuses materialized sources and preserves installations
 
-Sync SHALL resolve declared recipes only from existing materializations in the `powerspec` Saucepan application without refreshing or fetching sources. Sync SHALL NOT install or remove skills, including when a source is unavailable or its registration has been removed. Required resources missing from existing materialization SHALL produce diagnostics without attempting repair. These installation guarantees SHALL NOT prevent normal config.yaml reconciliation of obsolete managed context contributions.
+Sync SHALL resolve declared recipes only from existing materializations in the `powerspec` Saucepan application, without refreshing or fetching. It SHALL NOT install or remove skills, even when a source is unavailable or its registration was removed. Required resources missing from an existing materialization SHALL produce diagnostics without repair. These guarantees SHALL NOT prevent normal config.yaml reconciliation of obsolete managed context contributions.
 
 #### Scenario: Sync while source is unavailable
 - **WHEN** a selected recipe has no readable current materialization during sync
@@ -105,9 +104,7 @@ Sync SHALL resolve declared recipes only from existing materializations in the `
 
 ### Requirement: Upgrade removes obsolete skills only on complete success
 
-An explicit upgrade SHALL refresh selected profile recipes through the `powerspec` Saucepan application, validate replacement selections, and provision selected complete resources through ZuAT. Missing skills SHALL be confirmed only by a successfully refreshed, valid recipe. Failed acquisition, an unavailable application, an unmatched recipe, and invalid replacements SHALL NOT establish absence.
-
-Removal SHALL be limited to obsolete managed copies in requested installation targets, preserving copies still required by another effective selection and unrelated installations. Every requested source refresh, selection validation, collision check, and provisioning step SHALL succeed before removal is committed. Any failure of the requested upgrade, including removal finalization, SHALL preserve prior installed copies from obsolete-skill removal and SHALL NOT report upgrade success. Unsupported recoverable removal capabilities SHALL produce a diagnostic without deletion. This requirement SHALL NOT imply rollback of source caches or all non-removal updates.
+An explicit upgrade SHALL refresh selected profile recipes through the `powerspec` Saucepan application, validate replacement selections, and provision selected complete resources through ZuAT. Missing skills SHALL be confirmed only by a successfully refreshed, valid recipe; failed acquisition, an unavailable application, an unmatched recipe and invalid replacements SHALL NOT establish absence.
 
 #### Scenario: Successful upgrade removes a disappeared skill
 - **WHEN** a valid refreshed source no longer contains a previously selected managed skill and the entire requested upgrade succeeds
@@ -134,7 +131,8 @@ Removal SHALL be limited to obsolete managed copies in requested installation ta
 - **THEN** skills/* selects only immediate skill roots and an explicitly recursive ** selector can select nested roots within the same canonical source boundary
 
 ### Requirement: Profile defaults are expanded by the manager
-Authorized preparation SHALL obtain the `explicit-update` expansion from Saucepan and register its immutable flat catalog. Ordinary missing-selection preparation SHALL supply a retrieval-refresh override with max_age of 86400 seconds. Explicit upgrade and init --force SHALL supply always-refresh and acquisition-update overrides; pin retention, consumer scope and optional protection SHALL remain independent. Pending intent SHALL retain the expanded catalog and UUID references for retry; read-only lookup SHALL NOT expand or register profiles.
+
+Authorized preparation SHALL obtain Saucepan's `explicit-update` expansion and register its immutable flat catalog. Missing-selection preparation SHALL override retrieval refresh with max_age 86400 seconds; upgrade and init --force SHALL use always-refresh and acquisition-update; pin retention, consumer scope and optional protection SHALL stay independent. Pending intent SHALL keep the expanded catalog and UUIDs for retry, and read-only lookup SHALL NOT expand or register profiles.
 
 #### Scenario: Preparation response is lost after selecting policies
 - **WHEN** an uncertain preparation is retried
@@ -153,7 +151,8 @@ Authorized preparation SHALL obtain the `explicit-update` expansion from Saucepa
 - **THEN** the expanded policies force retrieval and copied-result updates even when the existing consumer selection and shared cache are current
 
 ### Requirement: Selected bindings retain exact output provenance
-Each selected remote binding SHALL retain its source identity, selector, resolved revision, output identity, contained relative view and explicit retention receipt. Validation and provisioning SHALL use manager-returned paths backed by that retention. Source refresh SHALL produce candidate bindings without publishing them as Powerspec selections until validation succeeds. A validated candidate for a recipe that has no prior selection in the consumer SHALL be published before agent provisioning, so a later skill or hook provisioning failure, or a declined replacement, does not discard it. A candidate that replaces an existing selection SHALL be published only when the entire requested initialization succeeds; otherwise the prior selection SHALL remain. Prior selected outputs SHALL remain available for existing readers; no automatic historical retention release SHALL race read-only lookups.
+
+Each selected remote binding SHALL retain its source identity, selector, resolved revision, output identity, contained relative view and explicit retention receipt, and validation and provisioning SHALL use manager-returned paths backed by that retention. Source refresh SHALL produce candidate bindings that are not published as selections until validation succeeds. Prior selected outputs SHALL stay available to existing readers; no automatic retention release SHALL race read-only lookups.
 
 #### Scenario: Origin advances before sync
 - **WHEN** the origin has a newer commit but only sync or status is requested
@@ -225,3 +224,71 @@ Ordinary init SHALL reuse valid manager-cached retrieval material younger than 8
 #### Scenario: Forced refresh fails
 - **WHEN** init --force cannot retrieve or validate a replacement
 - **THEN** it fails and preserves prior selected bindings and pins under the existing recovery contract
+
+### Requirement: Only init and upgrade prepare sources
+
+Ordinary init SHALL lazily initialize an absent store and register the application when a selected recipe needs materialization, acquiring missing recipes and reusing exact selected bindings without refresh. Upgrade and init --force SHALL refresh selected recipes, including existing selections. Sync, status, hooks and installed skill lookup SHALL NOT initialize, register, acquire, update, pin, unpin or install sources. Acquisition failures SHALL name the alias without reporting success.
+
+#### Scenario: Forced init refreshes existing selections
+- **WHEN** init --force runs for a consumer with existing source selections
+- **THEN** those selected recipes are explicitly refreshed
+
+#### Scenario: Acquisition failure names the alias
+- **WHEN** acquiring a selected recipe fails
+- **THEN** the command identifies that alias and does not report success
+
+#### Scenario: Default registration needs no credentials
+- **WHEN** the application is registered with default settings
+- **THEN** neither credentials nor native keyring integrity are required, while explicitly configured restrictions stay enforced
+
+### Requirement: Git path selectors are contained and deterministic
+
+Selectors SHALL stay contained after canonicalization, including symlinks. A direct directory SHALL select one skill root, `*` SHALL match immediate child directories, and recursion SHALL require `**`; candidate roots SHALL carry SKILL.md and unrelated files SHALL NOT be installed. Empty initial selections, malformed declarations, duplicate names and escaping paths SHALL be diagnosed; an established selection's upgrade replacement MAY be empty. Expansion SHALL be ordered by source-relative path.
+
+#### Scenario: Symlink escape is rejected
+- **WHEN** a selector reaches outside the source through a symbolic link
+- **THEN** selection reports the escaping path
+
+#### Scenario: Single star does not recurse
+- **WHEN** a selector ends in `*`
+- **THEN** only immediate child directories carrying SKILL.md are selected
+
+#### Scenario: Expansion order is stable
+- **WHEN** a wildcard matches several skill roots
+- **THEN** they are expanded in source-relative path order
+
+#### Scenario: Empty upgrade replacement for an established selection
+- **WHEN** an upgrade refreshes an established selection whose selector now matches nothing
+- **THEN** the empty replacement is valid rather than an error
+
+### Requirement: Direct Git-path selection keeps complete provenance
+
+Direct Git-path selection SHALL NOT require `.pspec` or write synthetic catalog files into the acquired checkout. Each selected skill SHALL keep its complete resources, declared installed name, alias, source/revision/path provenance and declaring profile scope. Legacy `@gitsource/...` strings SHALL be rejected rather than kept as a second authored syntax.
+
+#### Scenario: No catalog files are written
+- **WHEN** a direct Git-path selection is materialized
+- **THEN** no synthetic catalog files are written into the acquired checkout
+
+#### Scenario: Selected skill keeps its provenance
+- **WHEN** a skill is selected through a Git path
+- **THEN** it carries its alias, source, revision, path and declaring profile scope
+
+### Requirement: Obsolete skill removal is limited and committed last
+
+Removal SHALL be limited to obsolete managed copies in requested targets, keeping copies another effective selection needs and unrelated installations. Every requested refresh, validation, collision check and provisioning step SHALL succeed before removal is committed; any failure, including removal finalization, SHALL keep prior copies and SHALL NOT report success. Unsupported recoverable removal SHALL be diagnosed without deletion, and this SHALL NOT imply rollback of caches or other updates.
+
+#### Scenario: Still-required copy is kept
+- **WHEN** an obsolete skill in one selection is still required by another effective selection
+- **THEN** upgrade keeps that installed copy
+
+#### Scenario: Unsupported recoverable removal
+- **WHEN** the agent target cannot remove a skill recoverably
+- **THEN** upgrade reports a diagnostic and deletes nothing
+
+### Requirement: Selection publication depends on prior selection
+
+A validated candidate for a recipe with no prior selection in the consumer SHALL be published before agent provisioning, so a later skill or hook provisioning failure, or a declined replacement, does not discard it. A candidate replacing an existing selection SHALL be published only when the entire requested initialization succeeds; otherwise the prior selection SHALL remain.
+
+#### Scenario: Declined replacement keeps the first selection
+- **WHEN** the user declines to replace conflicting skills during a consumer's first init
+- **THEN** the consumer's validated first source selection stays published

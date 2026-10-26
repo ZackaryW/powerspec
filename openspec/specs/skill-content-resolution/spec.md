@@ -8,9 +8,7 @@ Resolve a supported installed skill into the content and inputs needed for its c
 
 ### Requirement: Skill support is described by pspec.toml
 
-A supported skill SHALL carry pspec.toml alongside its entrypoint and referenced resources. SKILL.md SHALL own the shared procedure and its static order. Manifest version 2 SHALL declare inputs, defaults, and dynamic additions through `[[dynamic]]` entries: `section` identifies an exact destination heading in the entrypoint, `pos` SHALL be `after` or `replace`, `path` identifies a skill-relative resource with optional declared variable substitution, and optional `source_section` identifies an exact heading in that source. An omitted `source_section` SHALL select the complete source file. Each input SHALL declare zero or one prompt parser. `before`, `combine`, hint groups, `default_hint`, multiple parsers, numbered insertion, and other position values SHALL produce migration diagnostics rather than being silently reinterpreted. References SHALL resolve relative to the explicitly supplied skill root rather than the working directory. A valid manifest SHALL establish dynamic-resolution support independently of the number of inputs or dynamic entries and independently of current branch activation.
-
-Bundled manifest-backed skill entrypoints SHALL provide concise instructions for requesting Powerspec content assembly after native selection, including direct invocation without generated context or a matching trait. Those instructions SHALL distinguish an unresolved entrypoint from content already returned by Powerspec and SHALL NOT cause an already-resolved document to recursively request itself.
+A supported skill SHALL carry pspec.toml beside its entrypoint, while SKILL.md owns the shared procedure and static order. Manifest version 2 SHALL declare inputs, defaults and `[[dynamic]]` additions: `section` names an exact entrypoint heading, `pos` is `after` or `replace`, `path` names a skill-relative resource with optional substitution, and optional `source_section` names an exact source heading, defaulting to the whole file. Inputs SHALL declare at most one prompt parser each.
 
 #### Scenario: Skill installed from a bundle
 - **WHEN** a supported version 2 skill is copied to the selected agent's installation
@@ -34,9 +32,7 @@ Bundled manifest-backed skill entrypoints SHALL provide concise instructions for
 
 ### Requirement: Resolve only the invoked skill's necessary inputs
 
-Lookup SHALL combine the requested skill's defaults with mounted profile defaults and explicit project or temporal values when available. Explicit values SHALL take precedence over prompt suggestions. Inputs SHALL be evaluated only when required to select or render a reachable part of this skill; excluded branches and unrelated skills SHALL not request inputs. Missing values needed by a decision SHALL remain pending, while invalid values or dependency cycles SHALL produce diagnostics. Conversation interpretation and answers SHALL belong to the agent rather than a hidden classifier inside the resolver.
-
-Lookup SHALL consume the shared/change layers and precedence defined by consumer-configuration, applying this skill's value defaults last. A valid effective value SHALL bypass its prompt. A prompt default SHALL remain a suggestion, distinct from a value default. Invalid effective values SHALL produce diagnostics without silently substituting lower-precedence values or prompting for replacement. Resolution SHALL NOT probe repository files to infer prompt suggestions.
+Lookup SHALL combine the skill's defaults with mounted profile defaults and explicit project or temporal values, using the consumer-configuration layers and precedence with the skill's value defaults applied last. Inputs SHALL be evaluated only when needed to select or render a reachable part of this skill; excluded branches and unrelated skills SHALL NOT request inputs. Missing values a decision needs SHALL remain pending, while invalid values or dependency cycles SHALL produce diagnostics.
 
 #### Scenario: Persistent language skips its prompt
 - **WHEN** config.toml declares `language = "python"` under `[vars]` and current.toml has no override
@@ -70,9 +66,13 @@ Lookup SHALL consume the shared/change layers and precedence defined by consumer
 - **WHEN** an effective configured value has the wrong type or violates its choices
 - **THEN** lookup reports the invalid origin without prompting for a replacement or falling back
 
+#### Scenario: Input dependency cycle
+- **WHEN** inputs depend on each other in a cycle
+- **THEN** resolution reports a diagnostic instead of pending or guessing a value
+
 ### Requirement: Return selected content directly and deterministically
 
-For `pos = "after"`, resolution SHALL preserve the shared entrypoint's body and order and insert each selected addition after its named destination section body and descendants, before the next heading of equal or higher rank or at document end. Identical resolved destination/file/source-section contributions SHALL appear once at their first occurrence, and different additions at one destination SHALL follow manifest order. For `pos = "replace"`, the last active declaration for one destination SHALL replace that entire original section, including its heading and descendants, while preserving surrounding sections. Destination and source selectors SHALL each identify an exact unique ATX Markdown heading; headings inside code fences SHALL not count. Output SHALL contain the actual shared and selected text with concise provenance. Declared variable substitution in resource paths or content SHALL occur once without executing code or recursively interpreting inserted content.
+For `pos = "after"`, resolution SHALL keep the entrypoint's order and insert each selected addition after its destination section and descendants, before the next equal-or-higher heading or document end. Identical contributions SHALL appear once, at first occurrence; different additions at one destination SHALL follow manifest order. For `pos = "replace"`, the last active declaration for a destination SHALL replace that whole section. Output SHALL contain actual text with concise provenance.
 
 #### Scenario: Python additions preserve the shared TDD flow
 - **WHEN** Python dynamic entries select scope, red, and green source sections with `pos = "after"`
@@ -102,6 +102,14 @@ For `pos = "after"`, resolution SHALL preserve the shared entrypoint's body and 
 - **WHEN** the same after contribution is selected repeatedly for one destination
 - **THEN** it appears once at its first declaration position
 
+#### Scenario: Headings must be exact and unique
+- **WHEN** a destination or source selector matches no heading, several headings, or only a heading inside a code fence
+- **THEN** resolution reports the selector instead of choosing a placement
+
+#### Scenario: Substitution runs once without execution
+- **WHEN** a resource path or inserted content contains declared variable placeholders
+- **THEN** they are substituted once, without executing code or interpreting the inserted content again
+
 ### Requirement: Resolution errors cannot yield misleading partial success
 
 Missing selected files, source sections, or destination anchors, ambiguous heading references, malformed declarations, or content paths escaping the skill root after substitution and canonicalization SHALL produce errors. Only selected content dependencies SHALL require materialization. A failed lookup SHALL not emit a resolved result, append an unplaceable addition, or silently substitute the entire skill. Source and selection diagnostics SHALL identify the failing resource and selector.
@@ -120,9 +128,7 @@ Missing selected files, source sections, or destination anchors, ambiguous headi
 
 ### Requirement: Skill lookup is read-only and project-aware
 
-Native --path resolution SHALL read the skill root explicitly supplied by the caller without discovering native installations, enumerating same-named copies, validating membership in an agent installation directory, installing, updating, or executing skills, writing variable files, or editing OpenSpec configuration. The supplied location SHALL identify an existing skill directory, its SKILL.md, or its pspec.toml. The selected location SHALL remain authoritative even when the catalog or another installed copy contains a different revision or classification. Invalid locations SHALL produce diagnostics without fallback to a same-named resource. Manifest-relative references SHALL retain their existing containment and selected-resource validation.
-
-Available project values SHALL come from the invoking project's nearest applicable consumer inside its Git boundary, not from the supplied skill directory or authoring repository. The caller SHALL retain its task working directory while passing the skill location. A malformed nearest configuration SHALL be diagnosed rather than ignored in favor of another project. An invocation without project configuration SHALL use skill defaults where sufficient and report any required missing project inputs without inventing a project boundary. Agent identity SHALL supply invocation context only; it SHALL NOT determine which skill copy is read. Skill resolution SHALL NOT acquire or refresh remote sources to resolve the supplied content. The explicit --ref route SHALL instead select a resource from the owning consumer's effective profile selections; it SHALL preserve the same read-only installation and input boundaries without substituting catalog content for a native --path invocation.
+Native --path resolution SHALL read the caller-supplied skill directory, SKILL.md or pspec.toml without discovering installations, enumerating same-named copies, checking membership, installing, updating or executing skills, writing variable files, or editing OpenSpec configuration. That location SHALL stay authoritative over other revisions or classifications; invalid locations SHALL be diagnosed without same-name fallback, and manifest references SHALL keep their containment validation.
 
 #### Scenario: Same user-level skill in two repositories
 - **WHEN** two projects supply the same skill path with different local variables
@@ -154,7 +160,7 @@ Available project values SHALL come from the invoking project's nearest applicab
 
 ### Requirement: Selected skill content consumes its own tooling inputs
 
-The TDD skill SHALL explicitly declare build_tool, test_runner, and test_command as inputs needed only when language is python. Its selected Python content SHALL identify the effective build/environment tool and test runner and instruct use of the effective test command with a focused test selector. These inputs SHALL follow the existing runtime precedence and configured-value prompt bypass. The skill SHALL NOT depend on the agent having read compiled OpenSpec context, copy unrelated trait guidance, or treat configured tooling as proof of installation. Missing required active inputs SHALL remain pending; unrelated language branches SHALL NOT request Python tooling.
+The TDD skill SHALL declare build_tool, test_runner and test_command as inputs needed only when language is python, and its Python content SHALL name the effective build tool and test runner and use the effective test command with a focused selector. These inputs SHALL follow the runtime precedence and configured-value prompt bypass. The skill SHALL NOT rely on compiled OpenSpec context, copy unrelated trait guidance, or treat configured tooling as proof of installation.
 
 #### Scenario: Python profile supplies tooling without OpenSpec context
 - **WHEN** the Python CLI profile supplies uv, pytest, and uv run pytest and the agent invokes TDD without reading config.yaml
@@ -168,9 +174,13 @@ The TDD skill SHALL explicitly declare build_tool, test_runner, and test_command
 - **WHEN** an installed supported non-Python branch is selected
 - **THEN** the Python tooling inputs do not activate or introduce questions
 
+#### Scenario: Missing Python tooling stays pending
+- **WHEN** language is python and a required tooling input has no effective value
+- **THEN** resolution stays pending for that input instead of guessing a tool
+
 ### Requirement: Replacement substitutes the entire destination section
 
-For pos = "replace", resolution SHALL replace the target section identified by section, including its heading, body, and descendant subsections. The replaced range SHALL end before the next heading of equal or higher rank, or at document end. Replacement content SHALL be the selected source_section including its heading and descendants, or the complete source file if source_section is omitted. The old destination heading SHALL NOT be retained, and surrounding sections SHALL remain intact. Boundaries SHALL be determined from the original entrypoint using the same exact-heading and code-fence rules as other placements.
+For pos = "replace", resolution SHALL replace the section named by `section`, including its heading, body and descendants, up to the next heading of equal or higher rank or document end. Replacement content SHALL be the selected source_section with its heading and descendants, or the whole source file. The old heading SHALL NOT be retained and surrounding sections SHALL stay intact, with boundaries computed from the original entrypoint under the same exact-heading and code-fence rules.
 
 #### Scenario: Replace a section with nested content
 - **WHEN** a dynamic entry replaces a target section containing subsections with a selected source section
@@ -286,3 +296,67 @@ Catalog responses SHALL contain only the requested procedure and active addition
 #### Scenario: Supporting files are progressive
 - **WHEN** returned instructions reference supporting documents or another skill needed only in a later step or scenario
 - **THEN** those references do not cause the resolver to return their contents eagerly
+
+### Requirement: Configured values bypass prompts without guessing
+
+A valid effective value SHALL bypass its prompt and take precedence over prompt suggestions, while a prompt default stays a suggestion distinct from a value default. Invalid effective values SHALL produce diagnostics without substituting lower-precedence values or prompting for replacement. Conversation interpretation and answers SHALL belong to the agent, not a hidden classifier in the resolver, and resolution SHALL NOT probe repository files to infer prompt suggestions.
+
+#### Scenario: No repository probing for suggestions
+- **WHEN** an input has no effective value
+- **THEN** resolution does not inspect repository files to propose a suggestion
+
+#### Scenario: No hidden answer interpretation
+- **WHEN** an input needs an answer from the user
+- **THEN** resolution reports it as pending for the agent to ask, rather than interpreting conversation itself
+
+### Requirement: Manifest interpretation is explicit and root-relative
+
+`before`, `combine`, hint groups, `default_hint`, multiple parsers, numbered insertion and other position values SHALL produce migration diagnostics rather than being reinterpreted. Manifest references SHALL resolve relative to the supplied skill root, not the working directory. A valid manifest SHALL establish dynamic-resolution support regardless of how many inputs or dynamic entries it has or which branches are currently active.
+
+#### Scenario: Legacy hint fields
+- **WHEN** a manifest uses hint groups or `default_hint`
+- **THEN** resolution reports a migration diagnostic instead of interpreting them
+
+#### Scenario: References resolve from the skill root
+- **WHEN** resolution runs from a working directory outside the skill
+- **THEN** manifest paths are resolved relative to the supplied skill root
+
+#### Scenario: Manifest without dynamic entries
+- **WHEN** a valid manifest declares inputs but no dynamic additions
+- **THEN** the skill is still treated as supporting dynamic resolution
+
+### Requirement: Bundled dynamic entrypoints request their own assembly
+
+Bundled manifest-backed entrypoints SHALL give concise instructions for requesting Powerspec content assembly after native selection, including direct invocation without generated context or a matching trait. They SHALL distinguish an unresolved entrypoint from content Powerspec already returned, and an already-resolved document SHALL NOT request itself again.
+
+#### Scenario: Unresolved entrypoint asks for assembly
+- **WHEN** an agent reads a bundled manifest-backed SKILL.md directly
+- **THEN** its instructions tell the agent to request Powerspec content assembly before following dynamic steps
+
+#### Scenario: Resolved document does not recurse
+- **WHEN** an agent reads content that Powerspec has already assembled
+- **THEN** that content does not instruct the agent to resolve it again
+
+### Requirement: Project values come from the invoking consumer
+
+Project values SHALL come from the invoking project's nearest consumer inside its Git boundary, not from the skill directory or authoring repository, with the caller keeping its task working directory. A malformed nearest configuration SHALL be diagnosed, not skipped. Without project configuration, skill defaults SHALL apply where sufficient and missing required inputs SHALL be reported without inventing a project. Agent identity SHALL supply invocation context only, never which copy is read.
+
+#### Scenario: Malformed project configuration
+- **WHEN** the nearest consumer configuration is malformed
+- **THEN** resolution reports it instead of using another project's values
+
+#### Scenario: Agent identity does not pick the copy
+- **WHEN** two agents resolve the same supplied skill location
+- **THEN** both read that location and differ only in invocation context
+
+### Requirement: Skill resolution never acquires sources
+
+Skill resolution SHALL NOT acquire or refresh remote sources to resolve supplied content. The explicit --ref route SHALL select a resource from the owning consumer's effective profile selections with the same read-only installation and input boundaries, without substituting catalog content for a native --path invocation.
+
+#### Scenario: Catalog reference uses effective selections
+- **WHEN** an agent resolves a skill with --ref
+- **THEN** the resource comes from the owning consumer's effective profile selections without installing anything
+
+#### Scenario: Native path is never replaced by catalog content
+- **WHEN** a --path invocation targets a skill that also exists in the catalog
+- **THEN** resolution reads the supplied path and does not substitute the catalog copy

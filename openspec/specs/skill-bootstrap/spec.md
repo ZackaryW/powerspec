@@ -8,9 +8,7 @@ Give agents one explicit pre-skill lookup convention with clear unsupported, pen
 
 ### Requirement: Bootstrap performs explicit skill lookup
 
-The ordinary pspec-skill-bootstrap skill SHALL describe two explicit routes: catalog retrieval for a pspec:<skill> target needed by the current task, and the conditional handoff for an already native-selected dynamic skill. Its discovery description SHALL identify user pspec: requests and applicable configured scenario guidance as triggers. The user SHALL NOT have to name the skill again when its owning guidance already calls for it in the current scenario. The owning guidance SHALL retain responsibility for task conditions and permitted fallbacks; bootstrap SHALL own only the selected skill's content handoff and SHALL NOT enumerate, load, or resolve all configured skills. For ordinary native invocation the agent SHALL discover and select skills through its native skill integration, without a universal pre-skill lookup. Generated guidance SHALL identify mentioned manifest-backed skills that need Powerspec content assembly, and bundled dynamic entrypoints SHALL support direct native invocation. Ordinary native skills SHALL NOT require a Powerspec call before the agent reads or follows them. A needed pspec: target SHALL use the catalog route even when the selected catalog skill is ordinary.
-
-When dynamic assembly is needed for native invocation, the agent SHALL supply the exact selected skill location to `pspec resolve skill`, retain the task working directory, and supply its actual agent identity as invocation context. An explicit active change SHALL be passed through --change and retained on reruns; absent an explicit change, the agent SHALL omit it. That native-path invocation SHALL NOT discover, activate, or execute the requested skill. The bootstrap helper itself SHALL remain an ordinary skill and SHALL NOT require recursive resolution. A missing selected path SHALL be reported as a missing handoff input rather than cause Powerspec to search installations or the agent to choose a catalog source path as a substitute.
+The pspec-skill-bootstrap skill SHALL describe two explicit routes: catalog retrieval for a pspec:<skill> target the task needs, and the conditional handoff for a native-selected dynamic skill. Its description SHALL name user pspec: requests and applicable scenario guidance as triggers, so users need not repeat a skill guidance names. Owning guidance SHALL keep conditions and fallbacks; bootstrap SHALL own only the content handoff, never enumerating, loading or resolving all configured skills.
 
 #### Scenario: Invoke a supported skill
 - **WHEN** an agent's native integration selects a manifest-backed skill referenced by generated dynamic-resolution guidance
@@ -39,7 +37,7 @@ When dynamic assembly is needed for native invocation, the agent SHALL supply th
 
 ### Requirement: Null means unsupported rather than failed
 
-When the explicitly supplied existing skill has no Powerspec support manifest, successful resolution SHALL return literal null and the targeted handoff guidance SHALL direct the agent to follow that selected skill's ordinary native entrypoint. This fallback SHALL support direct explicit calls and catalog/native revision differences; it SHALL NOT establish a requirement to probe ordinary skills. A missing or invalid supplied location, unreadable or malformed manifest, invalid input, or failed resolution SHALL return an actionable error with unsuccessful process status and SHALL NOT return null. Unavailable Powerspec itself SHALL be reported as unavailable, not represented as a successful unsupported lookup.
+When the explicitly supplied existing skill has no Powerspec manifest, successful resolution SHALL return literal null and handoff guidance SHALL direct the agent to that skill's ordinary native entrypoint, without requiring ordinary skills to be probed. A missing or invalid location, unreadable or malformed manifest, invalid input or failed resolution SHALL return an actionable error and unsuccessful status, never null. Unavailable Powerspec SHALL be reported as such, not as unsupported.
 
 #### Scenario: Ordinary installed skill
 - **WHEN** a caller explicitly supplies an existing selected skill without pspec.toml
@@ -53,9 +51,17 @@ When the explicitly supplied existing skill has no Powerspec support manifest, s
 - **WHEN** the supplied skill location no longer exists
 - **THEN** resolution reports that path error without searching installations, installing content, or claiming unsupported fallback
 
+#### Scenario: Catalog and native revisions differ
+- **WHEN** the native-selected copy lacks a manifest that the catalog revision of the same skill has
+- **THEN** resolution returns null for the selected copy and the agent follows its ordinary entrypoint
+
+#### Scenario: Powerspec is unavailable
+- **WHEN** the pspec command cannot run
+- **THEN** the agent reports Powerspec as unavailable instead of treating the skill as unsupported
+
 ### Requirement: Pending choices remain distinct from resolved guidance
 
-A supported resolution SHALL identify whether it is resolved or waiting for input. A pending result SHALL identify the relevant unanswered choices, any suggested defaults, the owning answer location when available, and how to supply answers and rerun the same explicit-location invocation. The agent SHALL obtain required answers before following dependent instructions. A suggestion, silence, or elapsed time SHALL NOT count as an answer. A resolved result SHALL supply the relevant skill content directly and SHALL NOT require the agent to retrieve every referenced file separately. Reruns SHALL retain the selected location and explicit invocation selectors. Resolution SHALL remain non-interactive and SHALL NOT read user answers from stdin or write them itself.
+A supported resolution SHALL identify whether it is resolved or pending. A pending result SHALL identify unanswered choices, suggested defaults, the owning answer location when available, and how to answer and rerun the same explicit-location invocation. The agent SHALL obtain required answers before dependent instructions; a suggestion, silence or elapsed time SHALL NOT count as an answer. A resolved result SHALL supply the relevant content directly. Resolution SHALL remain non-interactive.
 
 #### Scenario: Framework choice is unresolved
 - **WHEN** a supported skill needs a framework choice not supplied by configuration or defaults
@@ -69,9 +75,21 @@ A supported resolution SHALL identify whether it is resolved or waiting for inpu
 - **WHEN** a pending invocation targets a skill path containing spaces
 - **THEN** the displayed rerun preserves that complete path and the agent/change selectors without falling back to name-based discovery
 
+#### Scenario: Suggested default is not an answer
+- **WHEN** a pending result offers a suggested default and the user has not answered
+- **THEN** the agent does not follow instructions that depend on that choice
+
+#### Scenario: Resolved content is self-contained
+- **WHEN** resolution returns a resolved result
+- **THEN** the relevant skill content is supplied directly without requiring each referenced file to be retrieved separately
+
+#### Scenario: Resolution never prompts or records answers
+- **WHEN** a skill invocation is pending
+- **THEN** resolution neither reads answers from stdin nor writes answers itself
+
 ### Requirement: Skill lookup defaults to Markdown with optional JSON
 
-Without --json, a resolved explicit-location skill invocation SHALL emit the assembled skill Markdown directly on stdout, without a JSON envelope or outer code fence. A pending invocation SHALL emit clearly labelled Markdown headed `Powerspec skill resolution pending`, with relevant questions and instructions for supplying answers and rerunning; it SHALL withhold procedural skill content. With --json, resolved output SHALL be an object with status resolved and a content string containing the same assembled Markdown; pending output SHALL be an object with status pending and questions. Both formats SHALL use the same resolution outcome and exit-status contract. Explicitly supplied ordinary skills SHALL return literal null with successful status in either mode. Failures SHALL use nonzero status and stderr diagnostics without emitting a successful result; progress SHALL remain on stderr.
+Without --json, resolved output SHALL be the assembled skill Markdown on stdout with no JSON envelope or outer fence, and pending output SHALL be Markdown headed `Powerspec skill resolution pending` with questions and answer/rerun instructions, withholding the procedure. With --json, resolved output SHALL be an object with status resolved and the same Markdown as content; pending output SHALL have status pending and questions. Both formats SHALL share one outcome and exit-status contract.
 
 #### Scenario: Default resolved output
 - **WHEN** a supported skill resolves without --json
@@ -89,11 +107,13 @@ Without --json, a resolved explicit-location skill invocation SHALL emit the ass
 - **WHEN** an explicitly supplied skill without a manifest is requested with or without --json
 - **THEN** resolution returns literal null with successful status in either format
 
+#### Scenario: Failure output
+- **WHEN** resolution fails in either format
+- **THEN** it exits nonzero with diagnostics on stderr, emits no successful result, and keeps progress on stderr
+
 ### Requirement: Native agent selection owns skill precedence
 
-For native invocation, the invoking agent SHALL own skill discovery and selection through its native integration, including precedence between user, project, and other native-supported locations. Powerspec SHALL consume the supplied selected location without performing a second native lookup, independently ranking scopes, checking membership in an installation registry, or asking for a scope decision solely because multiple copies exist. Profile scope SHALL determine provisioning destination only. Catalog-based dynamic annotations SHALL NOT replace native selection or supply a catalog author's path as the selected installed location. Provisioning ownership and write-conflict checks SHALL remain separate from runtime content assembly.
-
-An explicit pspec: invocation SHALL select Powerspec catalog content through --ref independently of native copy precedence. That namespace SHALL NOT serve as a fallback for a missing native-selected path, and a missing catalog resource SHALL NOT trigger installation or substitution of a native copy.
+For native invocation, the agent SHALL own skill discovery and selection, including precedence among user, project and other native locations. Powerspec SHALL consume the supplied location without a second lookup, scope ranking, registry check, or a scope question merely because several copies exist. Profile scope SHALL determine provisioning destination only, catalog annotations SHALL NOT replace native selection, and provisioning ownership checks SHALL stay separate from content assembly.
 
 #### Scenario: Both user and project copies exist
 - **WHEN** the agent selects one skill while copies exist at both scopes
@@ -175,3 +195,43 @@ Bootstrap SHALL retrieve a needed pspec: target through --ref from the task dire
 - **WHEN** resolved content refers to relative resources or later skill dependencies
 - **THEN** bootstrap uses the durable source directory and reads those resources only when the active task or procedure requires them
 - **AND** an explicitly permitted owning-guidance fallback is reported as limited separate work, never successful resolution, execution or memory verification
+
+### Requirement: Ordinary native skills need no Powerspec call
+
+For ordinary native invocation the agent SHALL discover and select skills through its native integration, without a universal pre-skill lookup or a Powerspec call before following an ordinary skill. Generated guidance SHALL identify mentioned manifest-backed skills that need Powerspec content assembly, and bundled dynamic entrypoints SHALL support direct native invocation. A needed pspec: target SHALL use the catalog route even when the selected catalog skill is ordinary.
+
+#### Scenario: Guidance names manifest-backed skills
+- **WHEN** generated guidance mentions a skill that has a Powerspec manifest
+- **THEN** it identifies that skill as needing Powerspec content assembly
+
+#### Scenario: Dynamic entrypoint is invoked natively
+- **WHEN** the agent's native integration invokes a bundled dynamic entrypoint
+- **THEN** the entrypoint supports that direct invocation
+
+#### Scenario: Ordinary catalog target still uses the catalog route
+- **WHEN** the task needs a pspec: target whose catalog skill has no manifest
+- **THEN** the agent retrieves it through the catalog route rather than native lookup
+
+### Requirement: Native-path resolution uses the exact selected location
+
+For dynamic assembly, the agent SHALL give `pspec resolve skill` the exact selected location from the task working directory with its actual agent identity, passing an explicit active change via --change, including on reruns, and omitting it otherwise. That invocation SHALL NOT discover, activate or execute the skill. The bootstrap helper SHALL stay ordinary, never recursively resolved. A missing selected path SHALL be reported as missing handoff input, not replaced by a search or catalog path.
+
+#### Scenario: No active change
+- **WHEN** a dynamic invocation has no explicitly supplied active change
+- **THEN** the agent omits --change
+
+#### Scenario: Resolution does not run the skill
+- **WHEN** pspec resolve skill assembles content for a selected location
+- **THEN** it does not discover, activate or execute that skill
+
+### Requirement: Explicit pspec invocations select catalog content
+
+An explicit pspec: invocation SHALL select Powerspec catalog content through --ref independently of native copy precedence. That namespace SHALL NOT serve as a fallback for a missing native-selected path, and a missing catalog resource SHALL NOT trigger installation or substitution of a native copy.
+
+#### Scenario: Missing native path does not fall back to the catalog
+- **WHEN** a native-selected skill location is missing
+- **THEN** the agent reports the missing location instead of retrieving the catalog copy
+
+#### Scenario: Missing catalog resource is not substituted
+- **WHEN** a pspec: target has no catalog resource
+- **THEN** resolution reports it without installing or substituting a native copy

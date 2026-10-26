@@ -8,7 +8,7 @@ Publish compile-time context guidance into its owning OpenSpec configuration whi
 
 ### Requirement: Sync selects only compile-time contexts
 
-Both pspec sync and powerspec sync SHALL use the nearest owning consumer within the enclosing Git boundary, including nested consumers and worktrees, and select contexts contributed by its effective profiles. Profile exclusions and subprofile composition SHALL follow profile-skill-bundles. Runtime traits SHALL NOT be compiled, dispatched, or converted into commands in config.yaml. Sync SHALL reuse existing source materializations without refresh. Sync SHALL acquire selected sources with no current materialization and initialize the store/application when needed. Sync SHALL NOT refresh existing revisions, install or remove skills, register hooks, execute procedures, or flush state. Failed acquisitions or unusable existing materializations SHALL produce diagnostics without deleting or replacing existing data; unavailable or removed sources SHALL NOT cause installed-skill deletion. This preservation SHALL NOT prevent normal reconciliation of obsolete managed context guidance. Missing consumers or missing/malformed target configuration SHALL produce diagnostics rather than guessed initialization.
+Both pspec sync and powerspec sync SHALL use the nearest owning consumer within the enclosing Git boundary, including nested consumers and worktrees, and select contexts contributed by its effective profiles, with exclusions and subprofile composition following profile-skill-bundles. Runtime traits SHALL NOT be compiled, dispatched or converted into commands in config.yaml. A missing consumer or missing or malformed target configuration SHALL produce diagnostics, not guessed initialization.
 
 #### Scenario: Python and utility contexts are selected
 - **WHEN** a consumer selects the reviewed Python CLI profile containing the utility-planning subprofile
@@ -24,9 +24,7 @@ Both pspec sync and powerspec sync SHALL use the nearest owning consumer within 
 
 ### Requirement: Context compilation uses noninteractive shared inputs
 
-Context compilation SHALL use persistent config.toml shared variables, selected-profile defaults, global-profile defaults, then context declaration defaults. It SHALL NOT consume current.toml, change-specific values, or runtime prompts. Invalid explicit and missing required values SHALL produce diagnostics without fallback from invalid values. Declared variable placeholders SHALL be substituted once; unrelated angle-bracket prose SHALL remain literal. Explicit `<skill:name>` references SHALL be rendered as their declared names from the selected validated catalog without requiring native installation or embedding skill procedures. Unknown declared references SHALL fail rather than be silently omitted.
-
-For each emitted attachment, compilation SHALL classify its explicit skill references from the referenced catalog resources. A valid `pspec.toml` SHALL classify the skill as requiring dynamic resolution, including a manifest containing only inputs or currently inactive additions. An absent manifest SHALL classify that resource as ordinary. An unreadable or malformed existing manifest, or conflicting classification among selected resources sharing the referenced name, SHALL produce a located compilation error rather than assume an ordinary skill or choose native installation precedence. Classification SHALL NOT resolve runtime values, select dynamic branches, read branch content, prompt, or execute a skill. Text introduced by variable substitution SHALL NOT become a new skill reference. Unmentioned skills SHALL NOT acquire headings or cause classification-only manifest validation.
+Context compilation SHALL use persistent config.toml shared variables, selected-profile defaults, global-profile defaults, then context declaration defaults, never current.toml, change-specific values or prompts. Invalid explicit or missing required values SHALL produce diagnostics without fallback. Explicit `<skill:name>` references SHALL render as declared names from the validated catalog without native installation or embedded procedures.
 
 #### Scenario: Reviewed tooling defaults
 - **WHEN** the Python CLI context compiles with the profile defaults and an explicit utility_path
@@ -64,11 +62,17 @@ For each emitted attachment, compilation SHALL classify its explicit skill refer
 - **WHEN** variable substitution introduces text resembling `<skill:name>` or prose contains a bare skill name
 - **THEN** that text is not recursively classified or used to add a dynamic-resolution heading
 
+#### Scenario: Unknown skill reference
+- **WHEN** an attachment references a skill name that the selected catalog does not declare
+- **THEN** compilation fails instead of silently omitting the reference
+
+#### Scenario: Placeholders are substituted once
+- **WHEN** guidance contains declared variable placeholders and other angle-bracket prose
+- **THEN** each declared placeholder is substituted exactly once and the other prose stays literal
+
 ### Requirement: Context conditions produce a compilation snapshot
 
-Sync SHALL evaluate eligible attachment Python when expressions through the shared condition contract with invocation cwd/environment/Git root and persistent context vars. Temporal/change values SHALL NOT participate. Omission SHALL be unconditional; Boolean false SHALL omit only that attachment. Syntax/name/non-Boolean errors and capability/probe failures SHALL fail compilation without successful partial output. Results SHALL NOT be persisted as variable answers.
-
-Published guidance SHALL remain a snapshot until another sync. Mutable runtime service readiness SHALL remain trait-owned without implicit re-evaluation from config.yaml. Conditions SHALL retain the trusted-rule contract without guarantees of sandboxing, complete execution-time limits, or rollback of callback effects.
+Sync SHALL evaluate eligible attachment Python when expressions through the shared condition contract with invocation cwd, environment, Git root and persistent context vars, excluding temporal and change values. Omission SHALL be unconditional and false SHALL omit only that attachment. Syntax, name, non-Boolean, capability and probe errors SHALL fail compilation without partial output, and results SHALL NOT be persisted as answers. Published guidance SHALL remain a snapshot until another sync.
 
 #### Scenario: Persistent language controls guidance
 - **WHEN** an attachment evaluates vars['language'] == 'python' with persistent/default python
@@ -86,11 +90,17 @@ Published guidance SHALL remain a snapshot until another sync. Mutable runtime s
 - **WHEN** an eligible condition returns a non-Boolean or raises
 - **THEN** sync diagnoses it and publishes no partial managed output
 
+#### Scenario: Service readiness stays with traits
+- **WHEN** guidance depends on mutable runtime service readiness
+- **THEN** that readiness remains trait-owned and config.yaml is not implicitly re-evaluated
+
+#### Scenario: Conditions are trusted, not sandboxed
+- **WHEN** a condition has side effects or runs for a long time
+- **THEN** sync keeps the trusted-rule contract without promising sandboxing, complete execution-time limits, or rollback of callback effects
+
 ### Requirement: Reconciliation preserves ownership and per-attachment provenance
 
-Each generated attachment SHALL carry a distinct deterministic caret identifier derived from its qualified context reference, destination, and attachment identity. Several attachments from one context SHALL NOT share a single resource-only identifier. A declared attachment id SHALL provide its identity when present; otherwise its one-based ordinal within that destination SHALL apply. These static contributions SHALL NOT use the reserved ^pspec dispatcher identifier.
-
-Sync SHALL replace, insert, or remove only its recognizably managed contributions, preserving user-owned guidance, schema selection, unrelated fields, and comments. Scalar context guidance SHALL use an explicitly delimited managed region; rules and operation guidance SHALL retain separate managed list entries. Ambiguous/malformed ownership markers or incompatible destination types SHALL fail rather than risk consuming user content. Removing a selected context or attachment SHALL remove its obsolete managed output. Identical inputs and observations SHALL produce deterministic content and an identical second sync SHALL leave bytes unchanged. No separate tracking file SHALL be required.
+Each generated attachment SHALL carry a distinct deterministic caret identifier from its qualified context reference, destination and attachment identity, which is the declared attachment id or else its one-based ordinal in that destination. Attachments from one context SHALL NOT share an identifier or use the reserved ^pspec identifier. Sync SHALL replace, insert or remove only recognizably managed contributions, preserving user guidance, schema selection, unrelated fields and comments.
 
 #### Scenario: One context supplies multiple entries
 - **WHEN** the Python CLI context supplies several context attachments
@@ -108,9 +118,13 @@ Sync SHALL replace, insert, or remove only its recognizably managed contribution
 - **WHEN** the same inputs and observations are synchronized twice
 - **THEN** the second invocation reports no change and leaves target bytes unchanged
 
+#### Scenario: Attachment without a declared id
+- **WHEN** an attachment declares no id
+- **THEN** its identity is its one-based ordinal within its destination
+
 ### Requirement: Publication completes before success is reported
 
-Compilation and reconciliation SHALL complete before replacement of the target config.yaml. Errors in inputs, conditions, references, YAML, markers, or publication SHALL return nonzero diagnostics and SHALL NOT claim synchronization success. Pre-publication failures SHALL leave the original target unchanged. Powerspec publication SHALL modify only its owning config.yaml, leaving profiles, resource sources, consumer TOML, temporal values, and installations unchanged. This publication guarantee SHALL NOT imply isolation or rollback of trusted condition/probe effects. Successful output SHALL identify the target and distinguish updated from unchanged configuration.
+Compilation and reconciliation SHALL complete before the target config.yaml is replaced. Errors in inputs, conditions, references, YAML, markers or publication SHALL return nonzero diagnostics without claiming success, and pre-publication failures SHALL leave the target unchanged. Publication SHALL modify only the owning config.yaml. This guarantee SHALL NOT imply rollback of trusted condition or probe effects. Successful output SHALL identify the target and whether it was updated or unchanged.
 
 #### Scenario: Late compilation failure
 - **WHEN** one selected attachment fails after earlier attachments have compiled
@@ -122,11 +136,7 @@ Compilation and reconciliation SHALL complete before replacement of the target c
 
 ### Requirement: Dynamic-resolution reminders accompany their owning guidance blocks
 
-Each emitted context attachment that mentions one or more manifest-backed skills SHALL begin with a Markdown section heading identifying those skills as requiring dynamic resolution. The heading and concise following instructions SHALL be inside that attachment's generated text, within the existing context scalar or rules/operation guidance item; they SHALL NOT introduce new YAML schema keys or a global skill inventory. Names SHALL be deduplicated in first-mention order within the attachment, and ordinary referenced skills SHALL NOT be listed as dynamic. Multiple attachments SHALL each retain their own applicable reminder.
-
-The instructions SHALL direct the agent to select the skill through its native integration and supply that selected skill's location to Powerspec before following its dynamic procedure. They SHALL explain that the reminder applies when the skill is invoked under the attachment's existing task conditions; publication SHALL NOT activate a workflow. Generated configuration SHALL NOT embed authoring-source paths as native-selected locations. The remaining authored body and existing per-attachment provenance SHALL remain intact. Attachments containing only ordinary skills or no skill references SHALL receive no dynamic-resolution heading.
-
-The reminder SHALL be managed as part of its owning contribution. A later sync SHALL remove or update it when mentions, classification, or attachment eligibility change. Repeated sync with identical inputs SHALL remain byte-idempotent and preserve handwritten guidance and unrelated YAML.
+Each emitted context attachment mentioning manifest-backed skills SHALL begin with a Markdown heading naming those skills as requiring dynamic resolution, deduplicated in first-mention order, inside that attachment's generated text without new YAML keys or a global skill inventory. Ordinary skills SHALL NOT be listed as dynamic, attachments with only ordinary or no skill references SHALL get no heading, and each attachment SHALL keep its own reminder.
 
 #### Scenario: Mixed and repeated mentions
 - **WHEN** an emitted attachment mentions dynamic skill A, ordinary skill B, A again, and dynamic skill C
@@ -152,3 +162,75 @@ The reminder SHALL be managed as part of its owning contribution. A later sync S
 #### Scenario: Skill is selected but unmentioned
 - **WHEN** the bundle selects a dynamic skill but no emitted attachment explicitly references it
 - **THEN** sync does not add a heading or a separate invocation instruction for that skill
+
+### Requirement: Sync preserves sources and installations
+
+Sync SHALL reuse existing source materializations without refresh, and SHALL acquire selected sources lacking a materialization, initializing the store and application when needed. It SHALL NOT refresh existing revisions, install or remove skills, register hooks, execute procedures or flush state. Acquisition failures and unusable materializations SHALL produce diagnostics without deleting or replacing data or installed skills, while obsolete managed context guidance is still reconciled.
+
+#### Scenario: Existing materialization is reused
+- **WHEN** a selected source already has a materialization
+- **THEN** sync uses it without refreshing its revision
+
+#### Scenario: Missing source is acquired
+- **WHEN** a selected source has no current materialization
+- **THEN** sync acquires it, initializing the store and application if needed
+
+#### Scenario: Failed acquisition preserves data
+- **WHEN** acquisition fails or an existing materialization is unusable
+- **THEN** sync reports diagnostics without deleting or replacing existing data or installed skills
+
+#### Scenario: Sync has no installation side effects
+- **WHEN** sync completes
+- **THEN** no skills were installed or removed, no hooks registered, no procedures executed and no state flushed
+
+### Requirement: Compilation classifies mentioned skills by manifest
+
+For each emitted attachment, compilation SHALL classify explicit skill references from the referenced catalog resources: a valid pspec.toml, even with only inputs or inactive additions, means dynamic resolution, and no manifest means ordinary. An unreadable or malformed manifest, or conflicting classification among same-name selected resources, SHALL be a located compilation error. Classification SHALL NOT resolve runtime values, select branches, read branch content, prompt or execute a skill.
+
+#### Scenario: Conflicting classification
+- **WHEN** selected resources sharing a referenced name disagree on whether a manifest exists
+- **THEN** compilation reports a located error instead of choosing one
+
+#### Scenario: Unmentioned skill is not classified
+- **WHEN** a selected skill is not explicitly referenced by any emitted attachment
+- **THEN** it gets no heading and its manifest is not validated for classification
+
+### Requirement: Managed regions are explicit and deterministic
+
+Scalar context guidance SHALL use an explicitly delimited managed region, while rules and operation guidance keep separate managed list entries. Ambiguous or malformed ownership markers or incompatible destination types SHALL fail rather than consume user content. Removing a selected context or attachment SHALL remove its managed output. Identical inputs and observations SHALL produce identical bytes, without a separate tracking file.
+
+#### Scenario: Ambiguous ownership marker
+- **WHEN** config.yaml contains a malformed or ambiguous managed marker
+- **THEN** sync fails without rewriting the surrounding content
+
+#### Scenario: Incompatible destination type
+- **WHEN** a destination exists with a type that cannot hold managed output
+- **THEN** sync fails rather than replacing that value
+
+#### Scenario: No tracking file
+- **WHEN** sync reconciles managed output
+- **THEN** it relies on the markers in config.yaml and needs no separate tracking file
+
+### Requirement: Dynamic reminders direct native selection
+
+Reminder instructions SHALL direct the agent to select the skill through its native integration and supply that location to Powerspec before following its dynamic procedure, only when the skill is invoked under the attachment's task conditions; publication SHALL NOT activate a workflow. Generated configuration SHALL NOT embed authoring-source paths as native-selected locations, and the authored body and per-attachment provenance SHALL stay intact.
+
+#### Scenario: Publication activates nothing
+- **WHEN** sync publishes a dynamic-resolution reminder
+- **THEN** no workflow or skill is started by that publication
+
+#### Scenario: No authoring paths as selected locations
+- **WHEN** a reminder is generated for a catalog skill
+- **THEN** it does not present the skill's authoring-source path as the native-selected location
+
+### Requirement: Dynamic reminders are managed with their attachment
+
+The reminder SHALL be managed as part of its owning contribution, so a later sync removes or updates it when mentions, classification or attachment eligibility change. Repeated sync with identical inputs SHALL stay byte-idempotent and preserve handwritten guidance and unrelated YAML.
+
+#### Scenario: Newly dynamic skill gains a reminder
+- **WHEN** a mentioned resource gains a valid manifest before the next sync
+- **THEN** that sync adds the skill to its attachment's reminder heading
+
+#### Scenario: Handwritten guidance beside a reminder survives
+- **WHEN** user guidance sits next to a managed reminder
+- **THEN** updating or removing the reminder leaves that guidance unchanged

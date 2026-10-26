@@ -8,9 +8,7 @@ Deliver trait-owned guidance through portable logical hook selection and verifie
 
 ### Requirement: Bootstrap discovery uses runtime trait guidance
 
-Runtime guidance SHALL introduce dynamic-resolution requirements only alongside the eligible messages that mention the affected skills. The global builtin profile SHALL NOT deliver a universal instruction to resolve every skill before native use. The ordinary pspec-skill-bootstrap helper SHALL remain available to retrieve a needed pspec: target named by the user or applicable scenario guidance and explain a targeted native content handoff without becoming a prerequisite for all skills. Existing builtin trait references to that helper SHALL be revised so ordinary skill mentions do not direct agents through Powerspec. The builtin profile SHALL select the skill-bootstrap runtime trait. At existing supported sessionStart and afterCompaction boundaries, that trait SHALL deliver one compact reminder to use bootstrap when a user request or applicable task scenario needs a pspec: target, without requiring a repeated user skill-name mention. Its reminder SHALL be guarded by effective selection of the bootstrap skill, SHALL contain no full skill inventory, target discovery descriptions, procedure bodies, or complete routing procedure, and SHALL not request resolution of ordinary native skills. Existing profiles selecting that trait SHALL receive the same narrowly scoped reminder, not a universal pre-skill instruction. Selecting more unused resolve-only skills SHALL NOT by itself expand this reminder into a catalog inventory or initiate procedural resolution. Lightweight scenario rules SHALL retain their conditions and target references without embedding the target procedures.
-
-Hook selectors and authored guidance SHALL remain trait-owned. Supported native hooks SHALL invoke pspec resolve hook <event> at the existing sessionStart and afterCompaction boundaries. Documentation and validation SHALL distinguish installation, hook invocation, context delivery, agent adherence, and skill execution. Installing, dispatching, classifying, or resolving guidance SHALL NOT claim that its workflow ran.
+Runtime guidance SHALL introduce dynamic-resolution requirements only alongside eligible messages mentioning the affected skills, and the global builtin profile SHALL NOT deliver a universal resolve-every-skill instruction. The ordinary pspec-skill-bootstrap helper SHALL stay available to retrieve a needed pspec: target and explain a targeted native handoff without becoming a prerequisite for all skills, and builtin traits SHALL NOT route ordinary skill mentions through it.
 
 #### Scenario: Installed but unused
 - **WHEN** the bundle's skills have been installed but the session never invokes them
@@ -58,11 +56,7 @@ Hook selectors and authored guidance SHALL remain trait-owned. Supported native 
 
 ### Requirement: Hook dispatch resolves the invoking consumer
 
-Hook dispatch SHALL use the hook command's process working directory and the nearest owning OpenSpec consumer within its enclosing Git boundary, including worktrees. That invocation directory SHALL also supply the cwd used for runtime condition evaluation. Standard input SHALL NOT supply consumer location, event identity, variable values, or user answers. It SHALL select matching runtime traits from that consumer's effective profiles and return guidance in a form supported by the invoking agent. Dispatcher plumbing SHALL NOT publish context attachments, resolve skill inputs, prompt for skill choices, execute skills, discover native skill installations, or mutate project/installation state. If returned guidance calls for a user decision, that request SHALL be delivered to the agent as stdout context; the hook command SHALL NOT collect an answer or wait for one. Trusted condition calls SHALL follow the separate capability contract without a claim of isolation or rollback. An absent consumer or no matching active trait SHALL yield no guidance. Malformed nearest configuration SHALL be diagnosed rather than falling through to another consumer.
-
-Eligible trait bodies SHALL receive the same explicit-reference classification and per-message dynamic-resolution heading semantics as generated context attachments. Classification SHALL follow event matching and condition eligibility, inspect only metadata needed for eligible referenced names, and SHALL NOT evaluate skill inputs or dynamic content. Runtime metadata inspection SHALL use available bundled/local resources and bounded read-only lookup of already-materialized remote resources. It SHALL NOT acquire, refresh, install, or repair sources, binaries, or skills. Repeated names and source lookups SHALL be deduplicated within one dispatch. No eligible skill mentions SHALL mean no remote metadata inspection for annotation purposes.
-
-An operational failure to obtain remote metadata, including absence or timeout, SHALL leave the affected classification explicitly unknown, identify the affected skill in its delivered message, and report a diagnostic separately from the native stdout envelope. Unknown SHALL NOT be reported as ordinary or dynamically resolved. The message SHALL direct the agent to inspect the skill selected through its native integration and request Powerspec assembly only if that selected copy has a manifest. Unknown metadata SHALL NOT suppress independent eligible guidance. A missing name after successful inspection, a malformed readable manifest, or conflicting known classifications SHALL remain an authored-resource error without successful partial guidance. The existing five-second native handler limit SHALL remain unchanged; metadata inspection SHALL have a smaller finite budget and use the unknown fallback when it is exhausted.
+Hook dispatch SHALL use the hook process's working directory, also the condition cwd, and its nearest owning consumer within the Git boundary, including worktrees. Stdin SHALL NOT supply consumer location, event identity, variable values or user answers. It SHALL select matching runtime traits from the consumer's effective profiles and return agent-supported guidance. An absent consumer or no matching trait SHALL yield no guidance; malformed nearest configuration SHALL be diagnosed.
 
 #### Scenario: Shared dispatcher serves different projects
 - **WHEN** the same user-level dispatcher is invoked from two consumers with different effective hook traits
@@ -124,9 +118,7 @@ An operational failure to obtain remote metadata, including absence or timeout, 
 
 ### Requirement: Hook guidance uses fresh Python conditions
 
-Event-matched, non-excluded traits SHALL support an optional top-level Python when string through profile-skill-bundles. Dispatch SHALL bind the event's invocation cwd/environment, enclosing Git root including worktrees, and effective runtime vars. Change layers SHALL participate only with an explicit caller selector. Omission SHALL be unconditional; guarded bodies SHALL participate only when the result is Boolean true.
-
-Results SHALL be fresh at each matched Powerspec lifecycle boundary without persistence or cross-call caching. False SHALL omit only that trait, preserving other guidance and generic registrations. Variable keys SHALL NOT shadow capability names or fabricate probe results. Syntax/name/non-Boolean errors and unavailable required context SHALL be diagnostics without successful partial output. An operational run_json failure SHALL be diagnosed and omit only its owning optional trait while preserving successfully resolved unrelated trait guidance. No consumer or no eligible contribution SHALL execute any condition. Markers SHALL NOT establish index health. Conditions SHALL retain the foundation's trusted-rule contract without an isolation guarantee.
+Event-matched, non-excluded traits SHALL support an optional top-level Python when string through profile-skill-bundles. Dispatch SHALL bind the invocation cwd and environment, enclosing Git root including worktrees, and effective runtime vars, with change layers only under an explicit selector. Omission SHALL be unconditional; guarded bodies SHALL participate only on Boolean true. Results SHALL be fresh at each matched boundary, never persisted or cached, and false SHALL omit only that trait.
 
 #### Scenario: Executable without local marker
 - **WHEN** a trait requires which('codegraph') is not None and (git_root / '.codegraph').is_dir() but the directory is absent
@@ -154,9 +146,7 @@ Results SHALL be fresh at each matched Powerspec lifecycle boundary without pers
 
 ### Requirement: Powerspec owns portable hook selection
 
-Powerspec SHALL define logical hook selectors, agent-qualified native selectors, and exclusions prefixed with ~ on runtime traits. Powerspec SHALL own their mapping to native callbacks and agent response serialization; ZuAT SHALL manage the generated native assets. A supported context-delivery mapping SHALL require that the selected callback can actually deliver guidance to the agent. Unsupported mappings SHALL be reported rather than fabricated. For each trait, positive selectors SHALL be expanded before exclusions are applied. An agent-qualified negative selector SHALL exclude only the named native callback for that trait. It SHALL NOT suppress other traits, other callbacks for the same logical event, or the generic dispatcher registration.
-
-Codex sessionStart SHALL map only to native SessionStart sources startup and clear; Claude sessionStart SHALL map only to startup, clear, and fork. Both agents' afterCompaction SHALL map to the verified native context-delivery callback for compact. Powerspec SHALL NOT register callbacks for native resume, UserPromptSubmit, PreToolUse, PostToolUse, PermissionRequest, Stop, subagent, or session-end events. Each supported native mapping SHALL be verified for its event semantics and actual context delivery before the adapter claims support.
+Powerspec SHALL define logical hook selectors, agent-qualified native selectors and ~-prefixed exclusions on runtime traits, and own their mapping to native callbacks and response serialization, while ZuAT manages the generated native assets. A context-delivery mapping SHALL require that the callback can deliver guidance, and unsupported mappings SHALL be reported. Positive selectors SHALL expand before exclusions, and an agent-qualified exclusion SHALL remove only that callback for that trait.
 
 #### Scenario: Native callback cannot deliver context
 - **WHEN** a native callback can run commands but cannot deliver the intended guidance
@@ -189,13 +179,7 @@ Codex sessionStart SHALL map only to native SessionStart sources startup and cle
 
 ### Requirement: Provision generic user-level hook dispatchers through ZuAT
 
-Powerspec provisioning SHALL install generic `pspec resolve hook` command registrations on the explicitly selected agent's supported user-level hook surfaces through ZuAT. Every generated advisory command handler SHALL carry an explicit timeout of no more than five seconds and a concise status message. Registrations SHALL carry the native context needed to select guidance at invocation rather than embedding one consumer's profile or trait body, and SHALL NOT return a blocking host decision. Unsupported surfaces SHALL be reported without guessing native events or falling back to repository-local installation.
-
-Repeated provisioning SHALL preserve unrelated hooks/settings, reuse matching registrations, and report modified or unmanaged conflicts without silently overwriting them. Reconciliation SHALL replace safely owned earlier Powerspec registrations, including legacy command aliases and broader resume matchers, without retaining duplicate callbacks. It SHALL NOT remove or rewrite callbacks owned by another tool. Guidance selection SHALL remain a trait-level concern.
-
-Provisioning SHALL require complete inspection before any mutation. Current owned source-matching hooks SHALL be reused; safely outdated owned hooks SHALL be updated without force; exact unowned source-matching groups SHALL be adopted without rewriting native bytes; only verified absent groups SHALL be installed. Indeterminate, unsupported, ambiguous, or conflicting groups SHALL fail with diagnostics without an installation fallback.
-
-Explicit hook repair SHALL permit only a valid owned receipt conflict whose uniquely identified native group already matches the desired source. Repair SHALL use ZuAT's targeted recoverable update, preserve native bytes and modification time, and retain the recovery operation identifier. Authorization SHALL NOT permit replacement of edited content, positional overwrites, duplicate candidates, invalid receipts, or cross-provider targets.
+Provisioning SHALL install generic `pspec resolve hook` registrations on the selected agent's supported user-level hook surfaces through ZuAT, each advisory handler having an explicit timeout of at most five seconds and a concise status. Registrations SHALL carry the native context to select guidance at invocation, not one consumer's profile or trait body, and SHALL NOT return a blocking host decision.
 
 #### Scenario: Repeated dispatcher provisioning
 - **WHEN** the selected agent already has matching bounded Powerspec registrations alongside unrelated hooks
@@ -230,9 +214,13 @@ Explicit hook repair SHALL permit only a valid owned receipt conflict whose uniq
 - **WHEN** another writer restores the older owned hooks after Powerspec inspects a source-matching receipt conflict but before repair runs
 - **THEN** the provider rechecks receipt-only eligibility inside the update operation and rejects repair without replacing the concurrent content
 
+#### Scenario: Unsupported hook surface
+- **WHEN** the selected agent has no supported user-level hook surface for a logical event
+- **THEN** provisioning reports it without guessing a native event or falling back to repository-local hooks
+
 ### Requirement: Native matchers own event source filtering
 
-Installed native registration matchers SHALL select which supported lifecycle callbacks invoke Powerspec. The command's event and agent arguments SHALL select the corresponding supported mapping without inspecting stdin to revalidate native event names or source fields. Direct invocation of a supported logical event SHALL resolve its guidance without claiming that a native lifecycle event occurred. Existing startup, clear, supported fork, and compaction mappings, forbidden high-frequency registrations, five-second native handler timeouts, and per-trait exclusions SHALL remain in force.
+Installed native matchers SHALL select which supported lifecycle callbacks invoke Powerspec, and the command's event and agent arguments SHALL select the mapping without inspecting stdin to revalidate native event names or sources. Direct invocation of a supported logical event SHALL resolve its guidance without claiming a native event occurred. Existing mappings, forbidden high-frequency registrations, five-second handler timeouts and per-trait exclusions SHALL remain in force.
 
 #### Scenario: Resume does not start Powerspec
 - **WHEN** the native host emits SessionStart with source resume
@@ -247,7 +235,8 @@ Installed native registration matchers SHALL select which supported lifecycle ca
 - **THEN** the command returns applicable guidance without requiring proof of a native SessionStart event and without claiming the agent followed it
 
 ### Requirement: Standing memory guidance survives unavailable tooling
-The selected zmem standing rule SHALL be unconditional at existing startup and compaction boundaries. It SHALL NOT require a successful service probe to remain visible. It SHALL direct agents to report unavailable memory tooling and use Git/current-source evidence with that limitation, rather than claim a memory check or wait for permission for the authorized investigation. Missing remote skill metadata SHALL retain the existing explicit unknown-classification fallback. No prompt/tool callback or automatic service repair SHALL be added.
+
+The selected zmem standing rule SHALL be unconditional at existing startup and compaction boundaries, visible without a successful service probe. It SHALL direct agents to report unavailable memory tooling and use Git and current-source evidence with that limitation, rather than claim a memory check or wait for permission for authorized investigation. Missing remote skill metadata SHALL keep the explicit unknown fallback, and no prompt/tool callback or automatic repair SHALL be added.
 
 #### Scenario: Missing or unhealthy zmem
 - **WHEN** zmem is missing, unhealthy or cannot be probed
@@ -256,3 +245,139 @@ The selected zmem standing rule SHALL be unconditional at existing startup and c
 #### Scenario: Sources have not been initialized
 - **WHEN** remote zmem skill metadata has no selected materialization
 - **THEN** runtime output retains the rule with unknown classification and performs no acquisition
+
+### Requirement: Bootstrap trait delivers one compact reminder
+
+The builtin profile SHALL select the skill-bootstrap runtime trait. At supported sessionStart and afterCompaction boundaries it SHALL deliver one compact reminder to use bootstrap when a user request or applicable scenario needs a pspec: target, without a repeated skill-name mention. The reminder SHALL be guarded by effective selection of the bootstrap skill and SHALL be the same narrowly scoped reminder for every profile selecting the trait.
+
+#### Scenario: No repeated skill-name mention needed
+- **WHEN** applicable scenario guidance already calls for a pspec: target
+- **THEN** the reminder lets the agent use bootstrap without the user naming the skill again
+
+#### Scenario: Other profiles get the same reminder
+- **WHEN** a profile other than the builtin one selects the bootstrap trait
+- **THEN** it receives the same narrowly scoped reminder, not a universal pre-skill instruction
+
+### Requirement: Bootstrap reminder stays compact
+
+The bootstrap reminder SHALL contain no full skill inventory, target discovery descriptions, procedure bodies or complete routing procedure, and SHALL NOT request resolution of ordinary native skills. Selecting more unused resolve-only skills SHALL NOT expand it into an inventory or start procedural resolution. Lightweight scenario rules SHALL keep their conditions and target references without embedding target procedures.
+
+#### Scenario: Reminder carries no inventory
+- **WHEN** the bootstrap reminder is delivered
+- **THEN** it lists no skill inventory, discovery descriptions or procedure bodies
+
+#### Scenario: Scenario rule keeps only its reference
+- **WHEN** a lightweight scenario rule names a pspec: target
+- **THEN** it keeps its condition and reference without embedding that target's procedure
+
+### Requirement: Hook delivery claims stay separate from execution
+
+Hook selectors and authored guidance SHALL remain trait-owned, and supported native hooks SHALL invoke pspec resolve hook <event> at the sessionStart and afterCompaction boundaries. Documentation and validation SHALL distinguish installation, hook invocation, context delivery, agent adherence and skill execution; installing, dispatching, classifying or resolving guidance SHALL NOT claim that its workflow ran.
+
+#### Scenario: Hooks call the resolve command
+- **WHEN** a supported native sessionStart or afterCompaction hook fires
+- **THEN** it invokes pspec resolve hook with that logical event
+
+#### Scenario: Delivery is not execution
+- **WHEN** guidance has been installed, dispatched or resolved
+- **THEN** Powerspec does not report that the guided workflow ran
+
+### Requirement: Hook dispatch has no side effects
+
+Dispatcher plumbing SHALL NOT publish context attachments, resolve skill inputs, prompt for skill choices, execute skills, discover native skill installations or mutate project or installation state. Guidance requesting a user decision SHALL be delivered as stdout context without collecting or waiting for an answer. Trusted condition calls SHALL follow the separate capability contract without a claim of isolation or rollback.
+
+#### Scenario: Dispatch writes nothing
+- **WHEN** a hook dispatch completes
+- **THEN** no project, configuration or installation file was changed
+
+#### Scenario: Dispatch does not wait for answers
+- **WHEN** delivered guidance asks the user to decide something
+- **THEN** the hook command exits after delivering it without reading an answer
+
+### Requirement: Trait bodies get the same skill classification as contexts
+
+Eligible trait bodies SHALL get the same reference classification and per-message dynamic-resolution headings as context attachments, after event and condition eligibility, inspecting only eligible referenced names' metadata and never evaluating skill inputs or dynamic content. Metadata SHALL come from bundled or local resources and bounded read-only lookup of materialized remote resources, without acquiring, refreshing, installing or repairing anything, deduplicated within one dispatch.
+
+#### Scenario: No mentions, no metadata lookup
+- **WHEN** no eligible trait body mentions a skill
+- **THEN** dispatch performs no remote metadata inspection for annotations
+
+#### Scenario: Repeated names are looked up once
+- **WHEN** several eligible traits mention the same remote skill
+- **THEN** its metadata is looked up once within that dispatch
+
+### Requirement: Unavailable remote metadata is reported as unknown
+
+When remote metadata cannot be obtained, including absence or timeout, the classification SHALL be explicitly unknown, never ordinary or dynamic. The delivered message SHALL name the skill and direct the agent to request Powerspec assembly only if its native-selected copy has a manifest, with a diagnostic outside the stdout envelope. Unknown metadata SHALL NOT suppress other eligible guidance. Metadata inspection SHALL use a finite budget smaller than the unchanged five-second handler limit.
+
+#### Scenario: Unknown does not suppress other guidance
+- **WHEN** one mentioned skill's metadata is unknown
+- **THEN** other eligible guidance in the same dispatch is still delivered
+
+#### Scenario: Authored metadata errors still fail
+- **WHEN** inspection succeeds but the name is missing, a readable manifest is malformed, or known classifications conflict
+- **THEN** dispatch reports an authored-resource error without successful partial guidance
+
+### Requirement: Hook condition failures stay contained
+
+Variable keys SHALL NOT shadow capability names or fabricate probe results. Syntax, name or non-Boolean errors and unavailable required context SHALL be diagnostics without partial output, while an operational run_json failure SHALL omit only its owning optional trait. No consumer or no eligible contribution SHALL execute any condition. Markers SHALL NOT establish index health, and conditions SHALL keep the trusted-rule contract without an isolation guarantee.
+
+#### Scenario: Variable cannot shadow a capability
+- **WHEN** a runtime variable has the same name as a condition capability
+- **THEN** the capability keeps its meaning and no probe result is fabricated
+
+#### Scenario: Nothing eligible runs no condition
+- **WHEN** there is no consumer or no eligible contribution for the event
+- **THEN** no condition is executed
+
+#### Scenario: Condition error yields no partial output
+- **WHEN** a condition has a syntax, name or non-Boolean error
+- **THEN** dispatch reports a diagnostic and returns no partial guidance
+
+### Requirement: Native event mappings are fixed and verified
+
+Codex sessionStart SHALL map only to native SessionStart sources startup and clear, and Claude sessionStart only to startup, clear and fork; both agents' afterCompaction SHALL map to the verified context-delivery callback for compact. Powerspec SHALL NOT register native resume, UserPromptSubmit, PreToolUse, PostToolUse, PermissionRequest, Stop, subagent or session-end callbacks, and SHALL verify each mapping's semantics and context delivery before claiming support.
+
+#### Scenario: Claude fork starts a session
+- **WHEN** Claude starts a forked session
+- **THEN** its sessionStart guidance is delivered, while Codex has no fork mapping
+
+#### Scenario: High-frequency events are never registered
+- **WHEN** hooks are provisioned for any supported agent
+- **THEN** no prompt, tool, permission, stop, subagent or session-end callback is registered
+
+### Requirement: Hook reconciliation preserves foreign callbacks
+
+Repeated provisioning SHALL preserve unrelated hooks and settings, reuse matching registrations, and report modified or unmanaged conflicts without overwriting them. Reconciliation SHALL replace safely owned earlier Powerspec registrations, including legacy aliases and broader resume matchers, without duplicates, and SHALL NOT remove or rewrite callbacks owned by another tool. Guidance selection SHALL remain a trait-level concern.
+
+#### Scenario: Another tool's callback survives
+- **WHEN** the hook settings contain a callback owned by another tool
+- **THEN** provisioning leaves it in place unchanged
+
+#### Scenario: No duplicate callbacks after migration
+- **WHEN** an owned legacy Powerspec registration is replaced
+- **THEN** only the current registration remains
+
+### Requirement: Hook provisioning inspects completely before mutation
+
+Provisioning SHALL require complete inspection before any mutation. Current owned source-matching hooks SHALL be reused, safely outdated owned hooks updated without force, exact unowned source-matching groups adopted without rewriting bytes, and only verified absent groups installed. Indeterminate, unsupported, ambiguous or conflicting groups SHALL fail with diagnostics and no installation fallback.
+
+#### Scenario: Outdated owned hook is updated
+- **WHEN** an owned hook group is unmodified but older than the desired source
+- **THEN** provisioning updates it without requiring force
+
+#### Scenario: Only absent groups are installed
+- **WHEN** inspection verifies that no hook group exists yet
+- **THEN** provisioning installs it, and installs nothing when inspection is incomplete
+
+### Requirement: Hook receipt repair is narrow
+
+Explicit hook repair SHALL permit only a valid owned receipt conflict whose uniquely identified native group already matches the desired source, using ZuAT's targeted recoverable update that preserves native bytes and modification time and keeps the recovery operation identifier. It SHALL NOT permit replacing edited content, positional overwrites, duplicate candidates, invalid receipts or cross-provider targets.
+
+#### Scenario: Repair keeps the operation identifier
+- **WHEN** an explicit repair succeeds
+- **THEN** the recovery operation identifier is reported and native bytes and modification time are unchanged
+
+#### Scenario: Invalid receipt is not repaired
+- **WHEN** the ownership receipt is invalid or names another provider's target
+- **THEN** repair fails without changing the hooks

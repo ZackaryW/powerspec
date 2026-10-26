@@ -8,7 +8,7 @@ Prepare a group of Git repositories as implementation worktrees and publish thei
 
 ### Requirement: Add registers a Git source through OpenSpec
 
-`pspec workset add <name> --path <path>` SHALL validate the given local Git checkout and create or append to the named OpenSpec source workset, using the repository root's directory name as its default member label. Repeated addition of the same repository SHALL be unchanged. An existing label bound to a different repository SHALL produce a conflict. Existing members, order, and preferred opener SHALL be preserved. The operation SHALL NOT create branches, worktrees, or a second Powerspec member registry. To append, Powerspec SHALL retain and recheck the original definition, remove the saved workset through OpenSpec, recreate it with the additional member last, and verify the resulting definition. It SHALL NOT delete member folders or edit OpenSpec's internal registry directly. This sequence SHALL NOT be represented as atomic.
+`pspec workset add <name> --path <path>` SHALL validate the local Git checkout and create or append to the named OpenSpec source workset, labelling the member by its repository root's directory name by default. A repeated addition SHALL leave it unchanged, a label bound to another repository SHALL conflict, and existing members, order and opener SHALL be preserved. The operation SHALL NOT create branches, worktrees or a second Powerspec member registry.
 
 #### Scenario: Create a source workset
 - **WHEN** `pspec workset add delivery --path C:\repos\backend` identifies a valid repository and `delivery` does not exist
@@ -32,7 +32,7 @@ Prepare a group of Git repositories as implementation worktrees and publish thei
 
 ### Requirement: Launch uses every source repository
 
-`pspec workset launch <name> --branch <branch>` SHALL read the named OpenSpec workset and prepare every distinct member repository, preserving member order. It SHALL validate membership through Git, including checkouts whose `.git` is a file. Member subfolders SHALL resolve to their containing checkout; multiple members for the same Git repository SHALL produce one implementation worktree using the first member's label. Conflicting overrides through different labels for the same repository SHALL fail. A missing folder, non-Git member, bare repository, or repository without a usable commit SHALL fail validation rather than being silently skipped. Launch SHALL work without requiring a Powerspec consumer in the invoking directory.
+`pspec workset launch <name> --branch <branch>` SHALL prepare every distinct member repository of the named workset in order, validating membership via Git, including `.git` files. Member subfolders SHALL resolve to their checkout, and members sharing a repository SHALL yield one worktree under the first label; conflicting overrides via different labels SHALL fail. Missing, non-Git, bare or commitless members SHALL fail, not be skipped. No consumer SHALL be required in the invoking directory.
 
 #### Scenario: Launch two repositories
 - **WHEN** `delivery` contains backend and frontend and the user launches it with branch `payments`
@@ -48,7 +48,7 @@ Prepare a group of Git repositories as implementation worktrees and publish thei
 
 ### Requirement: Indexed options override named members
 
-Launch SHALL accept a required shared `--branch`, optional `--name`, and positive integer indexed groups `--repoN`, `--branchN`, `--remoteN`, and `--worktreeN` without a fixed maximum group count. `--repoN` SHALL identify an existing source member label; each other indexed flag SHALL require its corresponding selector. Overrides SHALL affect that member only and SHALL NOT filter other repositories. Index gaps SHALL be allowed. Unknown options, repeated fields, duplicate repository selectors, missing values, and unknown labels SHALL fail before effects. `--remoteN` SHALL identify a remote-tracking branch such as `origin/main`, not merely a remote name or clone URL.
+Launch SHALL accept a required shared `--branch`, optional `--name`, and unbounded positive indexed groups `--repoN`, `--branchN`, `--remoteN` and `--worktreeN`, where `--repoN` names an existing member label and each other flag requires its selector. Overrides SHALL affect only that member without filtering others, and index gaps SHALL be allowed. Unknown options, repeated fields, duplicate selectors, missing values and unknown labels SHALL fail before effects.
 
 #### Scenario: Override one branch
 - **WHEN** the command is `pspec workset launch delivery --branch payments --repo1 frontend --branch1 payments-ui`
@@ -62,9 +62,13 @@ Launch SHALL accept a required shared `--branch`, optional `--name`, and positiv
 - **WHEN** the command supplies `--branch2 payments-ui` without `--repo2`
 - **THEN** it reports the missing selector before any persistent effect
 
+#### Scenario: Remote option needs a tracking branch
+- **WHEN** `--remoteN` is given only a remote name or a clone URL
+- **THEN** launch fails before effects because it requires a remote-tracking branch such as `origin/main`
+
 ### Requirement: Source checkouts remain advisory
 
-Launch SHALL preserve source checkout branches, indexes, and unrelated staged, unstaged, and untracked files. An explicitly selected change transfer SHALL be the sole exception: it carries that change's current files and, in move mode, removes only verified source change files at the end. The source repository's `main` branch SHALL be the default starting ref for a new branch, independently of the source checkout's current branch. An explicit `--remoteN` SHALL replace that starting ref. Missing starting refs SHALL fail rather than falling back to an unrelated checkout commit. Launch SHALL use locally available refs and SHALL NOT implicitly fetch, pull, clone, or copy unrelated uncommitted source changes into worktrees.
+Launch SHALL preserve source checkout branches, indexes and unrelated staged, unstaged and untracked files. Only an explicitly selected change transfer SHALL carry its files and, when moving, remove verified source change files at the end. A new branch SHALL start from the source repository's `main` unless `--remoteN` replaces it, and a missing starting ref SHALL fail without fallback. Launch SHALL use local refs, never fetching, pulling, cloning or copying unrelated uncommitted changes.
 
 #### Scenario: Source is dirty and checked out elsewhere
 - **WHEN** a source checkout is on `review` with uncommitted changes and its local `main` exists
@@ -78,9 +82,13 @@ Launch SHALL preserve source checkout branches, indexes, and unrelated staged, u
 - **WHEN** a new branch requires `main` or an explicit remote-tracking ref that is absent
 - **THEN** preflight reports the missing ref without fetching or substituting HEAD
 
+#### Scenario: Source on another branch still starts from main
+- **WHEN** the source checkout has a feature branch checked out and no `--remoteN` is given
+- **THEN** the new branch starts from the source repository's `main`
+
 ### Requirement: Standard linked worktrees have predictable destinations
 
-Launch SHALL create standard Git linked worktrees outside the original checkouts. The default destination SHALL be a sibling of the repository's original checkout named `<repo-name>-<branch-token>`. `--worktreeN` SHALL replace the directory name, not the target branch. Generated branch tokens SHALL lowercase names, replace runs outside ASCII lowercase letters, digits, and hyphens with a hyphen, and trim leading and trailing hyphens. Empty tokens and collisions SHALL fail before creation. Explicit worktree names SHALL be single portable directory components: no separators, traversal names, platform-reserved names, invalid filename characters, or trailing dots/spaces. Git branch names themselves SHALL remain unchanged and be validated by Git.
+Launch SHALL create standard Git linked worktrees outside the originals, by default as a sibling named `<repo-name>-<branch-token>`, where `--worktreeN` replaces the directory name, not the branch. Branch tokens SHALL be lowercase, with runs outside `[a-z0-9-]` made one hyphen and edge hyphens trimmed; empty tokens and collisions SHALL fail before creation. Explicit worktree names SHALL be single portable directory components, and Git branch names SHALL stay unchanged and be validated by Git.
 
 #### Scenario: Branch with a slash
 - **WHEN** backend is launched on `feature/payments`
@@ -94,9 +102,13 @@ Launch SHALL create standard Git linked worktrees outside the original checkouts
 - **WHEN** a custom name escapes the destination parent or multiple planned paths collide
 - **THEN** launch reports the conflict without creating any worktree
 
+#### Scenario: Non-portable worktree name
+- **WHEN** `--worktreeN` contains a separator, traversal name, platform-reserved name, invalid filename character, or trailing dot or space
+- **THEN** launch fails before creating anything
+
 ### Requirement: Existing branches and worktrees are preserved
 
-An existing target branch SHALL be checked out at its current commit without reset. A healthy linked worktree at the expected path with the expected repository identity and branch SHALL be reused, preserving any new commits and local modifications. An occupied incompatible path, prunable or unusable worktree, or target branch checked out at another path SHALL cause a conflict; launch SHALL NOT force checkout, move, delete, or repair it automatically. An explicit remote starting ref combined with an existing branch SHALL conflict unless a matching worktree is being reused. For matching reuse, the remote option SHALL be treated solely as the original creation input and SHALL NOT reset or retest the branch tip against the starting commit. Original source checkouts SHALL never be reused as implementation members.
+An existing target branch SHALL be checked out at its current commit without reset, and a healthy linked worktree at the expected path with the expected repository and branch SHALL be reused with its commits and changes. Incompatible occupied paths, prunable or unusable worktrees, or a branch checked out elsewhere SHALL conflict without forced checkout, move, deletion or repair. Original source checkouts SHALL never be reused as implementation members.
 
 #### Scenario: Reuse existing local branch
 - **WHEN** the target branch exists, is not checked out elsewhere, and no remote starting override is supplied
@@ -114,9 +126,13 @@ An existing target branch SHALL be checked out at its current commit without res
 - **WHEN** the target branch is already checked out at an unexpected path or in the original checkout
 - **THEN** launch reports the occupied branch and preserves the checkout
 
+#### Scenario: Reuse ignores the remote starting point
+- **WHEN** a matching worktree is reused while `--remoteN` was given
+- **THEN** the remote is treated only as the original creation input and the branch tip is neither reset nor compared with it
+
 ### Requirement: Preflight and retries preserve partial progress
 
-Launch SHALL validate options, prerequisites, every repository/ref/destination, store identity mappings, selected change ownership, and output workset compatibility before creating branches or worktrees. It SHALL report all independently discoverable preflight conflicts together. It SHALL recheck mutation-sensitive facts when applying the plan and stop on an execution failure. Successful worktrees, store registrations, pointer edits, transferred files, and any Git effects left by a failed operation SHALL be preserved and reported. A later invocation SHALL inspect actual state and reuse matching completed effects. Launch SHALL NOT publish a new output workset while any member, store routing, or requested destination change verification is incomplete. Final source cleanup SHALL follow publication. Launch SHALL NOT claim cross-repository atomicity or perform automatic rollback.
+Launch SHALL validate options, prerequisites, every repository, ref and destination, store mappings, change ownership and output compatibility before creating branches or worktrees, reporting all discoverable conflicts together. It SHALL recheck mutation-sensitive facts while applying and stop on an execution failure. Completed worktrees, registrations, pointer edits, transferred files and leftover Git effects SHALL be kept and reported, and later runs SHALL reuse matching effects.
 
 #### Scenario: Preflight finds multiple conflicts
 - **WHEN** one repository lacks its starting ref and another has an occupied destination
@@ -132,7 +148,7 @@ Launch SHALL validate options, prerequisites, every repository/ref/destination, 
 
 ### Requirement: Complete launches publish an OpenSpec workset
 
-After every member, spawned store registration, mapped pointer, and requested destination change is ready, Powerspec SHALL create an OpenSpec workset named `<source-workset-name>-<branch-token>` unless `--name` supplies a valid OpenSpec name. The shared branch SHALL determine the default workset name regardless of per-repository branch overrides. The output SHALL contain only implementation worktree roots with their retained labels and order. The source workset membership SHALL remain unchanged. A matching existing output workset SHALL be treated as already registered; a differing member list or a name equal to the source name SHALL conflict without overwrite. Registration failure SHALL preserve all prepared worktrees and the selected source change, report failure, and permit registration to be retried. Powerspec SHALL use OpenSpec's supported interface for registry mutations.
+Once every member, spawned store, mapped pointer and requested change is ready, Powerspec SHALL create an OpenSpec workset named `<source-workset-name>-<branch-token>` from the shared branch, or a valid `--name`, holding only implementation roots with their labels and order, leaving the source workset unchanged. A matching existing output SHALL count as registered; differing members or the source's name SHALL conflict without overwrite. Registry changes SHALL use OpenSpec's supported interface.
 
 #### Scenario: Publish implementation paths
 - **WHEN** `delivery` is fully launched with shared branch `payments` and frontend override `payments-ui`
@@ -152,7 +168,7 @@ After every member, spawned store registration, mapped pointer, and requested de
 
 ### Requirement: Opening stays with OpenSpec
 
-Workset commands SHALL report concise human-readable outcomes by default and support `--json`. Launch success SHALL identify the output workset, each repository's path and branch and whether it was created or reused, spawned store ID mappings, requested change-transfer status, and a ready-to-run `openspec workset open <output-name> --tool code` command. Powerspec SHALL NOT launch an editor itself. JSON mode SHALL emit one result object on stdout, including partial outcomes on operational failure, while diagnostics go to stderr. Usage errors SHALL exit 2, operational failures 1, and success 0. Reading help SHALL cause no persistent effects.
+Workset commands SHALL report concise human outcomes by default and support `--json`. Launch success SHALL report the output workset, each repository's path, branch and created/reused status, store mappings, transfer status and a ready `openspec workset open <output-name> --tool code` command, without opening an editor. JSON mode SHALL emit one stdout object, including partial outcomes, with diagnostics on stderr. Exit codes SHALL be 2 for usage errors, 1 for operational failure, 0 for success.
 
 #### Scenario: Successful handoff
 - **WHEN** launch successfully prepares and registers `delivery-payments`
@@ -162,9 +178,13 @@ Workset commands SHALL report concise human-readable outcomes by default and sup
 - **WHEN** JSON launch fails after one successful worktree
 - **THEN** stdout contains one failure result with that completed worktree and the failing stage, stderr contains the diagnostic, and the exit code is 1
 
+#### Scenario: Help has no effects
+- **WHEN** a user reads workset command help
+- **THEN** nothing persistent changes
+
 ### Requirement: Spawned stores use their owning branch in their identity
 
-Every store represented in a launched source repository SHALL receive a registration for its corresponding spawned root named `<original-store-name>-<effective-branch-token>`, even when `--change` is absent. The token SHALL use the owning repository's effective branch and the existing branch-token normalization rule. Custom workset names SHALL NOT change store IDs. The spawned identity metadata SHALL match its new registered ID while preserving unrelated metadata. Original store identities, registrations, and global default selection SHALL remain unchanged. Existing generated IDs at the expected root SHALL be reused; IDs bound to other roots, conflicting identities, or multiple stores generating the same ID SHALL fail without replacing registrations. Ordinary code roots SHALL NOT become stores merely because they are workset members.
+Each store in a launched repository SHALL be registered for its spawned root as `<original-store-name>-<effective-branch-token>`, even without `--change`, using its repository's effective branch and the token rule; custom workset names SHALL NOT change store IDs. Spawned identity metadata SHALL match the new ID, keeping unrelated metadata, and original identities, registrations and the global default SHALL stay unchanged. Ordinary code roots SHALL NOT become stores merely as members.
 
 #### Scenario: Register every store without change transfer
 - **WHEN** a workset contains stores `specifications` and `contracts`, launched on `payments` without `--change`
@@ -178,9 +198,13 @@ Every store represented in a launched source repository SHALL receive a registra
 - **WHEN** `specifications-payments` is registered at a different directory
 - **THEN** preflight reports the conflict without repointing it or unregistering the source store
 
+#### Scenario: Existing generated ID is reused
+- **WHEN** the expected spawned store ID is already registered at the expected root
+- **THEN** launch reuses that registration instead of replacing it
+
 ### Requirement: Spawned pointers resolve mapped stores
 
-Launch SHALL rewrite recognized OpenSpec store-pointer fields inside spawned worktrees from original IDs to their mapped spawned IDs, preserving unrelated configuration. It SHALL leave original checkout configuration and references to stores outside the launch mapping unchanged. It SHALL verify effective OpenSpec resolution at each rewritten consumer; a successful text edit alone SHALL NOT count as successful routing. A reused worktree with an unexpected conflicting pointer or store identity SHALL produce a conflict rather than having user changes overwritten. Launch SHALL NOT expand membership to include external stores automatically.
+Launch SHALL rewrite recognized OpenSpec store-pointer fields in spawned worktrees from original to mapped spawned IDs, keeping unrelated configuration, original checkouts and references outside the mapping. It SHALL verify effective OpenSpec resolution at each rewritten consumer, and a text edit alone SHALL NOT count as routing. A reused worktree with a conflicting pointer or store identity SHALL conflict rather than be overwritten, and launch SHALL NOT add external stores to membership.
 
 #### Scenario: Code worktree follows its specification worktree
 - **WHEN** backend's source configuration points to `specifications` and that store is spawned on `payments`
@@ -192,7 +216,7 @@ Launch SHALL rewrite recognized OpenSpec store-pointer fields inside spawned wor
 
 ### Requirement: Change selection is bounded to source workset owners
 
-`--change <name>` SHALL resolve an active change among distinct OpenSpec roots represented by the source workset. Multiple members reaching the same root SHALL count as one owner. A unique match SHALL select that owner automatically; distinct matching owners SHALL require `--store <original-store-id>` and report the candidates. The selector SHALL refer to a store in the source workset and SHALL NOT change repository inclusion. No match, an archived-only match, an out-of-workset selector, or an owner without a corresponding launched checkout SHALL fail before effects. `--store` and `--keep-source` SHALL require `--change`. Global default stores outside the workset SHALL NOT participate in discovery.
+`--change <name>` SHALL resolve an active change among distinct OpenSpec roots in the source workset, counting members that reach one root once. A unique match SHALL select its owner; distinct matches SHALL require `--store <original-store-id>` and report candidates, without changing repository inclusion. No match, archived-only matches, an out-of-workset selector, or an owner without a launched checkout SHALL fail before effects. `--store` and `--keep-source` SHALL require `--change`.
 
 #### Scenario: Find a unique owner
 - **WHEN** only `specifications` contains active change `add-payments` within `delivery`
@@ -206,9 +230,13 @@ Launch SHALL rewrite recognized OpenSpec store-pointer fields inside spawned wor
 - **WHEN** multiple distinct roots match without a selector, or the supplied selector is outside the workset
 - **THEN** launch reports an ownership error and performs no mutations
 
+#### Scenario: Global default store is ignored
+- **WHEN** a global default store outside the source workset contains a matching change
+- **THEN** it does not participate in change discovery
+
 ### Requirement: Change transfer preserves the complete selected directory
 
-Change transfer SHALL target the same relative change path within its owner's spawned OpenSpec root, without distributing copies to other repositories. It SHALL preserve the complete current directory, including metadata, nested artifacts, and uncommitted or untracked planning files. It SHALL NOT copy unrelated source files or temporal consumer state. An identical existing destination SHALL be reusable; differing destination content SHALL cause a conflict without overwrite. Links or special files that cannot be safely copied within the selected boundary SHALL be rejected. The copied tree SHALL be verified against its source snapshot and the change SHALL resolve through OpenSpec at the destination. Incomplete planning artifacts SHALL not by themselves prevent transfer. Missing required configuration or schema resources SHALL be reported before source removal.
+Change transfer SHALL target the same relative change path in its owner's spawned OpenSpec root only, copying the complete current directory, including metadata, nested artifacts and uncommitted or untracked planning files, but no unrelated files or temporal state. An identical destination SHALL be reused; differing content SHALL conflict without overwrite. Unsafe links or special files SHALL be rejected. The copy SHALL match its source snapshot and resolve through OpenSpec at the destination.
 
 #### Scenario: Transfer uncommitted planning files
 - **WHEN** the selected change includes `.openspec.yaml`, a modified proposal, and an untracked supplementary document and its target is absent
@@ -222,9 +250,13 @@ Change transfer SHALL target the same relative change path within its owner's sp
 - **WHEN** an active change has valid metadata and a proposal but no tasks yet
 - **THEN** it can transfer without creating missing artifacts or claiming implementation readiness
 
+#### Scenario: Missing configuration is reported before removal
+- **WHEN** the destination lacks required OpenSpec configuration or schema resources
+- **THEN** transfer reports it before any source removal
+
 ### Requirement: Moving cleans the source only after successful handoff
 
-`--change` SHALL move by default; `--keep-source` SHALL copy and retain the source. In move mode, source cleanup SHALL begin only after all worktrees, store registrations, mapped pointers, verified destination content, and output workset registration succeed. Source entries SHALL be rechecked against the transferred snapshot and only unchanged verified entries SHALL be removed. Concurrent additions or edits SHALL be preserved and reported as incomplete cleanup. Failure SHALL preserve the destination and report workspace readiness separately from transfer completion with a nonzero exit status. Tracked source removals SHALL remain ordinary Git working-tree deletions; Powerspec SHALL NOT stage, commit, or archive them automatically.
+`--change` SHALL move by default, and `--keep-source` SHALL copy and keep the source. In move mode, cleanup SHALL begin only after worktrees, store registrations, mapped pointers, verified destination content and output workset registration succeed, and SHALL remove only entries still matching the transferred snapshot, preserving and reporting concurrent edits. Failure SHALL keep the destination and exit nonzero, reporting workspace readiness separately from transfer completion.
 
 #### Scenario: Default move completes
 - **WHEN** transfer verification and all registrations succeed and source content remains unchanged
@@ -242,9 +274,13 @@ Change transfer SHALL target the same relative change path within its owner's sp
 - **WHEN** copying succeeds but store or output workset registration has not succeeded
 - **THEN** the source is retained and all completed effects are reported for retry
 
+#### Scenario: Removals are left unstaged
+- **WHEN** move mode removes tracked source change files
+- **THEN** they remain ordinary working-tree deletions that Powerspec does not stage, commit or archive
+
 ### Requirement: Transfer retries distinguish completed moves from missing changes
 
-Transfer SHALL retain local, uncommitted progress evidence identifying the selected source, mapped destination, snapshot, transfer mode, and completed stages. Retries SHALL validate that evidence against the requested launch and observed state. A missing source alone SHALL NOT establish a completed move. A matching completed transfer with a resolvable destination SHALL be recognized without overwriting later implementation edits. Partial cleanup SHALL resume only for remaining source entries that still match the verified snapshot and after destination content is verified; unexpected content SHALL remain untouched. For long receipt filenames whose destination paths and short sibling temporary files are supported by the host, transfer SHALL retain and update progress evidence without requiring shorter repository locations or changes to operating-system path policy. Existing receipt identities and locations SHALL remain compatible across this correction.
+Transfer SHALL keep local, uncommitted progress evidence naming source, mapped destination, snapshot, mode and completed stages, and retries SHALL validate it against the requested launch and observed state. A missing source alone SHALL NOT establish a completed move. A matching completed transfer with a resolvable destination SHALL be recognized without overwriting later edits, and partial cleanup SHALL resume only for entries still matching the verified snapshot after destination verification.
 
 #### Scenario: Repeat after completed move
 - **WHEN** the source change is absent, a matching completion receipt exists, and implementation has updated the destination
@@ -267,3 +303,31 @@ Transfer SHALL retain local, uncommitted progress evidence identifying the selec
 - **WHEN** a launch has prepared worktrees but cannot publish its initial transfer progress evidence
 - **THEN** it reports the transfer failure, preserves the selected source and completed worktrees, and does not publish an incomplete output workset
 - **AND** after the publication problem is corrected, a retry reuses matching worktrees and completes the requested transfer
+
+#### Scenario: Receipt identities stay compatible
+- **WHEN** a retry finds progress evidence written by an earlier Powerspec version
+- **THEN** its existing receipt identity and location are still recognized
+
+### Requirement: Appending recreates the workset through OpenSpec
+
+To append a member, Powerspec SHALL keep and recheck the original definition, remove the saved workset through OpenSpec, recreate it with the new member last, and verify the result. It SHALL NOT delete member folders or edit OpenSpec's internal registry directly, and SHALL NOT present this sequence as atomic.
+
+#### Scenario: Append verifies the recreated definition
+- **WHEN** a member is appended to an existing workset
+- **THEN** the recreated definition is compared with the intended members before success is reported
+
+#### Scenario: Member folders are untouched
+- **WHEN** the saved workset is removed during an append
+- **THEN** no member folder is deleted and OpenSpec's registry is changed only through OpenSpec
+
+### Requirement: Launch publishes only after full verification
+
+Launch SHALL NOT publish a new output workset while any member, store routing or requested destination change verification is incomplete, and final source cleanup SHALL follow publication. Launch SHALL NOT claim cross-repository atomicity or perform automatic rollback.
+
+#### Scenario: Incomplete verification blocks publication
+- **WHEN** one member's store routing cannot be verified
+- **THEN** no output workset is published
+
+#### Scenario: No automatic rollback
+- **WHEN** a launch fails after some worktrees were created
+- **THEN** those effects remain and are reported rather than rolled back

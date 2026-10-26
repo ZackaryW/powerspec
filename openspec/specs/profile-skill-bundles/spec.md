@@ -8,7 +8,7 @@ Compose reusable resource references, defaults, and installation targets from co
 
 ### Requirement: Global profiles mount unless explicitly excluded
 
-A profile marked global = true SHALL participate automatically, including when the consumer has no selected profile or an empty profile string, unless explicitly excluded by the selected profile or the consumer. Empty selection SHALL contribute no selected-profile defaults or resources while retaining all eligible global contributions. Global discovery SHALL use configured resource catalogs rather than searching arbitrary repositories. Explicit exclusions SHALL use exclude-profiles with qualified profile identities in selected profiles or consumer configuration. A global profile SHALL be mounted once even if explicitly referenced. Explicit selection of an excluded profile SHALL report a configuration conflict. Exclusion SHALL remove its contributed defaults and resources without silently reintroducing them through automatic mounting. Mounting SHALL not execute a skill.
+A profile marked global = true SHALL participate automatically, including with no or an empty selected profile, unless the selected profile or consumer excludes it through exclude-profiles with qualified identities. Empty selection SHALL contribute no selected-profile defaults or resources while keeping eligible globals. Global discovery SHALL use configured catalogs, not arbitrary repositories, and a global profile SHALL mount once even if referenced. Mounting SHALL NOT execute a skill.
 
 #### Scenario: Normal builtin mount
 - **WHEN** the Python CLI profile is selected and the global builtin profile is not excluded
@@ -24,9 +24,17 @@ A profile marked global = true SHALL participate automatically, including when t
 - **THEN** it contributes no automatic bootstrap selection or defaults
 - **AND** the result does not pretend bootstrap is active because a previous installation happens to remain
 
+#### Scenario: Selecting an excluded profile conflicts
+- **WHEN** a profile is both explicitly selected and excluded
+- **THEN** composition reports a configuration conflict
+
+#### Scenario: Excluded global is not remounted
+- **WHEN** a global profile is excluded
+- **THEN** its defaults and resources are removed and automatic mounting does not reintroduce them
+
 ### Requirement: Profiles reference resources and supply defaults
 
-Profiles SHALL reference contexts and traits through separate optional lists of qualified resource-reference strings. The optional skills and resolve-skills lists SHALL use qualified resource references for packaged or registered catalog resources and `<source-alias>/<path-pattern>` strings for direct paths in a declared Git source. skills SHALL select resources for native installation and explicit Powerspec resolution. resolve-skills SHALL select resources for explicit Powerspec resolution without creating native installation targets. Both lists SHALL participate in the same effective profile graph after exclusions, retain source provenance, and require matching source declarations for direct Git selections. Profiles SHALL provide defaults without copying resource definitions or runtime answers. Explicit project values SHALL override selected-profile defaults, which SHALL override global-profile defaults. Conflicting same-precedence defaults, unknown source aliases, or ambiguous resource identities SHALL be diagnosed rather than silently selected by traversal order. Repeated skill installations SHALL be deduplicated by resolved identity, target agent, scope, and project root where applicable. Distinct installation scopes SHALL NOT be collapsed. Excluding a profile SHALL not uninstall shared user-level skills as a side effect.
+Profiles SHALL reference contexts and traits through separate optional lists of qualified references. The optional skills and resolve-skills lists SHALL use qualified references for catalog resources and `<source-alias>/<path-pattern>` for declared Git sources; skills SHALL select for native installation and Powerspec resolution, and resolve-skills only for Powerspec resolution. Both lists SHALL share the profile graph after exclusions, keep provenance and need matching source declarations.
 
 #### Scenario: Local override
 - **WHEN** the global and selected profiles supply defaults and the project overrides a key
@@ -50,11 +58,7 @@ Profiles SHALL reference contexts and traits through separate optional lists of 
 
 ### Requirement: Python CLI bundle makes TDD available without BDD
 
-The first bundle SHALL combine Python CLI project-description guidance and defaults with TDD skill availability. It SHALL NOT select a BDD skill or evaluate BDD inputs. The shared TDD procedure SHALL live in SKILL.md, with Python additions placed through the skill's pspec.toml dynamic entries rather than always-published OpenSpec instructions. A profile language default SHALL remain overridable by consumer and temporal values. Other historical traits and bundles SHALL require separate review rather than automatic migration into this bundle.
-
-The Python CLI profile SHALL supply language = "python", cli_framework = "typer", build_tool = "uv", test_runner = "pytest", and test_command = "uv run pytest" as overridable defaults. The Python CLI context SHALL declare typed compile-time inputs, with matching fallbacks for framework, build tool, runner, and test command. utility_path SHALL be supplied by persistent configuration or a profile rather than assuming a package name. Guidance SHALL cover CLI contracts, thin command handlers, utility responsibilities, and verification proportional to the changed boundary. Its TDD reference SHALL apply to behavior implementation, not environment-only work, documentation, or investigation; the skill procedure itself SHALL remain outside compiled context.
-
-The Python CLI profile SHALL reference @builtin/utils-planning-aware through its profiles list. The resulting bundle SHALL include utility planning and utility-before-wiring guidance and the pspec-plan-utilities skill, retaining a single same-target pspec-tdd contribution when both profiles reference it.
+The first bundle SHALL combine Python CLI guidance and defaults with TDD skill availability, without selecting a BDD skill or evaluating BDD inputs. The shared TDD procedure SHALL live in SKILL.md, with Python additions placed through its pspec.toml dynamic entries rather than always-published OpenSpec instructions. A profile language default SHALL remain overridable by consumer and temporal values. Other historical traits and bundles SHALL need separate review, not automatic migration into it.
 
 #### Scenario: Python CLI tooling defaults
 - **WHEN** the Python CLI profile is selected without tooling overrides
@@ -74,7 +78,7 @@ The Python CLI profile SHALL reference @builtin/utils-planning-aware through its
 
 ### Requirement: Compile-time context values resolve without interaction
 
-Compile-time declarations SHALL specify an id and type, with optional choices and default. Effective values SHALL follow consumer config.toml [vars], selected-profile defaults, global-profile defaults, then the declaration's default. Compile-time resolution SHALL NOT prompt or consume current.toml. Missing or invalid required values SHALL produce configuration diagnostics rather than activating a runtime question or falling back from an invalid explicit value. This contract describes inputs to future context compilation; it does not require implementing general synchronization in this change.
+Compile-time declarations SHALL specify an id and type, with optional choices and default. Effective values SHALL follow consumer config.toml [vars], selected-profile defaults, global-profile defaults, then the declaration default, without prompting or consuming current.toml. Missing or invalid required values SHALL produce configuration diagnostics, not runtime questions or fallback from an invalid explicit value.
 
 #### Scenario: Context fallback is used
 - **WHEN** no persistent or profile layer supplies build_tool and its declaration defaults to uv
@@ -94,9 +98,7 @@ Compile-time declarations SHALL specify an id and type, with optional choices an
 
 ### Requirement: Contexts and traits have distinct evaluation ownership
 
-Catalogs SHALL expose compile-time contexts under contexts/ and runtime traits under traits/. Profiles SHALL select them through separate contexts and traits lists alongside skills and vars. The referencing list SHALL identify the resource kind; a context and trait with the same source/name SHALL remain distinct identities. Context resources SHALL declare attach destinations and optional compiletime inputs and per-attachment when conditions for future config.yaml synchronization. Runtime traits SHALL declare hooks and a guidance body, with an optional top-level when condition, for event-time resolution. Neither resource SHALL require or accept a mode discriminator.
-
-Context resources SHALL reject hooks and a top-level runtime body/when. Runtime traits SHALL reject attach destinations and compiletime inputs. Mixed resource shapes and legacy config/hook mode declarations SHALL produce migration diagnostics rather than silently changing ownership. Profiles SHALL NOT own attachment destinations or hook selectors. Composition SHALL retain both resource kinds without compiling contexts, dispatching traits, or executing skills.
+Catalogs SHALL expose compile-time contexts under contexts/ and runtime traits under traits/, selected through separate profile lists, so a same-named context and trait stay distinct. Contexts SHALL declare attach destinations, optional compiletime inputs and per-attachment when; traits SHALL declare hooks and a guidance body with an optional top-level when. Neither SHALL require or accept a mode discriminator; composition SHALL keep both without compiling, dispatching or executing.
 
 #### Scenario: Python CLI context is selected
 - **WHEN** a profile selects @builtin/python-simple-cli through its contexts list
@@ -116,9 +118,7 @@ Context resources SHALL reject hooks and a top-level runtime body/when. Runtime 
 
 ### Requirement: Guidance conditions use Python expressions
 
-Context attachment entries and top-level runtime trait bodies SHALL support an optional when string containing one Python expression. Omission SHALL be unconditional. Conditions SHALL retain ordinary Python expression semantics, including Boolean combinations, comparison, indexing, method calls, and short-circuit order. Results SHALL be actual Booleans; non-Boolean results and syntax/name/evaluation errors SHALL produce resource/contribution diagnostics instead of truthiness coercion, false, or ordinary fallback.
-
-Composition SHALL validate condition shape and syntax without running expressions/capabilities. Legacy [[check]] declarations and check-ID when maps SHALL be rejected with migration diagnostics. Bodies/defaults/ordinary TOML strings SHALL NOT be executed as code. Skill-manifest equality-map guards and typed hint detectors SHALL retain their separate contract.
+Context attachment entries and top-level runtime trait bodies SHALL support an optional when string holding one Python expression, and omission SHALL be unconditional. Conditions SHALL keep ordinary Python semantics, including Boolean operators, comparison, indexing, method calls and short-circuiting, and SHALL return real Booleans; non-Boolean results and syntax, name or evaluation errors SHALL be diagnostics, never coerced, false or fallback.
 
 #### Scenario: CodeGraph condition
 - **WHEN** an eligible trait evaluates which('codegraph') is not None and (git_root / '.codegraph').is_dir()
@@ -140,13 +140,17 @@ Composition SHALL validate condition shape and syntax without running expression
 - **WHEN** body/default text resembles a Python expression
 - **THEN** it remains data without execution
 
+#### Scenario: Composition validates without running
+- **WHEN** a catalog with conditions is composed
+- **THEN** condition shape and syntax are validated without running any expression or capability
+
+#### Scenario: Skill manifest guards keep their own rules
+- **WHEN** a skill manifest uses an equality-map guard or typed hint detector
+- **THEN** that construct follows its separate contract rather than Python condition rules
+
 ### Requirement: Condition bindings follow resource ownership
 
-Each evaluation SHALL receive explicit capabilities named which, git_root, vars, run_json, and armed. which SHALL discover executables using the invocation environment, returning their path or None without launching them. git_root SHALL provide the caller's enclosing Git-root path, including worktrees, never a source catalog or skill home. Required unavailable context SHALL be diagnosed rather than guessed.
-
-vars SHALL expose effective values in a separate read-only mapping without shadowing capabilities. Contexts SHALL use persistent shared/profile/declaration values, excluding temporal/change overrides. Runtime traits SHALL use runtime shared layers plus change layers only with an explicit caller selector. Evaluation SHALL NOT prompt for skill inputs or substitute stored values for actual capability results. Names not provided SHALL NOT become implicitly available.
-
-Conditions SHALL be documented as trusted executable rules with host capabilities, not isolated untrusted code. Fresh bindings SHALL NOT be described as deep object isolation, filesystem confinement, complete execution-time limits, or rollback of callback effects. Powerspec evaluation plumbing SHALL NOT itself persist results, install assets, or prompt.
+Each evaluation SHALL receive only the capabilities which, git_root, vars, run_json and armed. which SHALL find executables in the invocation environment, returning a path or None without running them, and git_root SHALL give the caller's Git root, including worktrees, never a catalog or skill home. vars SHALL be a separate read-only mapping that cannot shadow capabilities. Contexts SHALL see persistent values only; traits SHALL see runtime layers plus change layers under an explicit selector.
 
 #### Scenario: Persistent values control a context
 - **WHEN** vars['language'] == 'python' is evaluated with persistent/default python and temporal rust
@@ -168,9 +172,13 @@ Conditions SHALL be documented as trusted executable rules with host capabilitie
 - **WHEN** selected trusted code calls a side-effecting method/callback and later raises
 - **THEN** evaluation reports the failure without claiming its host effects were isolated or rolled back
 
+#### Scenario: Missing required context is diagnosed
+- **WHEN** a condition needs context that is unavailable, such as a Git root outside any repository
+- **THEN** evaluation reports a diagnostic instead of guessing a value
+
 ### Requirement: Command JSON conditions distinguish data from probe failures
 
-run_json SHALL accept a nonempty list of string argv items, execute without a shell in the invocation cwd/environment, and return stdout parsed as a JSON object after exit zero. Its default subprocess timeout SHALL be five seconds. A caller operating under a shorter externally enforced deadline SHALL be able to supply a finite positive timeout no greater than that default; runtime hook delivery SHALL use a timeout short enough to leave cleanup and serialization time before its native callback deadline. Invalid arguments, missing executables, nonzero exits, timeout, invalid JSON, and non-object JSON SHALL produce diagnostics instead of readiness false or successful condition output. A valid object SHALL remain data for the expression to assess; process success alone SHALL NOT imply readiness. The helper timeout SHALL NOT be advertised as a complete expression execution limit.
+run_json SHALL take a nonempty string argv list, run without a shell in the invocation cwd and environment, and return stdout parsed as a JSON object after exit zero, with a five-second default timeout that callers MAY lower to a finite positive value; hook delivery SHALL leave cleanup and serialization time before its native deadline. Invalid arguments, missing executables, nonzero exits, timeouts and invalid or non-object JSON SHALL be diagnostics, not false. A valid object SHALL remain data.
 
 #### Scenario: Service doctor reports a problem
 - **WHEN** zmem service doctor exits zero with ok=false and the expression tests .get('ok') is True
@@ -187,11 +195,18 @@ run_json SHALL accept a nonempty list of string argv items, execute without a sh
 #### Scenario: Probe cannot produce data
 - **WHEN** a probe times out, exits nonzero, or produces invalid or non-object JSON
 - **THEN** evaluation diagnoses the probe and resource instead of treating failure as normal false
+
+#### Scenario: Process success is not readiness
+- **WHEN** a probe exits zero with a valid JSON object
+- **THEN** the object is data for the expression to assess and success alone does not mean the service is ready
+
+#### Scenario: Helper timeout is not an expression limit
+- **WHEN** run_json documentation describes its timeout
+- **THEN** it is not presented as a complete execution limit for the whole expression
+
 ### Requirement: Conditions execute only at their owning boundary
 
-The foundation SHALL expose condition evaluation separately from composition. Eligible contributions SHALL be evaluated once per owning invocation with fresh namespaces and current capability context. Python calls SHALL retain authored order without implicit probe caching. Results SHALL NOT be persisted or reused across invocations.
-
-Sync SHALL evaluate contexts while compiling a snapshot valid until another sync. Hooks SHALL evaluate matching non-excluded traits only at mapped Powerspec lifecycle callbacks. False SHALL omit only its contribution without removing other guidance, skills, or native registrations. Context publication and configuration or expression authoring errors SHALL remain atomic and yield no successful partial result. Runtime hook delivery MAY isolate an operational command-probe failure to its owning optional trait when it reports the diagnostic and preserves independent successfully resolved traits. Composition, native events without a Powerspec mapping, and ineligible contributions SHALL execute no conditions.
+Condition evaluation SHALL be separate from composition. Eligible contributions SHALL be evaluated once per owning invocation with fresh namespaces and current capabilities, in authored order without probe caching, and results SHALL NOT be persisted or reused. Sync SHALL evaluate contexts into a snapshot valid until another sync, and hooks SHALL evaluate matching non-excluded traits only at mapped callbacks. Composition, unmapped events and ineligible contributions SHALL execute no conditions.
 
 #### Scenario: Composition is machine-independent
 - **WHEN** profiles with conditional contexts or traits are composed
@@ -216,6 +231,7 @@ Sync SHALL evaluate contexts while compiling a snapshot valid until another sync
 #### Scenario: Error is not omission
 - **WHEN** an eligible expression has invalid syntax, an unavailable required binding, or a non-Boolean result
 - **THEN** the caller receives a resource-specific diagnostic instead of treating the authored error as normal false
+
 ### Requirement: Builtin is a reserved source namespace
 
 The builtin source identity SHALL refer exclusively to Powerspec's packaged resources. External sources, whether local or remote, SHALL NOT register as builtin or shadow its catalog. A repository name, directory name, or external resource declaration SHALL NOT confer builtin identity. Resource discovery from a consumer's .pspec SHALL NOT implicitly make it part of the bundled catalog.
@@ -230,7 +246,7 @@ The builtin source identity SHALL refer exclusively to Powerspec's packaged reso
 
 ### Requirement: Qualified skill references preserve declared installed names
 
-A qualified skill reference SHALL identify a registered source and the skill name declared in SKILL.md. The source folder SHALL be treated as a location rather than the installed identity. Catalog resolution SHALL retain source provenance for downstream provisioning. Remote acquisition belongs to the remote-sources capability; catalog composition SHALL accept validated local materializations without requiring acquisition. Installation SHALL preserve the declared skill name without automatically prefixing it with the source identity. Duplicate declared skill names within one source SHALL be diagnosed as ambiguous.
+A qualified skill reference SHALL identify a registered source and the skill name declared in SKILL.md, treating the source folder as a location, not the installed identity; catalog resolution SHALL keep source provenance. Catalog composition SHALL accept validated local materializations without acquisition, which belongs to remote-sources. Installation SHALL keep the declared name without a source prefix, and duplicate declared names within one source SHALL be diagnosed as ambiguous.
 
 #### Scenario: Bundled source folder differs from skill name
 - **WHEN** @builtin/pspec-tdd resolves to a folder named pspec_tdd with SKILL.md name pspec-tdd
@@ -242,7 +258,7 @@ A qualified skill reference SHALL identify a registered source and the skill nam
 
 ### Requirement: Installation name conflicts depend on selected resources
 
-Multiple registered sources MAY contain skills with the same declared name. Registration alone SHALL NOT constitute an installation conflict. If effective selections would install different skills under the same name for the same target agent, scope, and project root where applicable, installation selection SHALL report the conflicting source identities instead of choosing by traversal order, renaming the skills, or overwriting one with another. Existing installation conflict protections SHALL remain applicable across projects.
+Multiple registered sources MAY contain skills with the same declared name, and registration alone SHALL NOT be an installation conflict. If effective selections would install different skills under one name for the same agent, scope and project root, selection SHALL report the conflicting sources instead of choosing by traversal order, renaming or overwriting. Existing installation conflict protections SHALL still apply across projects.
 
 #### Scenario: Same name exists in an unselected source
 - **WHEN** two registered sources contain pspec-tdd but only one is selected for installation
@@ -259,7 +275,7 @@ Multiple registered sources MAY contain skills with the same declared name. Regi
 
 ### Requirement: One profile declares one skill installation scope
 
-A profile SHALL declare a single top-level scope of user or project applying to every installation target it declares through skills. resolve-skills entries SHALL have no installation scope or destination and SHALL NOT require a project root solely because the profile declares project scope. Omitted scope SHALL default to user. Skill references SHALL remain strings; per-skill scope overrides SHALL NOT be supported. Invalid scope values SHALL be diagnosed rather than inferred. Composing profiles SHALL preserve the declaring profile's scope for each installation contribution, including global profiles. The global flag SHALL govern mounting independently of installation scope. Scope SHALL govern installation only, not runtime selection between installed copies. Native agent precedence SHALL remain authoritative. User/project coexistence SHALL NOT itself constitute a Powerspec conflict or require a scope-choice prompt. Scope SHALL NOT relocate context destinations or generic hook dispatchers.
+A profile SHALL declare one top-level scope of user or project, defaulting to user, applying to every installation target in its skills; resolve-skills entries SHALL have no scope or destination and SHALL NOT need a project root for that reason. Skill references SHALL stay strings without per-skill scope overrides, invalid scopes SHALL be diagnosed, and composition SHALL keep each declaring profile's scope, including for globals, independently of the global flag.
 
 #### Scenario: Project-scoped skill bundle
 - **WHEN** a profile declares scope = "project" and two skills
@@ -279,11 +295,7 @@ A profile SHALL declare a single top-level scope of user or project applying to 
 
 ### Requirement: Profiles compose referenced subprofiles
 
-A profile SHALL support an optional top-level profiles list of qualified profile-reference strings. Composition SHALL resolve these references recursively without copying resources, mount each resolved profile once, and retain each declaring profile's installation scope and provenance. Missing references and direct or indirect cycles SHALL be diagnosed with the reference chain rather than silently omitted or partially composed.
-
-Profiles reached through the explicitly selected root SHALL supply selected-tier defaults; profiles reached only through automatic globals SHALL supply global-tier defaults. An identity reached through both SHALL contribute once at the selected tier. Parent/child depth and declaration order SHALL NOT create another default precedence layer; unequal values at the same tier SHALL use the existing conflict diagnostic.
-
-The consumer's and explicitly selected root's exclude-profiles SHALL apply before contributions are expanded. Excluding the explicitly selected root SHALL be a conflict. Excluding a nested profile SHALL omit it and descendants reachable only through that branch, without removing a descendant reachable through another non-excluded path. Subprofiles and automatic globals SHALL NOT contribute another exclusion layer; their own exclude-profiles SHALL apply when explicitly selected as a root. An excluded identity SHALL NOT be restored by another reference or automatic mounting.
+A profile SHALL support an optional top-level profiles list of qualified profile references. Composition SHALL resolve them recursively without copying resources, mount each resolved profile once, and keep each declaring profile's installation scope and provenance. Missing references and direct or indirect cycles SHALL be diagnosed with the reference chain rather than omitted or partially composed.
 
 #### Scenario: Python CLI includes utility planning
 - **WHEN** python-simple-cli references @builtin/utils-planning-aware
@@ -319,9 +331,7 @@ The consumer's and explicitly selected root's exclude-profiles SHALL apply befor
 
 ### Requirement: Utility planning and implementation ordering form a reusable bundle
 
-The utils-planning-aware profile SHALL reference separate utility-plan and utility-apply contexts and supply pspec-plan-utilities and pspec-tdd as skills. It SHALL NOT impose language-specific defaults. The planning context SHALL attach skill invocation and contract/reuse assessment guidance to rules.design and utility-before-dependent-wiring task ordering to rules.tasks. The apply context SHALL attach to operations.apply.guidance and direct implementation and verification of accepted utility contracts through TDD before dependent application wiring, followed by integration verification.
-
-The guidance SHALL define utilities as generic helpers usable by other projects through portable inputs and outputs. It SHALL require a concrete use outside the current project and domain-neutral helper verification. Application models, profile/configuration policy, and workflow rules SHALL remain with application callers; internal reuse alone SHALL NOT classify an application service as a utility. The guidance SHALL reuse existing suitable utilities, avoid artificial utility work, and exclude environmental, documentation, and configuration work without behavioral effects. Planning SHALL NOT authorize implementation. Utility verification SHALL NOT claim application integration is complete. These contexts SHALL reuse existing destinations without adding a schema artifact or embedding skill procedures. Foundation composition SHALL retain this source guidance without executing it or publishing config.yaml; publication remains future sync work.
+The utils-planning-aware profile SHALL reference separate utility-plan and utility-apply contexts and supply pspec-plan-utilities and pspec-tdd skills, without language-specific defaults. The planning context SHALL attach skill invocation and contract/reuse guidance to rules.design, and utility-before-wiring ordering to rules.tasks. The apply context SHALL attach to operations.apply.guidance, directing TDD of accepted utility contracts before dependent wiring, then integration verification.
 
 #### Scenario: Necessary utility behavior
 - **WHEN** the reusable profile's context resources are composed for a behavior change needing utility work
@@ -338,9 +348,7 @@ The guidance SHALL define utilities as generic helpers usable by other projects 
 
 ### Requirement: Conditions can query selected resources
 
-Conditions SHALL expose armed(kind, reference) returning a Boolean for membership in the invoking consumer's effective bundle after composition, exclusions, and deduplication. Supported kinds SHALL be skill, trait, context, and profile, with distinct identity namespaces. Queries SHALL use exact qualified resource identities under the existing identity contract; skill identities SHALL respect declared skill names and resolved remote contributions SHALL be queryable by their concrete source-relative identities. Retained global/subprofiles SHALL count as selected. Skill membership SHALL include selections from both skills and resolve-skills without treating selection as proof of native availability. An exact valid identity absent from the bundle SHALL return false without loading/acquiring sources or inspecting installations.
-
-The snapshot SHALL be computed before condition evaluation. Membership SHALL NOT depend on event match, condition result, successful context compilation, installation, skill resolution, or execution. Queries SHALL NOT evaluate referenced resources, mutate selection, or remove native assets. Self and mutual queries SHALL NOT recurse. Context callers SHALL use their sync-time selection snapshot; trait callers SHALL use their current invocation's snapshot. Variables SHALL NOT shadow armed. Invalid kinds, malformed or unqualified references, wildcards, and invalid argument types SHALL produce diagnostics. Failure to compose the effective bundle SHALL remain an error rather than false membership.
+Conditions SHALL expose armed(kind, reference), returning whether an exact qualified skill, trait, context or profile identity is in the invoking consumer's effective bundle after composition, exclusions and deduplication. Skill identities SHALL use declared names, remote contributions SHALL be queryable by source-relative identity, and retained globals and subprofiles SHALL count as selected. Skill membership SHALL include skills and resolve-skills without implying native availability.
 
 #### Scenario: All supported kinds
 - **WHEN** the effective bundle contains a selected skill, trait, context, and retained profile
@@ -377,6 +385,10 @@ The snapshot SHALL be computed before condition evaluation. Membership SHALL NOT
 - **WHEN** a retained profile selects an exact resource only through resolve-skills
 - **THEN** armed reports that skill as selected without probing or creating an installation
 
+#### Scenario: Absent identity is false without loading
+- **WHEN** an exact valid identity is not in the effective bundle
+- **THEN** armed returns false without loading or acquiring sources or inspecting installations
+
 ### Requirement: Authored configuration uses strict typed boundaries
 
 Profile, context, trait, and compile-time declaration inputs SHALL be validated using strict Pydantic v2 models after TOML decoding. Unknown structural fields and invalid declared defaults or choices SHALL fail with location diagnostics. Variable mappings SHALL permit arbitrary names and native values. Identity, graph, and resolution policy SHALL remain application logic.
@@ -398,7 +410,8 @@ The utils-planning-aware bundle SHALL select a mature-package-inspection runtime
 - **THEN** the package-inspection trait and planning skill are selected together, with no workflow executed during composition
 
 ### Requirement: Guidance bodies can share one contained file
-Context attachments and runtime traits SHALL accept exactly one of inline `body` or `body_file`. A body file SHALL be UTF-8 text at a relative path within the owning catalog root; absolute paths, traversal, escaping links, absent files and invalid text SHALL fail with located diagnostics. Catalog loading SHALL resolve the body before existing reference classification, interpolation and condition processing. This SHALL NOT merge context and trait evaluation timing or execute guidance. Existing inline resources SHALL remain valid.
+
+Context attachments and runtime traits SHALL accept exactly one of inline `body` or `body_file`, a UTF-8 file at a relative path inside the owning catalog root; absolute paths, traversal, escaping links, absent files and invalid text SHALL fail with located diagnostics. Loading SHALL resolve the body before reference classification, interpolation and condition processing, without merging context and trait timing or executing guidance. Inline resources SHALL remain valid.
 
 #### Scenario: One instruction serves two destinations
 - **WHEN** a context attachment and trait reference the same body file
@@ -455,3 +468,151 @@ resolve-skills SHALL make procedures available for relevant scenarios or user re
 #### Scenario: Owning rule identifies a deferred skill
 - **WHEN** a selected context or trait contains a lightweight scenario rule naming pspec:A
 - **THEN** the rule retains its task condition and target reference without making A's procedure part of profile composition or guidance rendering
+
+### Requirement: Profile defaults layer and installations deduplicate
+
+Profiles SHALL provide defaults without copying definitions or runtime answers; explicit project values SHALL override selected-profile defaults, which SHALL override global-profile defaults. Conflicting same-tier defaults, unknown aliases or ambiguous identities SHALL be diagnosed, not chosen by order. Repeated installations SHALL deduplicate by identity, agent, scope and project root without collapsing distinct scopes, and excluding a profile SHALL NOT uninstall shared user-level skills.
+
+#### Scenario: Same-precedence defaults conflict
+- **WHEN** two selected-tier profiles supply different defaults for one variable
+- **THEN** composition reports a conflict instead of picking one by order
+
+#### Scenario: Distinct scopes are kept
+- **WHEN** one skill is selected at user scope and at project scope
+- **THEN** both installation targets remain
+
+### Requirement: Python CLI profile supplies tooling defaults and guidance
+
+The Python CLI profile SHALL supply the overridable defaults language = "python", cli_framework = "typer", build_tool = "uv", test_runner = "pytest" and test_command = "uv run pytest", and its context SHALL declare typed inputs with matching fallbacks. utility_path SHALL come from configuration or a profile, not an assumed package name. Guidance SHALL cover CLI contracts, thin handlers, utility responsibilities and proportional verification, keeping the TDD procedure out of compiled context.
+
+#### Scenario: No assumed utility path
+- **WHEN** neither configuration nor a profile supplies utility_path
+- **THEN** the context does not invent a package-based location
+
+#### Scenario: TDD reference covers behavior work only
+- **WHEN** the session is documentation, investigation or environment-only work
+- **THEN** the compiled TDD reference does not apply to it
+
+### Requirement: Python CLI profile includes utility planning
+
+The Python CLI profile SHALL reference @builtin/utils-planning-aware through its profiles list, so the bundle includes utility planning and utility-before-wiring guidance and the pspec-plan-utilities skill, with a single same-target pspec-tdd contribution when both profiles reference it.
+
+#### Scenario: Bundle includes utility planning
+- **WHEN** the Python CLI profile is composed
+- **THEN** the bundle contains the utility planning guidance and the pspec-plan-utilities skill
+
+#### Scenario: TDD is contributed once
+- **WHEN** both the Python CLI and utility planning profiles reference pspec-tdd for the same target
+- **THEN** the bundle holds one pspec-tdd contribution
+
+### Requirement: Resource shapes are validated by kind
+
+Contexts SHALL reject hooks and a top-level runtime body or when, and traits SHALL reject attach destinations and compiletime inputs. Mixed shapes and legacy config/hook mode declarations SHALL produce migration diagnostics rather than silently changing ownership, and profiles SHALL NOT own attachment destinations or hook selectors.
+
+#### Scenario: Context with hooks is rejected
+- **WHEN** a context resource declares hooks
+- **THEN** catalog loading reports a migration diagnostic
+
+#### Scenario: Profile cannot set destinations
+- **WHEN** a profile tries to declare an attachment destination or hook selector
+- **THEN** it is rejected
+
+### Requirement: Conditions are trusted executable rules
+
+Conditions SHALL be documented as trusted executable rules with host capabilities, not isolated untrusted code; fresh bindings SHALL NOT be described as deep isolation, filesystem confinement, complete time limits or rollback of callback effects. Evaluation SHALL NOT prompt for skill inputs or substitute stored values for capability results, and evaluation plumbing SHALL NOT persist results, install assets or prompt.
+
+#### Scenario: Stored values never replace probes
+- **WHEN** a condition calls a capability
+- **THEN** it receives the actual result rather than a stored value
+
+#### Scenario: Documentation states the trust model
+- **WHEN** a user reads condition documentation
+- **THEN** it describes conditions as trusted rules without isolation guarantees
+
+### Requirement: Condition outcomes affect only their contribution
+
+False SHALL omit only its contribution, keeping other guidance, skills and native registrations. Context publication and configuration or expression authoring errors SHALL stay atomic with no successful partial result, while runtime hook delivery MAY isolate an operational command-probe failure to its owning optional trait when it reports the diagnostic and keeps independently resolved traits.
+
+#### Scenario: Authoring error fails the whole sync
+- **WHEN** one context condition has a syntax error
+- **THEN** sync publishes no partial result
+
+#### Scenario: Isolated probe failure is still reported
+- **WHEN** hook delivery isolates a failed command probe to its trait
+- **THEN** the diagnostic is reported and other resolved traits are delivered
+
+### Requirement: Installation scope does not govern runtime selection
+
+Scope SHALL govern installation only, not runtime selection between installed copies, where native agent precedence SHALL stay authoritative. User/project coexistence SHALL NOT be a Powerspec conflict or require a scope prompt, and scope SHALL NOT relocate context destinations or generic hook dispatchers.
+
+#### Scenario: Coexisting copies need no prompt
+- **WHEN** a skill is installed at both user and project scope
+- **THEN** Powerspec neither reports a conflict nor asks which scope to use
+
+#### Scenario: Scope does not move hooks
+- **WHEN** a profile declares project scope
+- **THEN** context destinations and the generic hook dispatchers stay where they are
+
+### Requirement: Subprofile defaults follow how they are reached
+
+Profiles reached through the explicitly selected root SHALL supply selected-tier defaults, and those reached only through automatic globals SHALL supply global-tier defaults; an identity reached both ways SHALL contribute once at the selected tier. Parent/child depth and declaration order SHALL NOT add a precedence layer, and unequal values at one tier SHALL use the existing conflict diagnostic.
+
+#### Scenario: Global-only subprofile supplies global defaults
+- **WHEN** a subprofile is reachable only through an automatic global profile
+- **THEN** its defaults apply at the global tier
+
+#### Scenario: Declaration order adds no precedence
+- **WHEN** two profiles at one tier are declared in different orders
+- **THEN** their defaults keep the same tier and conflicting values are diagnosed
+
+### Requirement: Profile exclusions apply before expansion
+
+The consumer's and explicitly selected root's exclude-profiles SHALL apply before contributions expand, and excluding the selected root SHALL conflict. Excluding a nested profile SHALL omit it and descendants reachable only through it, keeping descendants reachable another way. Subprofiles and automatic globals SHALL add no exclusion layer, their exclude-profiles applying only as a selected root, and no reference or automatic mount SHALL restore an excluded identity.
+
+#### Scenario: Excluding the selected root conflicts
+- **WHEN** exclude-profiles names the explicitly selected root
+- **THEN** composition reports a conflict
+
+#### Scenario: Excluded identity stays excluded
+- **WHEN** an excluded profile is referenced again elsewhere or is global
+- **THEN** it is not restored
+
+### Requirement: Utility guidance defines portable helpers
+
+The guidance SHALL define utilities as generic helpers usable by other projects through portable inputs and outputs, with a concrete outside use and domain-neutral verification. Application models, profile/configuration policy and workflow rules SHALL stay with callers, and internal reuse alone SHALL NOT make a service a utility. It SHALL reuse suitable utilities, avoid artificial utility work, and exclude environment, documentation and configuration work without behavioral effects.
+
+#### Scenario: Existing utility is reused
+- **WHEN** a suitable utility already exists
+- **THEN** the guidance directs reuse instead of a new helper
+
+#### Scenario: Internal reuse is not a utility
+- **WHEN** an application service is reused only inside the current project
+- **THEN** it is not classified as a utility
+
+### Requirement: Utility guidance stays within its authority
+
+Utility planning SHALL NOT authorize implementation, and utility verification SHALL NOT claim application integration is complete. These contexts SHALL reuse existing destinations without a schema artifact or embedded skill procedures, and foundation composition SHALL keep this source guidance without executing it or publishing config.yaml.
+
+#### Scenario: Planning does not start implementation
+- **WHEN** utility planning guidance applies
+- **THEN** it does not authorize implementing the planned helper
+
+#### Scenario: No schema artifact is added
+- **WHEN** the utility contexts are composed
+- **THEN** they use existing destinations without adding a schema artifact
+
+### Requirement: Armed queries read a fixed snapshot
+
+The membership snapshot SHALL be computed before evaluation and SHALL NOT depend on event match, condition results, compilation, installation, resolution or execution. Queries SHALL NOT evaluate resources, mutate selection, remove assets or recurse. Contexts SHALL use their sync-time snapshot and traits their invocation's. Variables SHALL NOT shadow armed, invalid queries SHALL be diagnosed, and failed composition SHALL be an error, not false.
+
+#### Scenario: Variable named armed
+- **WHEN** a runtime variable is named armed
+- **THEN** conditions still receive the armed capability
+
+#### Scenario: Invalid query is diagnosed
+- **WHEN** armed receives an invalid kind, a malformed, unqualified or wildcard reference, or a non-string argument
+- **THEN** evaluation reports a diagnostic
+
+#### Scenario: Composition failure is an error
+- **WHEN** the effective bundle cannot be composed
+- **THEN** armed queries report an error instead of returning false

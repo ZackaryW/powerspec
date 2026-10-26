@@ -8,11 +8,7 @@ Provide a coherent Powerspec command lifecycle for establishing, inspecting, syn
 
 ### Requirement: Initialization bootstraps the consumer and selected agent
 
-`pspec init` SHALL locate the containing Git root, bootstrap OpenSpec without agent skills when needed, and establish `openspec/.pspec/config.toml`, ignored `current.toml`, and required directories. It SHALL accept an optional `--profile`, preserve compatible existing files and profile selection, support an empty selection that still activates global profiles, and SHALL prepare missing selected sources under the bounded shared-cache policy without refreshing existing consumer selections unless --force is supplied. Optional --agent SHALL provision that supported agent; omission SHALL prepare sources without installing skills/hooks or guessing an agent. Invalid agents SHALL fail before file effects. Later failures SHALL preserve completed setup and report incomplete bootstrap for retry.
-
-A single `pspec init --agent <agent>` SHALL be sufficient to complete setup when selected skills exist as completely inspected unowned or locally modified copies. When both standard input and standard error are interactive terminals and --force is absent, init SHALL list those skills once, state that originals are backed up recoverably, and ask a single confirmation that defaults to no. Accepting SHALL replace them under the bounded replacement contract; declining SHALL leave them unchanged and report incomplete setup naming `pspec init --agent <agent> --force`. Without interactive terminals, init SHALL NOT prompt and SHALL report the same remedy.
-
-Optional `--scope` SHALL accept `local`, `global` or `all`, defaulting to `all`. `local` SHALL establish the consumer and prepare and publish selected sources without inspecting or writing agent assets, and SHALL reject --agent. `global` SHALL require --agent, SHALL provision skills and hooks from existing published selections without acquiring, refreshing or publishing sources or rewriting consumer files, and SHALL fail with guidance to run a local or full init when a selection is missing. `all` SHALL perform both.
+`pspec init` SHALL find the Git root, bootstrap OpenSpec without agent skills if needed, and create `openspec/.pspec/config.toml`, ignored `current.toml` and needed directories. It SHALL accept optional `--profile`, preserve compatible files and selection, allow empty selections activating global profiles, and prepare missing sources under the bounded cache policy, refreshing only with --force. Optional --agent SHALL provision that agent; invalid agents SHALL fail before file effects.
 
 #### Scenario: Initialize an empty Git repository
 - **WHEN** a user runs `pspec init --profile @builtin/python-simple-cli` inside an uninitialized consumer
@@ -67,8 +63,13 @@ Optional `--scope` SHALL accept `local`, `global` or `all`, defaulting to `all`.
 - **WHEN** a user reads init help
 - **THEN** --force is described as refreshing sources, authorizing verified migration of a supported unmanaged default manager when needed, recoverably replacing conflicting selected skills, and permitting guarded hook receipt repair for an explicitly selected agent
 
+#### Scenario: Later failure keeps completed setup
+- **WHEN** a step fails after the consumer was established
+- **THEN** init keeps the completed setup and reports incomplete bootstrap for retry
+
 ### Requirement: First-use source preparation preserves existing stores
-Source preparation SHALL delegate missing-store initialization and managed launcher publication to Saucepan through its official setup contract. Powerspec SHALL not publish the raw manager at the default launcher path or move existing installer leftovers. An unmanaged occupant SHALL require explicit Saucepan migration, authorized externally or through init --force, or an explicit standalone override; ordinary init and upgrade SHALL not supply migration consent. It SHALL NOT replace credentials, delete existing store data, bypass guards, or substitute test keys. Credential-service or damaged-store failures SHALL remain errors without a success claim. A failed or uncertain provider setup SHALL direct the user to inspect and explicitly resume the original provider operation where applicable, then rerun init with the same source options; upgrade SHALL NOT silently replace missing-only initialization.
+
+Source preparation SHALL delegate missing-store initialization and managed launcher publication to Saucepan's official setup contract, never publishing a raw manager at the default launcher path or moving installer leftovers. An unmanaged occupant SHALL need explicit Saucepan migration (external or init --force) or a standalone override; ordinary init and upgrade SHALL NOT supply migration consent. It SHALL NOT replace credentials, delete store data, bypass guards or substitute test keys.
 
 #### Scenario: Fresh native store
 - **WHEN** a store is absent and Saucepan permits initialization
@@ -86,6 +87,18 @@ Source preparation SHALL delegate missing-store initialization and managed launc
 - **WHEN** Saucepan returns the same HTTPS GitHub repository with canonical lowercase owner/repository spelling and the normal .git suffix
 - **THEN** source preparation accepts that identity while preserving host, transport, query, and reference distinctions; other hosts retain case-sensitive repository paths
 
+#### Scenario: Credential or store failure stays an error
+- **WHEN** the credential service fails or the store is damaged
+- **THEN** source preparation reports an error and claims no success
+
+#### Scenario: Uncertain provider setup
+- **WHEN** provider setup fails or its outcome is uncertain
+- **THEN** the user is directed to inspect and resume the original provider operation where applicable, then rerun init with the same source options
+
+#### Scenario: Upgrade does not replace missing initialization
+- **WHEN** a consumer's sources were never initialized
+- **THEN** upgrade does not silently perform that missing initialization
+
 ### Requirement: No separate install command
 The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an install command. Help and bundled bootstrap guidance SHALL direct users to init --agent for provisioning.
 
@@ -95,7 +108,7 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 
 ### Requirement: Status and doctor inspect without mutation
 
-`pspec status` SHALL describe the owning consumer, selected profile or global-only mode, effective profiles after exclusions, selected contexts, traits, skills, sources, and pending installation facts without acquiring or modifying resources. `pspec doctor` SHALL check the consumer boundary and required external executables and integrations without repairing them. Both commands SHALL support human-readable output and `--json`. Status SHALL distinguish skills selected for installation from resolve-skills declarations. Its existing skills JSON field SHALL retain installation-selection semantics and an additive resolve_skills field SHALL report resolve-skills selections, including declarations whose identity is also selected for installation. Human output SHALL label these two selection lists separately without implying installation success.
+`pspec status` SHALL describe the owning consumer, selected profile or global-only mode, effective profiles after exclusions, selected contexts, traits, skills, sources and pending installation facts without acquiring or modifying resources. `pspec doctor` SHALL check the consumer boundary and required executables and integrations without repairing them. Both SHALL support human and `--json` output, and status SHALL report installation-selected skills separately from resolve-skills declarations.
 
 #### Scenario: Inspect a configured consumer
 - **WHEN** a user runs status inside a valid consumer
@@ -109,9 +122,13 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 - **WHEN** a consumer selects a skill only through resolve-skills
 - **THEN** status reports its resolution selection separately from installation selections without materializing sources or inspecting native copies
 
+#### Scenario: Status JSON keeps the skills field meaning
+- **WHEN** status reports a skill that is both selected for installation and declared in resolve-skills
+- **THEN** the skills field keeps installation semantics, the additive resolve_skills field also lists it, and human output labels the two lists separately without implying installation success
+
 ### Requirement: Synchronization is local-aware and atomic
 
-`pspec sync` SHALL compose bundled, consumer-local, and selected remote resources; resolve conditions against the owning consumer; validate every required selected resource; and only then atomically reconcile managed guidance in `openspec/config.yaml`. It SHALL preserve user-authored YAML and the original file when validation or publication fails, and SHALL acquire missing selected sources while reusing existing materializations without refresh. Successful acquisitions SHALL remain available if later validation fails; YAML publication remains atomic.
+`pspec sync` SHALL compose bundled, consumer-local and selected remote resources, resolve conditions against the owning consumer, validate every required resource, and only then atomically reconcile managed guidance in `openspec/config.yaml`, preserving user YAML and the original file on failure. It SHALL acquire missing selected sources while reusing existing materializations without refresh, and successful acquisitions SHALL stay available if later validation fails.
 
 #### Scenario: Publish local and bundled contexts
 - **WHEN** a consumer-local resource overrides or extends selected bundled guidance and all required resources are available
@@ -131,9 +148,7 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 
 ### Requirement: Upgrade refreshes before committing removals
 
-`pspec upgrade --agent <agent>` SHALL refresh selected Saucepan sources, compose the refreshed effective bundle, reconcile skills and hooks, and remove obsolete managed installations only after every required refresh and reconciliation step succeeds. The upgrade command SHALL reuse a compatible Saucepan installation and SHALL NOT implicitly self-update the shared manager; incompatibility SHALL report explicit provider update guidance before source refresh. `sync` SHALL continue to preserve the currently materialized revisions rather than refreshing them.
-
-Upgrade SHALL accept `--repair-hooks` as separate explicit authorization to repair a valid stale hook ownership receipt when the uniquely identified native hooks already match the desired source. The existing `--force` option SHALL remain limited to selected skill replacement. Hook repair SHALL NOT authorize arbitrary hook replacement or bypass incomplete inspection. Failed reconciliation SHALL retain provider diagnostics and any recovery operation identifier; successful repair SHALL display its operation identifier. Ordinary initialization SHALL NOT authorize receipt repair. Init --force with an explicit agent SHALL authorize the same guarded receipt-only repair, without granting skill replacement or changing upgrade flag semantics.
+`pspec upgrade --agent <agent>` SHALL refresh selected Saucepan sources, compose the refreshed bundle, reconcile skills and hooks, and remove obsolete managed installations only after every required refresh and reconciliation step succeeds. It SHALL reuse a compatible Saucepan installation without self-updating the shared manager, reporting provider update guidance before refresh when incompatible. `sync` SHALL keep preserving the currently materialized revisions.
 
 #### Scenario: Successful upgrade
 - **WHEN** all selected sources refresh and the resulting installation succeeds
@@ -157,7 +172,7 @@ Upgrade SHALL accept `--repair-hooks` as separate explicit authorization to repa
 
 ### Requirement: Configuration and temporary state have explicit groups
 
-`pspec config show` SHALL display persistent consumer configuration, `pspec config profile [PROFILE]` SHALL set or clear the selected profile while preserving other configuration, and `pspec config edit` SHALL open the owning persistent configuration in the user's configured editor. `pspec state show` SHALL display temporary global and change-scoped values, and `pspec state clear [--change CHANGE]` SHALL clear only the selected temporary scope while preserving persistent configuration. Read commands SHALL support `--json`.
+`pspec config show` SHALL display persistent configuration, `pspec config profile [PROFILE]` SHALL set or clear the selected profile preserving other configuration, and `pspec config edit` SHALL open the persistent configuration in the user's editor. `pspec state show` SHALL display temporary global and change-scoped values, and `pspec state clear [--change CHANGE]` SHALL clear only the selected temporary scope, preserving persistent configuration. Read commands SHALL support `--json`.
 
 #### Scenario: Change the selected profile
 - **WHEN** a user sets or clears a profile through `config profile`
@@ -169,11 +184,7 @@ Upgrade SHALL accept `--repair-hooks` as separate explicit authorization to repa
 
 ### Requirement: Agent protocols live under resolve
 
-`pspec resolve skill --path <selected-location> --agent <agent>` SHALL consume an explicitly supplied skill directory, SKILL.md, or pspec.toml. Relative locations SHALL be interpreted against the task's process working directory; supplying a path SHALL NOT change the directory used for consumer discovery. The agent option SHALL identify invocation context rather than drive native installation lookup. Skill resolution SHALL preserve Markdown-by-default, optional JSON, literal null for an explicitly supplied ordinary skill, and optional --change inputs. Pending responses SHALL provide a rerun command retaining the complete selected path, agent, and explicit change. JSON pending and resolved responses SHALL identify the canonical skill directory through a skill_path field while retaining their existing status, skill, agent, change, and content/questions fields; the skill name SHALL come from the selected SKILL.md's declared name.
-
-The previous positional-name form, including the old --selected option, SHALL fail with a nonzero diagnostic explaining the new --path invocation and native-selection responsibility. It SHALL NOT perform legacy name discovery, infer a path from a bare name, or silently treat a positional name as a relative path. Exactly one of --path or --ref and an explicit --agent SHALL be required. Supplying neither selector or both selectors SHALL be an invalid invocation. --ref SHALL explicitly select the catalog route described below; it SHALL NOT revive the legacy positional-name syntax or inspect native installations. Failed invocations SHALL emit no successful payload. Both pspec and powerspec console scripts SHALL expose the same contract.
-
-`pspec resolve hook <event> --agent <agent>` SHALL select its logical event and supported agent from command arguments and discover the nearest owning consumer from its process working directory. Optional --change SHALL remain the only selector for change-scoped hook inputs. Hook resolution SHALL NOT read, parse, poll, or wait for standard input, including when a native host supplies a payload. Protocol success SHALL write results to stdout; diagnostics SHALL use stderr and documented nonzero exit codes. Hook guidance SHALL retain the supported agent's native additional-context response envelope and an absent contribution SHALL produce no stdout.
+`pspec resolve skill --path <selected-location> --agent <agent>` SHALL consume a supplied skill directory, SKILL.md or pspec.toml, resolving relative paths from the process working directory without changing consumer discovery; --agent SHALL be invocation context only. It SHALL keep Markdown by default, optional JSON, null for ordinary skills and optional --change. Pending responses SHALL give a rerun command keeping the full path, agent and change, and JSON responses SHALL add skill_path.
 
 #### Scenario: Resolve supported skill content
 - **WHEN** an agent supplies the selected location of a configured skill through resolve skill --path
@@ -231,6 +242,10 @@ The previous positional-name form, including the old --selected option, SHALL fa
 - **WHEN** the caller supplies both --path and --ref
 - **THEN** the command fails before resolving either target and emits no successful payload
 
+#### Scenario: JSON responses keep their fields
+- **WHEN** a skill resolves or is pending with --json
+- **THEN** the response keeps its status, skill, agent, change and content or questions fields, adds skill_path, and takes the skill name from the selected SKILL.md
+
 ### Requirement: Commands present stable human and JSON results
 
 Human-facing lifecycle commands SHALL emit concise successful outcomes to stdout and actionable diagnostics to stderr. Commands that support `--json` SHALL emit exactly one JSON value on stdout and no human decoration. Operational failures SHALL exit nonzero and SHALL NOT emit a success claim.
@@ -244,7 +259,8 @@ Human-facing lifecycle commands SHALL emit concise successful outcomes to stdout
 - **THEN** it exits nonzero and identifies the failed operation without a contradictory completion message
 
 ### Requirement: Doctor distinguishes executable checks from source readiness
-Doctor SHALL identify its successful Saucepan observation as an executable compatibility check, without implying that selected materializations have been initialized. For the default managed route it SHALL separately inspect Saucepan setup status when supported, distinguishing ready, unmanaged, absent, pending and conflict states; version alone SHALL not establish managed ownership. An explicit executable override SHALL be labelled standalone and inspected without adoption or update. Human and JSON results SHALL preserve the named check and indicate this limitation without mutating resources. User instructions SHALL distinguish explicit provider setup recovery from subsequent source initialization with init before upgrade.
+
+Doctor SHALL label its successful Saucepan observation as an executable compatibility check, without implying initialized materializations. For the default managed route it SHALL separately inspect setup status when supported, distinguishing ready, unmanaged, absent, pending and conflict, since version alone SHALL NOT establish managed ownership. An explicit override SHALL be labelled standalone and inspected without adoption or update. Results SHALL state this limitation without mutation.
 
 #### Scenario: Compatible binary but no selected source
 - **WHEN** doctor observes a compatible Saucepan executable
@@ -258,8 +274,13 @@ Doctor SHALL identify its successful Saucepan observation as an executable compa
 - **WHEN** the user selects an external manager through POWERSPEC_SAUCEPAN
 - **THEN** doctor labels that selection standalone without requiring managed ownership or changing the binary
 
+#### Scenario: Recovery guidance separates setup from init
+- **WHEN** doctor reports an incomplete provider setup
+- **THEN** its instructions distinguish explicit provider setup recovery from later source initialization with init before upgrade
+
 ### Requirement: Doctor reports evidence for guidance delivery stages
-`pspec doctor --agent codex|claude` SHALL add read-only diagnostics to the existing prerequisite checks. It SHALL distinguish effective zmem profile selection, current persistent rule publication, matching startup/compaction registrations, observable native disabled settings, resolver generation for both events, and host receipt/adherence. Resolver generation SHALL use the installed hook command with finite timeouts and validate its native envelope. Source warnings SHALL remain visible. Host receipt, effective enablement/trust beyond inspected settings, and adherence SHALL be explicitly unverified unless directly established; successful generation alone SHALL NOT establish them. Unknown verification SHALL be reported as warning, observed failures SHALL cause nonzero exit, and JSON SHALL remain a single structured result. Unsupported agents SHALL fail before probes. Omitting --agent SHALL retain basic checks and indicate that delivery checks were not requested. Doctor SHALL NOT install, enable, trust, repair or acquire resources.
+
+`pspec doctor --agent codex|claude` SHALL add read-only diagnostics distinguishing effective zmem profile selection, current persistent rule publication, matching startup/compaction registrations, observable disabled settings, resolver generation for both events, and host receipt/adherence. Resolver generation SHALL use the installed hook command with finite timeouts and validate its envelope, keeping source warnings visible. Doctor SHALL NOT install, enable, trust, repair or acquire resources.
 
 #### Scenario: Hook registered but disabled
 - **WHEN** native settings explicitly disable a matching PowerSpec callback
@@ -282,7 +303,8 @@ Doctor SHALL identify its successful Saucepan observation as an executable compa
 - **THEN** doctor reports intentional nonselection without treating its absent guidance as a failure
 
 ### Requirement: Lifecycle commands expose active work while waiting
-Init, including source-only init, and upgrade SHALL emit default progress on stderr before potentially blocking work and report completed item outcomes as they occur. Source progress SHALL distinguish reuse of a validated consumer selection, cache-eligible source preparation, and explicitly requested refresh. It SHALL NOT report an actual shared-cache hit or download without provider evidence. Messages SHALL identify consumer setup, manager preparation, source identity and known stage, individual skill identity and known item count, hooks, and selection publication or removal/recovery when reached. The innermost active stage SHALL report elapsed waiting at five-second intervals during a blocked operation. Waiting SHALL NOT claim confirmed upstream activity, measured transfers or completion percentages. Successful results SHALL retain their stdout and exit contracts, and progress SHALL NOT activate for unrelated JSON or resolution protocols.
+
+Init, including source-only init, and upgrade SHALL emit progress on stderr before potentially blocking work and report item outcomes as they occur, naming consumer setup, manager preparation, source identity and stage, skill identity and count, hooks, and selection publication or removal/recovery when reached. Source progress SHALL distinguish reuse of a validated selection, cache-eligible preparation and explicit refresh, never claiming a cache hit or download without provider evidence.
 
 #### Scenario: Native source operation takes time
 - **WHEN** init waits on Saucepan to prepare a selected source
@@ -313,7 +335,8 @@ Init, including source-only init, and upgrade SHALL emit default progress on std
 - **THEN** progress identifies the explicit refresh request and preserves normal waiting, failure, and stdout behavior
 
 ### Requirement: Progress observation preserves failure and recovery boundaries
-Progress SHALL stop when an operation completes, fails or is interrupted, without emitting a later waiting event for that completed stage. Failures and timeouts SHALL identify the active operation and elapsed time while preserving original diagnostics, nonzero exit behavior and applicable retry/pending-state guidance. A heartbeat SHALL NOT extend deadlines, retry mutations, change source selection, bypass native ownership or assert rollback. Library calls without a progress observer SHALL remain silent.
+
+Progress SHALL stop when an operation completes, fails or is interrupted, with no later waiting event for that stage. Failures and timeouts SHALL identify the active operation and elapsed time while preserving original diagnostics, nonzero exits and retry or pending guidance. A heartbeat SHALL NOT extend deadlines, retry mutations, change source selection, bypass native ownership or assert rollback. Library calls without an observer SHALL stay silent.
 
 #### Scenario: Source request times out
 - **WHEN** source preparation reports a timeout after starting a mutation
@@ -328,7 +351,8 @@ Progress SHALL stop when an operation completes, fails or is interrupted, withou
 - **THEN** lifecycle progress does not pollute the response
 
 ### Requirement: Forced initialization authorizes bounded recovery
-Init --force SHALL authorize provider-verified unmanaged-manager migration when selected sources require it, and, when an agent is explicit, guarded hook receipt repair and recoverable replacement of completely inspected unowned or locally modified selected skills. It SHALL NOT authorize replacement of incompletely inspected or unsupported skill targets, hook content replacement, manager self-update, or bypass provider preflight. Progress SHALL identify recovery operations and preserve their identifiers. Completed recovery effects SHALL remain accurately reported if later initialization fails.
+
+Init --force SHALL authorize provider-verified unmanaged-manager migration when needed and, with an explicit agent, guarded hook receipt repair and recoverable replacement of completely inspected unowned or modified skills. It SHALL NOT authorize replacing incompletely inspected or unsupported skills or hook content, manager self-update, or bypassing provider preflight. Progress SHALL name recovery operations and identifiers, and completed recovery SHALL stay reported if later steps fail.
 
 #### Scenario: Forced init repairs a matching hook receipt
 - **WHEN** init --agent codex --force encounters a valid owned stale receipt with a uniquely identified source-matching hook group
@@ -400,3 +424,87 @@ Init --force SHALL authorize provider-verified unmanaged-manager migration when 
 - **WHEN** the caller supplies a wildcard, unknown name, unselected identity or ambiguous bare name
 - **THEN** resolution fails with an actionable diagnostic and no successful payload
 - **AND** ambiguity lists usable exact references without using native installations to establish membership or break ties
+
+### Requirement: Init resolves skill conflicts in one run
+
+One `pspec init --agent <agent>` SHALL suffice when selected skills exist as fully inspected unowned or modified copies. With interactive stdin and stderr and no --force, init SHALL list those skills once, note that originals are recoverably backed up, and ask once, defaulting to no; accepting SHALL replace them under the bounded replacement contract. Declining, or running without interactive terminals (never prompted), SHALL leave them unchanged and name `pspec init --agent <agent> --force`.
+
+#### Scenario: Confirmation defaults to no
+- **WHEN** the user answers the replacement confirmation without typing yes
+- **THEN** no skill is replaced
+
+#### Scenario: Conflicts are listed once
+- **WHEN** several selected skills conflict
+- **THEN** init lists them together and asks a single confirmation
+
+### Requirement: Init scope selects local or global setup
+
+Optional `--scope` SHALL accept `local`, `global` or `all`, defaulting to `all`, which performs both. `local` SHALL establish the consumer and prepare and publish sources without inspecting or writing agent assets, and SHALL reject --agent. `global` SHALL require --agent and provision skills and hooks from published selections without acquiring, refreshing or publishing sources or rewriting consumer files, failing with local-init guidance when a selection is missing.
+
+#### Scenario: Local scope rejects an agent
+- **WHEN** a user runs pspec init --scope local --agent codex
+- **THEN** init fails before any effects and explains that local scope provisions no agent assets
+
+#### Scenario: Global scope requires an agent
+- **WHEN** a user runs pspec init --scope global without --agent
+- **THEN** init fails before any effects
+
+### Requirement: Upgrade hook repair needs its own flag
+
+Upgrade SHALL accept `--repair-hooks` to repair a valid stale hook receipt whose uniquely identified native hooks already match the desired source, while `--force` stays limited to skill replacement. Repair SHALL NOT replace arbitrary hooks or act on incomplete inspection; failures SHALL keep provider diagnostics and recovery identifiers, and success SHALL show its operation. Ordinary init SHALL NOT authorize receipt repair; init --force with an explicit agent SHALL authorize it.
+
+#### Scenario: Ordinary init does not repair receipts
+- **WHEN** ordinary init finds a stale hook ownership receipt
+- **THEN** it reports the problem without repairing the receipt
+
+#### Scenario: Repair displays its operation
+- **WHEN** an authorized hook repair succeeds
+- **THEN** upgrade displays the recovery operation identifier
+
+### Requirement: Skill resolution requires one explicit selector
+
+Exactly one of --path or --ref and an explicit --agent SHALL be required; neither or both selectors SHALL be invalid. The former positional-name form and --selected option SHALL fail with a diagnostic explaining --path and native selection, without name discovery or treating a name as a path. --ref SHALL select the catalog route without reviving positional names or inspecting native installations. Failures SHALL emit no successful payload, and pspec and powerspec SHALL share this contract.
+
+#### Scenario: Agent is required
+- **WHEN** pspec resolve skill is invoked without --agent
+- **THEN** it fails as an invalid invocation
+
+#### Scenario: Failure emits no payload
+- **WHEN** a skill resolution invocation fails
+- **THEN** stdout contains no successful result
+
+### Requirement: Hook resolution reads only its arguments
+
+`pspec resolve hook <event> --agent <agent>` SHALL take its logical event and agent from arguments, discover the nearest owning consumer from its working directory, and use optional --change as the only change selector. It SHALL NOT read, parse, poll or wait for stdin, even when a host supplies a payload. Results SHALL go to stdout in the agent's native additional-context envelope, with diagnostics on stderr and documented nonzero exits; no contribution SHALL produce no stdout.
+
+#### Scenario: No contribution writes nothing
+- **WHEN** no trait contributes guidance for the event
+- **THEN** hook resolution writes nothing to stdout
+
+#### Scenario: Change selector for hook inputs
+- **WHEN** hook resolution needs change-scoped inputs
+- **THEN** only an explicit --change argument selects that change
+
+### Requirement: Doctor reports unverifiable delivery honestly
+
+Host receipt, effective enablement or trust beyond inspected settings, and adherence SHALL be reported unverified unless directly established; generation alone SHALL NOT establish them. Unknown verification SHALL be a warning, observed failures SHALL exit nonzero, and JSON SHALL stay one structured result. Unsupported agents SHALL fail before probes, and omitting --agent SHALL keep basic checks and note that delivery checks were not requested.
+
+#### Scenario: Unsupported agent fails before probes
+- **WHEN** doctor receives an unsupported --agent
+- **THEN** it fails before running any delivery probe
+
+#### Scenario: Delivery checks not requested
+- **WHEN** doctor runs without --agent
+- **THEN** it runs basic checks and reports that delivery checks were not requested
+
+### Requirement: Waiting heartbeats claim nothing
+
+The innermost active stage SHALL report elapsed waiting every five seconds while blocked, without claiming upstream activity, measured transfers or completion percentages. Successful results SHALL keep their stdout and exit contracts, and progress SHALL NOT activate for unrelated JSON or resolution protocols.
+
+#### Scenario: Heartbeat claims no transfer
+- **WHEN** a waiting line is printed during a blocked stage
+- **THEN** it reports elapsed time only, without transfer amounts or percentages
+
+#### Scenario: Results keep their stdout contract
+- **WHEN** a lifecycle command succeeds with progress enabled
+- **THEN** its stdout results and exit status are unchanged by progress output
