@@ -6,7 +6,7 @@ import subprocess
 import pytest
 from typer.testing import CliRunner
 
-from powerspec.catalog import ConfigurationError
+from powerspec.catalog import ConfigurationError, MetadataUnavailable
 from powerspec.cli import app
 from powerspec.installation import install_consumer
 from powerspec.sources import SourceBinding
@@ -28,6 +28,13 @@ def environment(tmp_path, monkeypatch):
         def acquire(self, identity, recipe):
             calls.append('refresh:' + identity)
             return SourceBinding(identity, recipe['origin'], recipe['reference'], 'b' * 40, 's', 'b', remote)
+
+        def lookup(self, identity, recipe):
+            # Only an earlier preparation leaves a published selection.
+            if identity not in calls and 'refresh:' + identity not in calls:
+                raise MetadataUnavailable(f'Git source {identity!r} has no selected materialization; run init')
+            calls.append('lookup:' + identity)
+            return SourceBinding(identity, recipe["origin"], recipe["reference"], "a" * 40, "s", "a", remote)
 
     @contextmanager
     def resources():
@@ -134,3 +141,47 @@ def test_partial_agent_failure_keeps_successes(environment, tmp_path):
 def test_install_is_no_longer_a_command():
     result = CliRunner().invoke(app, ["install", "--help"])
     assert result.exit_code == 2
+
+
+def test_local_scope_prepares_sources_without_agent_assets(environment, tmp_path):
+    project, _, _, calls = environment
+    result = CliRunner().invoke(app, ["init", "--scope", "local"])
+    assert result.exit_code == 0, result.output
+    assert calls == ["tools"]
+    assert (project / "openspec/.pspec/config.toml").is_file()
+    assert not (tmp_path / "home").exists()
+
+
+def test_local_scope_rejects_agent_before_effects(environment):
+    project, _, _, calls = environment
+    result = CliRunner().invoke(app, ["init", "--scope", "local", "--agent", "codex"])
+    assert result.exit_code == 1 and "--scope local" in result.stderr
+    assert not calls and not (project / "openspec/config.yaml").exists()
+
+
+def test_global_scope_requires_agent(environment):
+    project, _, _, calls = environment
+    result = CliRunner().invoke(app, ["init", "--scope", "global"])
+    assert result.exit_code == 1 and "--agent" in result.stderr
+    assert not calls and not (project / "openspec/config.yaml").exists()
+
+
+def test_global_scope_provisions_from_existing_selection_only(environment, tmp_path):
+    project, _, _, calls = environment
+    assert CliRunner().invoke(app, ["init", "--scope", "local"]).exit_code == 0
+    config = project / "openspec/.pspec/config.toml"
+    before = config.read_bytes()
+    result = CliRunner().invoke(app, ["init", "--scope", "global", "--agent", "codex", "--force"])
+    assert result.exit_code == 0, result.output
+    assert calls == ["tools", "lookup:tools"]
+    assert (tmp_path / "home/.codex/skills/example/SKILL.md").is_file()
+    assert config.read_bytes() == before
+
+
+def test_global_scope_without_selection_fails_without_acquiring(environment, tmp_path):
+    project, _, _, calls = environment
+    put(project / "openspec/.pspec/config.toml", 'profile="@builtin/main"\n')
+    result = CliRunner().invoke(app, ["init", "--scope", "global", "--agent", "codex"])
+    assert result.exit_code == 1
+    assert "pspec init --scope local" in result.stderr
+    assert not calls and not (tmp_path / "home/.codex/skills").exists()

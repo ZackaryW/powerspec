@@ -246,3 +246,30 @@ def test_remote_skill_provisions_complete_tree_with_declared_name_and_provenance
     installed = home / ".codex/skills/declared-name"
     assert (installed / "SKILL.md").is_file()
     assert (installed / "references/inactive.md").read_text() == "inactive branch resource"
+
+
+def test_complete_conflicts_are_replaceable_and_name_their_remedy(tmp_path):
+    from powerspec.provisioning import plan_skills, provision_skills
+    plans = plan_skills(bundle(tmp_path))
+    foreign = tmp_path / "home/.codex/skills/shared/SKILL.md"
+    foreign.parent.mkdir(parents=True)
+    foreign.write_text("---\nname: shared\n---\nUser content")
+    result = provision_skills(plans, home=tmp_path / "home", registry=tmp_path / "registry")
+    failed = next(i for i in result.items if i.status == "failed")
+    assert failed.replaceable and failed.ref == "@builtin/shared"
+    assert "pspec init --agent codex --force" in failed.diagnostics[-1]
+    assert [i.plan for i in result.replaceable] == [failed.plan]
+    assert not next(i for i in result.items if i.status == "installed").replaceable
+
+
+@pytest.mark.parametrize("classification,completeness", [
+    ("unowned", "partial"), ("conflict", "partial"), ("unsupported", "complete")])
+def test_unverified_targets_are_not_replaceable(tmp_path, monkeypatch, classification, completeness):
+    import powerspec.provisioning as p
+    plans = p.plan_skills(bundle(tmp_path))
+    monkeypatch.setattr(p, "inspect_asset", lambda a, **kw: AssetInspection(
+        classification, a.agent, a.kind, a.name, a.scope, completeness=completeness))
+    monkeypatch.setattr(p, "install", lambda *a, **kw: pytest.fail("must not install"))
+    result = p.provision_skills(plans, home=tmp_path / "home", registry=tmp_path / "registry",
+                                force=True)
+    assert not result.ok and not result.replaceable

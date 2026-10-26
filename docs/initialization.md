@@ -36,12 +36,52 @@ pspec init --agent codex --force
 ```
 
 `--force` also authorizes verified migration of a supported unmanaged default
-Saucepan installation when needed. With `--agent`, it permits guarded repair of
-stale hook receipts whose native content already matches Powerspec. Provider
-backups and operation identifiers are retained. It does not overwrite edited
-skills or hooks, resolve ambiguous ownership, or self-update a ready manager.
-Interrupted migration requires recovery of its recorded operation, not repeated
-forced attempts. See [recovery instructions](remote-sources.md#retention-and-recovery).
+Saucepan installation when needed. With `--agent`, it recoverably replaces
+selected skills that already exist as differing unowned or locally edited copies,
+and permits guarded repair of stale hook receipts whose native content already
+matches Powerspec. Provider backups and operation identifiers are retained; init
+prints `ZuAT skill operation:` for each replaced skill. It does not replace hooks,
+targets it could not completely inspect, resolve ambiguous ownership, or
+self-update a ready manager. Interrupted migration requires recovery of its
+recorded operation, not repeated forced attempts. See
+[recovery instructions](remote-sources.md#retention-and-recovery).
+
+## Existing skill copies
+
+Selected skills may already exist where the agent looks for them, for example
+copies written earlier by another installer or edited by hand. One
+`pspec init --agent <agent>` still completes setup:
+
+```text
+1 selected skills differ from Powerspec's copies:
+  openspec-explore (claude/user)
+Originals are backed up by ZuAT and can be restored.
+Replace them? [y/N]:
+```
+
+Init installs everything else first, then asks once. Answering yes replaces the
+listed copies in the same run. Answering no, or running without an interactive
+terminal (CI, pipes, agents), leaves them untouched and ends with
+`replace conflicting skills with pspec init --agent <agent> --force`. Another
+tool that keeps rewriting the same paths, such as the OpenSpec CLI's own skill
+generation, will produce the same conflict again on the next run.
+
+Source selections are kept even when this step is declined or fails, so
+`pspec sync` and `pspec upgrade` keep working while skills are unresolved.
+
+## Set up one half only
+
+`--scope` splits init into its per-repository and per-machine halves. The default
+`all` does both.
+
+```console
+pspec init --scope local                 # consumer files and sources; no agent assets
+pspec init --scope global --agent codex  # skills and hooks from existing selections
+```
+
+`local` rejects `--agent`. `global` requires `--agent`, reads selections that an
+earlier init published without fetching or changing consumer files, and asks you
+to run `pspec init --scope local` first when a selection is missing.
 
 ## Follow progress
 

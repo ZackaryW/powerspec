@@ -337,3 +337,27 @@ def test_explicit_moved_rebind_preserves_old_receipts(retained, tmp_path):
     assert moved._state()['selected'] == {}
     assert moved.scope != store.scope
     assert backup.read_bytes() == store.state_path.read_bytes()
+
+
+def test_first_time_candidates_publish_before_replacements(retained):
+    store, source, client, calls = retained
+    replaced = store._key(store._source('tools', source))
+    fresh_source = {**source, 'origin': 'https://example.test/other'}
+    fresh = store._key(store._source('other', fresh_source))
+    state = store._state()
+    prior = state['selected'][replaced]
+    replacement = {**prior, 'key': 'replacement-generation', 'commit': 'b' * 40}
+    first = {**prior, 'recipe': fresh_source, 'key': 'first-generation'}
+    state['pending'].update({replaced: replacement, fresh: first})
+    store._write(state)
+    store._candidates.update({replaced: replacement, fresh: first})
+
+    store.commit_new()
+
+    published = store._state()
+    assert published['selected'][fresh] == first
+    assert published['selected'][replaced] == prior
+    assert published['pending'] == {replaced: replacement}
+    store.reject()
+    assert store._state()['pending'] == {}
+    assert store._state()['selected'][replaced] == prior

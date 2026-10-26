@@ -35,13 +35,13 @@ def test_force_authorizes_default_manager_only_at_init_boundary(environment, mon
     assert seen == [dict(manage_binary=True, migrate_unmanaged=True)]
 
 
-def test_force_preserves_modified_skills(environment, tmp_path):
+def test_force_replaces_differing_skills_recoverably(environment, tmp_path):
     foreign = tmp_path / 'home/.codex/skills/example/SKILL.md'
     put(foreign, '---\nname: example\ndescription: User.\n---\nUser content\n')
-    before = foreign.read_bytes()
     result = CliRunner().invoke(app, ['init', '--agent', 'codex', '--force'])
-    assert result.exit_code == 1 and 'Initialization complete' not in result.stdout
-    assert foreign.read_bytes() == before
+    assert result.exit_code == 0, result.output
+    assert 'updated: ' in result.stdout and 'ZuAT skill operation:' in result.stdout
+    assert 'User content' not in foreign.read_text()
 
 
 def test_force_repairs_matching_hook_receipt_and_reports_operation(environment, tmp_path, monkeypatch):
@@ -73,4 +73,41 @@ def test_init_help_lists_force_recovery_scope():
     result = CliRunner().invoke(app, ['init', '--help'], color=False)
     assert result.exit_code == 0
     assert '--force' in result.stdout
-    assert all(word in result.stdout.lower() for word in ('refresh', 'migration', 'hook'))
+    assert all(word in result.stdout.lower() for word in ('refresh', 'migration', 'hook', 'replace'))
+    assert '--scope' in result.stdout and all(word in result.stdout for word in ('local', 'global', 'all'))
+
+
+@pytest.fixture
+def conflicting(environment, tmp_path):
+    foreign = tmp_path / 'home/.codex/skills/example/SKILL.md'
+    put(foreign, '---\nname: example\ndescription: User.\n---\nUser content\n')
+    return foreign
+
+
+def test_interactive_init_replaces_conflicts_after_one_confirmation(conflicting, monkeypatch):
+    monkeypatch.setattr('powerspec.cli.init._interactive', lambda: True)
+    result = CliRunner().invoke(app, ['init', '--agent', 'codex'], input='y\n')
+    assert result.exit_code == 0, result.output
+    assert result.stderr.count('Replace them?') == 1
+    assert 'example (codex/user)' in result.stderr
+    assert 'ZuAT skill operation:' in result.stdout and 'Initialization complete' in result.stdout
+    assert 'User content' not in conflicting.read_text()
+
+
+def test_declined_confirmation_preserves_conflicts_and_names_remedy(conflicting, monkeypatch):
+    monkeypatch.setattr('powerspec.cli.init._interactive', lambda: True)
+    before = conflicting.read_bytes()
+    result = CliRunner().invoke(app, ['init', '--agent', 'codex'], input='n\n')
+    assert result.exit_code == 1
+    assert conflicting.read_bytes() == before
+    assert 'Error: agent provisioning incomplete; replace conflicting skills with pspec init --agent codex --force' in result.stderr
+
+
+def test_non_interactive_init_never_prompts(conflicting, monkeypatch):
+    monkeypatch.setattr('powerspec.cli.init._interactive', lambda: False)
+    before = conflicting.read_bytes()
+    result = CliRunner().invoke(app, ['init', '--agent', 'codex'])
+    assert result.exit_code == 1
+    assert 'Replace them?' not in result.output
+    assert conflicting.read_bytes() == before
+    assert 'pspec init --agent codex --force' in result.stderr

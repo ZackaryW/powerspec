@@ -118,3 +118,97 @@ def test_install_reports_partial_skill_failure_without_removing_successes(tmp_pa
     assert {item.status for item in result.provisioning.items} == {"failed", "installed"}
     assert foreign.read_text(encoding="utf-8").endswith("User content\n")
     assert (tmp_path / "home/.codex/skills/second/SKILL.md").is_file()
+
+
+def recording_sources(tmp_path, remote, events):
+    from powerspec.sources import SaucepanSources
+
+    class Sources(SaucepanSources):
+        def for_consumer(self, path):
+            return self
+
+        def ensure(self, identity, recipe):
+            return SourceBinding(identity, recipe["origin"], recipe["reference"], "a" * 40, "s", "a", remote)
+
+        def commit_new(self):
+            events.append("commit_new")
+
+        def commit(self):
+            events.append("commit")
+
+        def reject(self):
+            events.append("reject")
+
+    return Sources(object(), consumer_path=tmp_path / "state/config.toml")
+
+
+def test_first_selections_publish_before_provisioning_can_fail(tmp_path, monkeypatch):
+    import powerspec.provisioning as provisioning
+    import powerspec.workspace as workspace
+
+    project, builtin, remote = setup(tmp_path)
+    put(tmp_path / "home/.codex/skills/example/SKILL.md", "---\nname: example\n---\nUser content\n")
+    events = []
+    real = provisioning.provision_skills
+
+    def observed(*args, **kwargs):
+        events.append("provision")
+        return real(*args, **kwargs)
+
+    @contextmanager
+    def resources():
+        yield builtin
+
+    monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
+    monkeypatch.setattr("powerspec.installation.provision_skills", observed)
+    result = install_consumer(project, agent="codex", home=tmp_path / "home",
+                              registry=tmp_path / "registry",
+                              source_store=recording_sources(tmp_path, remote, events))
+    assert not result.ok
+    # First-time selections are published before provisioning; replacements are
+    # still withheld because provisioning failed.
+    assert events == ["commit_new", "provision", "reject"]
+
+
+def test_failed_first_init_leaves_upgrade_a_selection(tmp_path, monkeypatch):
+    """Regression: a skill conflict in first init made upgrade report no selection."""
+    import powerspec.workspace as workspace
+    from powerspec.consumer import discover_consumer
+    from powerspec.sources import SaucepanSources
+    from powerspec.upgrading import upgrade_consumer
+
+    project, builtin, remote = setup(tmp_path)
+    put(tmp_path / "home/.codex/skills/example/SKILL.md", "---\nname: example\n---\nUser content\n")
+
+    class Sources(SaucepanSources):
+        # Stage candidates exactly as preparation does, without a manager.
+        def for_consumer(self, path):
+            return self
+
+        def _stage(self, identity, recipe):
+            source = self._source(identity, recipe)
+            key, state = self._key(source), self._state()
+            record = {"recipe": source.model_dump(), "key": f"generation-{len(state['selected'])}"}
+            state["pending"][key] = record
+            self._write(state)
+            self._candidates[key] = record
+            return self._binding(identity, source, state, record)
+
+        ensure = acquire = _stage
+
+        def _binding(self, identity, source, state, record, **options):
+            return SourceBinding(identity, source.origin, source.reference, "a" * 40, "s", "a", remote)
+
+    @contextmanager
+    def resources():
+        yield builtin
+
+    monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
+    store = Sources(object(), consumer_path=project / "openspec/.pspec/config.toml")
+    context = dict(home=tmp_path / "home", registry=tmp_path / "registry")
+    assert not install_consumer(project, agent="codex", source_store=store, **context).ok
+
+    upgraded = upgrade_consumer(builtin=builtin, consumer=discover_consumer(project, runtime=False),
+                                agent="codex", source_store=store, force=True, **context)
+    assert upgraded.ok, upgraded.diagnostics
+    assert (tmp_path / "home/.codex/skills/example/SKILL.md").read_text().startswith("---\nname: example\ndescription")

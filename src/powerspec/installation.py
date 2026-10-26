@@ -41,9 +41,17 @@ def install_consumer(
     source_store=None,
     repair_hooks: bool = False,
     refresh_sources: bool = False,
+    lookup_sources: bool = False,
     migrate_unmanaged: bool = False,
+    replace_skills: bool = False,
+    confirm_replacement=None,
 ) -> InstallationResult:
-    """Ensure sources, install selected skills, and reconcile one dispatcher."""
+    """Ensure sources, install selected skills, and reconcile one dispatcher.
+
+    ``confirm_replacement`` receives the completely inspected conflicts left by
+    an unforced pass; a true answer replaces only those through ZuAT's forced
+    path, which rechecks each target inside its own preflight.
+    """
     if agent not in SUPPORTED_AGENTS:
         raise ConfigurationError(
             "provisioning requires a supported --agent: " + ", ".join(SUPPORTED_AGENTS)
@@ -51,12 +59,22 @@ def install_consumer(
     with open_workspace(
         cwd,
         agent=agent,
-        source_mode="refresh" if refresh_sources else "ensure",
+        source_mode="lookup" if lookup_sources else "refresh" if refresh_sources else "ensure",
         migrate_unmanaged=migrate_unmanaged,
         source_store=source_store,
     ) as workspace:
         plans = plan_skills(workspace.bundle)
-        provisioning = provision_skills(plans, home=home, registry=registry)
+        if isinstance(workspace.source_store, SaucepanSources):
+            # Recovery commands need a published selection, so a first one must
+            # not depend on agent provisioning succeeding.
+            workspace.source_store.commit_new()
+        provisioning = provision_skills(plans, home=home, registry=registry, force=replace_skills)
+        conflicts = provisioning.replaceable
+        if conflicts and confirm_replacement is not None and confirm_replacement(conflicts):
+            retried = iter(provision_skills([item.plan for item in conflicts], home=home,
+                                            registry=registry, force=True).items)
+            provisioning = ProvisionResult(tuple(next(retried) if item.replaceable else item
+                                                 for item in provisioning.items))
         with stage(f'Reconciling {agent} hooks') as task:
             hooks = provision_hooks(agent, home=home, registry=registry, repair_hooks=repair_hooks)
             task.result(hooks.status, '; '.join(hooks.diagnostics))

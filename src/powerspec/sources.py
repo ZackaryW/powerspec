@@ -379,15 +379,32 @@ class SaucepanSources:
         with self._mutation():
             self._commit_locked()
 
-    def _commit_locked(self):
+    def commit_new(self):
+        """Publish validated candidates that replace no prior selection.
+
+        A first selection has no earlier baseline to protect, so publishing it
+        before agent provisioning keeps recovery commands usable when that
+        provisioning fails. Replacements remain candidates for commit or reject.
+        """
+        if not self._candidates:
+            return
+        with self._mutation():
+            selected = self._state()['selected']
+            self._commit_locked([key for key in self._candidates if key not in selected])
+
+    def _commit_locked(self, keys=None):
         state = self._state()
-        for key, candidate in self._candidates.items():
+        keys = list(self._candidates) if keys is None else keys
+        for key in keys:
+            candidate = self._candidates[key]
             if state['pending'].get(key, {}).get('key') != candidate['key']:
                 raise ConfigurationError('source preparation changed before publication')
             state['selected'][key] = candidate
             del state['pending'][key]
-        self._write(state)
-        self._candidates.clear()
+        if keys:
+            self._write(state)
+        for key in keys:
+            del self._candidates[key]
 
     def reject(self):
         """Abandon known candidates, retaining their pins; uncertain work stays."""

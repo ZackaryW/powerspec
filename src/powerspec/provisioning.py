@@ -38,6 +38,10 @@ class SkillOutcome:
     plan: SkillPlan
     diagnostics: tuple[str, ...] = ()
     operation_id: str | None = None
+    # Complete inspection found an unowned or modified copy that an explicit
+    # force pass may recoverably replace.
+    replaceable: bool = False
+    replaced: bool = False
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,10 @@ class ProvisionResult:
     @property
     def ok(self):
         return all(item.status in {"installed", "reused", "updated"} for item in self.items)
+
+    @property
+    def replaceable(self):
+        return tuple(item for item in self.items if item.replaceable)
 
 
 @dataclass(frozen=True)
@@ -142,8 +150,15 @@ def provision_skills(plans, *, home: Path | None = None,
                         plan.ref, "updated" if result.ok else "failed", plan,
                         tuple(result.diagnostics)
                         or (() if result.ok else (f"ZuAT returned {result.status}",)),
-                        result.operation_id,
+                        result.operation_id, replaced=result.ok,
                     ))
+                    continue
+                if (observed.completeness == "complete"
+                        and observed.classification in {"unowned", "conflict"}):
+                    outcomes.append(SkillOutcome(plan.ref, "failed", plan, (
+                        *(observed.diagnostics or (f"native target is {observed.classification}",)),
+                        f"replace with pspec init --agent {plan.agent} --force",
+                    ), replaceable=True))
                     continue
                 if observed.classification in {"unsupported", "unowned", "conflict"}:
                     outcomes.append(SkillOutcome(plan.ref, "failed", plan,

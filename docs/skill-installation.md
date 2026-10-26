@@ -18,10 +18,13 @@ failures with diagnostics. When plugin inventory prevents complete inspection, r
 lookup must establish that no copy at the requested scope is being adopted;
 ZuAT then performs its own non-forced installation checks.
 
-`pspec upgrade --agent <agent> --force` explicitly permits ZuAT to archive and
-replace selected differing unowned or locally modified skills. Force applies only
-to selected skill provisioning. It does not bypass incomplete inspection, change
-hook ownership, or weaken obsolete-skill removal checks.
+`pspec init --agent <agent> --force`, `pspec upgrade --agent <agent> --force`, or
+accepting init's interactive replacement prompt explicitly permits ZuAT to archive
+and replace selected differing unowned or locally modified skills. This
+replacement never bypasses incomplete inspection, unsupported targets, hook
+ownership, or obsolete-skill removal checks. Each conflict failure names the
+`--force` command that would replace it. See
+[existing skill copies](initialization.md#existing-skill-copies).
 
 Provisioning returns a result for every planned skill. Successful earlier actions
 remain installed if a later action fails. Resolve the reported conflicts and rerun

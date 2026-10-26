@@ -77,7 +77,11 @@ Recipe declaration, materialization, selection, installation, synchronization, a
 - ZuAT owns native agent installation and installation provenance.
 - `pspec sync` reuses existing materializations without refresh and does not install or remove skills.
 - ordinary `pspec init` may acquire a selected recipe only when it is missing;
-- explicit upgrade and `pspec init --force` refresh existing selected recipes.
+- explicit upgrade and `pspec init --force` refresh existing selected recipes;
+- a consumer's first selection of a recipe is published once it validates, before
+  agent provisioning, so a skill conflict cannot leave upgrade or sync without a
+  selection. A refreshed replacement of an existing selection is still published
+  only when the whole init or upgrade succeeds.
 
 Avoiding a clone or fetch does not eliminate provider work. A new consumer still
 needs policy registration, retained output preparation and verification; local
@@ -149,7 +153,7 @@ Replace UUID with a new UUID and SHA256 with the observed file digest after revi
 
 Powerspec reserves an attempt record outside the store at `~/.powerspec/saucepan-setup/<root-hash>.json` before invoking migration. Keep it with the provider receipts. A repeated forced invocation cannot replay an uncertain or failed attempt; inspect/recover the recorded provider operation externally (using a setup-capable manager if the launcher is unavailable). Once the launcher is verified ready it is reused. Force does not bypass changed-file, link, sidecar, unsupported-store or busy-file checks. Migration may remain complete if later initialization fails.
 
-With an explicit agent, forced initialization can repair a stale hook ownership receipt only when the uniquely identified native group already matches Powerspec's desired content. ZuAT rechecks equality during its receipt-only update, preserving native bytes and modification time. Edited or ambiguous hooks still fail; recovery operation identifiers are reported. Source-only initialization performs no hook work. Upgrade keeps its separate `--repair-hooks` option and its existing skill-only `--force` meaning.
+With an explicit agent, forced initialization can repair a stale hook ownership receipt only when the uniquely identified native group already matches Powerspec's desired content. ZuAT rechecks equality during its receipt-only update, preserving native bytes and modification time. Edited or ambiguous hooks still fail; recovery operation identifiers are reported. Source-only initialization performs no hook work. Forced initialization with an agent also recoverably replaces completely inspected conflicting selected skills. Upgrade keeps its separate `--repair-hooks` option and its skill-only `--force` meaning.
 
 Before migration, stop older Powerspec installations from using the default path: releases through 0.1.5 still contain the raw replacement lifecycle. Use an explicitly selected separate compatible executable for those consumers. This managed-setup adapter is the required consumer behavior; do not rely on an old consumer to protect the shared shim.
 
