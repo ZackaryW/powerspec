@@ -125,7 +125,7 @@ def test_logical_selectors_expand_before_per_trait_native_exclusions():
         "sessionStart", "afterCompaction", "~claude:SessionStart",
     ])
     assert {(item.agent, item.logical_event) for item in selected} == {
-        ("codex", "sessionStart"), ("codex", "afterCompaction"),
+        ("codex", "sessionStart"), ("codex", "afterCompaction"), ("antigravity", "sessionStart"),
     }
     direct = selected_callbacks(["claude:SessionStart"])
     assert {item.logical_event for item in direct} == {"sessionStart", "afterCompaction"}
@@ -410,3 +410,42 @@ def test_hook_cli_emits_only_structured_guidance_without_input(tmp_path, monkeyp
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"] == "guide"
     assert source_modes == [False]
+
+
+def test_antigravity_maps_only_session_start_and_reads_its_workspace_from_the_payload():
+    start = callback_for("antigravity", "sessionStart")
+    assert (start.native_event, start.payload_workspace) == ("SessionStart", True)
+    assert not callback_for("codex", "sessionStart").payload_workspace
+    assert not callback_for("claude", "afterCompaction").payload_workspace
+    with pytest.raises(ConfigurationError, match="no verified context-delivery mapping"):
+        callback_for("antigravity", "afterCompaction")
+
+
+def test_antigravity_selectors_and_exclusions():
+    def pairs(selectors):
+        return {(item.agent, item.logical_event) for item in selected_callbacks(selectors)}
+
+    assert ("antigravity", "sessionStart") in pairs(["sessionStart"])
+    assert not any(agent == "antigravity" for agent, _ in pairs(["afterCompaction"]))
+    assert pairs(["antigravity:SessionStart"]) == {("antigravity", "sessionStart")}
+    assert not any(agent == "antigravity" for agent, _ in pairs(["sessionStart", "~antigravity:SessionStart"]))
+
+
+def test_antigravity_guidance_is_one_injected_system_message():
+    assert json.loads(serialize("antigravity", "sessionStart", "Use bootstrap.")) == {
+        "injectSteps": [{"systemMessage": {"systemMessage": "Use bootstrap."}}]
+    }
+    assert serialize("antigravity", "sessionStart", None) is None
+
+
+def test_antigravity_registration_is_one_keyed_flat_entry():
+    document = native_document("antigravity")
+
+    assert list(document) == ["powerspec"] and list(document["powerspec"]) == ["SessionStart"]
+    [handler] = document["powerspec"]["SessionStart"]
+    assert handler == {
+        "type": "command",
+        "command": "pspec resolve hook sessionStart --agent antigravity --stdin-workspace",
+        "timeout": 5,
+    }
+    assert '"' not in handler["command"] and "\\" not in handler["command"]

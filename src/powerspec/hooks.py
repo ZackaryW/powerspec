@@ -23,6 +23,9 @@ class NativeCallback:
     logical_event: str
     native_event: str
     matcher: str
+    # The host runs hooks outside the session project and passes the workspace
+    # in its stdin payload instead.
+    payload_workspace: bool = False
 
     @property
     def selector(self) -> str:
@@ -37,6 +40,9 @@ CALLBACKS = (
     NativeCallback("codex", "afterCompaction", "SessionStart", "compact"),
     NativeCallback("claude", "sessionStart", "SessionStart", "startup|clear|fork"),
     NativeCallback("claude", "afterCompaction", "SessionStart", "compact"),
+    # Antigravity fires SessionStart once per new conversation, ignores matchers
+    # and has no compaction event, so only sessionStart is mapped.
+    NativeCallback("antigravity", "sessionStart", "SessionStart", "", payload_workspace=True),
 )
 
 
@@ -125,6 +131,9 @@ def serialize(agent: str, logical_event: str, guidance: str | None) -> str | Non
     if guidance is None:
         return None
     callback = callback_for(agent, logical_event)
+    if agent == "antigravity":
+        return json.dumps({"injectSteps": [{"systemMessage": {"systemMessage": guidance}}]},
+                          ensure_ascii=False)
     if agent not in {"codex", "claude"}:
         raise ConfigurationError(f"{agent!r} has no verified hook response serializer")
     return json.dumps({
@@ -140,6 +149,14 @@ def native_document(agent: str) -> dict:
     callbacks = [item for item in CALLBACKS if item.agent == agent]
     if not callbacks:
         raise ConfigurationError(f"{agent!r} has no verified Powerspec hook registrations")
+    if agent == "antigravity":
+        # Hooks are named entries with flat handler lists; the handler format has
+        # no status field, and quoted or backslashed commands silently never run.
+        return {"powerspec": {"SessionStart": [{
+            "type": "command",
+            "command": f"pspec resolve hook {callback.logical_event} --agent {agent} --stdin-workspace",
+            "timeout": 5,
+        } for callback in callbacks]}}
     entries = []
     for callback in callbacks:
         command = f"pspec resolve hook {callback.logical_event} --agent {agent}"
