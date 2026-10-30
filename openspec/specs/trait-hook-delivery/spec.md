@@ -56,7 +56,7 @@ Runtime guidance SHALL introduce dynamic-resolution requirements only alongside 
 
 ### Requirement: Hook dispatch resolves the invoking consumer
 
-Hook dispatch SHALL use the hook process's working directory, also the condition cwd, and its nearest owning consumer within the Git boundary, including worktrees. Stdin SHALL NOT supply consumer location, event identity, variable values or user answers. It SHALL select matching runtime traits from the consumer's effective profiles and return agent-supported guidance. An absent consumer or no matching trait SHALL yield no guidance; malformed nearest configuration SHALL be diagnosed.
+Hook dispatch SHALL use the hook process's working directory, also the condition cwd, and its nearest owning consumer within the Git boundary, including worktrees, unless payload workspaces are requested. Stdin SHALL NOT supply events, variables or user answers. It SHALL select matching runtime traits from the consumer's effective profiles and return agent-supported guidance. An absent consumer or no matching trait SHALL yield no guidance; malformed nearest configuration SHALL be diagnosed.
 
 #### Scenario: Shared dispatcher serves different projects
 - **WHEN** the same user-level dispatcher is invoked from two consumers with different effective hook traits
@@ -115,6 +115,18 @@ Hook dispatch SHALL use the hook process's working directory, also the condition
 #### Scenario: Source becomes available later
 - **WHEN** a later supported callback can inspect metadata that was previously unavailable
 - **THEN** that callback classifies the reference from current evidence rather than reusing the prior unknown result
+
+### Requirement: Payload workspace dispatch
+
+An invocation explicitly requesting payload workspace discovery SHALL use the workspace directories it obtains in place of the working directory, each resolving its own nearest consumer within its Git boundary. Stdin SHALL NOT otherwise supply consumer location.
+
+#### Scenario: Shared dispatcher serves different projects from a fixed host directory
+- **WHEN** the same user-level Antigravity dispatcher runs from one fixed host directory for two sessions whose payloads name different consumers
+- **THEN** each receives guidance selected from its own payload workspaces and configuration without reinstalling hooks
+
+#### Scenario: Malformed configuration in a multi-project session
+- **WHEN** a payload lists several workspaces and one consumer's nearest configuration is malformed
+- **THEN** that consumer's failure is reported without selecting a more distant consumer for it, and only that consumer's guidance is withheld
 
 ### Requirement: Hook guidance uses fresh Python conditions
 
@@ -179,7 +191,7 @@ Powerspec SHALL define logical hook selectors, agent-qualified native selectors 
 
 ### Requirement: Provision generic user-level hook dispatchers through ZuAT
 
-Provisioning SHALL install generic `pspec resolve hook` registrations on the selected agent's supported user-level hook surfaces through ZuAT, each advisory handler having an explicit timeout of at most five seconds and a concise status. Registrations SHALL carry the native context to select guidance at invocation, not one consumer's profile or trait body, and SHALL NOT return a blocking host decision.
+Provisioning SHALL install generic `pspec resolve hook` registrations on the selected agent's supported user-level hook surfaces through ZuAT, each advisory handler having an explicit timeout of at most five seconds and, where the host's handler format has a status field, a concise status. Registrations SHALL carry the native context to select guidance at invocation, not one consumer's profile or trait body, and SHALL NOT return a blocking host decision.
 
 #### Scenario: Repeated dispatcher provisioning
 - **WHEN** the selected agent already has matching bounded Powerspec registrations alongside unrelated hooks
@@ -217,6 +229,10 @@ Provisioning SHALL install generic `pspec resolve hook` registrations on the sel
 #### Scenario: Unsupported hook surface
 - **WHEN** the selected agent has no supported user-level hook surface for a logical event
 - **THEN** provisioning reports it without guessing a native event or falling back to repository-local hooks
+
+#### Scenario: Host handler has no status field
+- **WHEN** provisioning generates the Antigravity registration, whose handler format has no status message
+- **THEN** the handler carries only the host-documented fields and its bounded timeout, with no invented status
 
 ### Requirement: Native matchers own event source filtering
 

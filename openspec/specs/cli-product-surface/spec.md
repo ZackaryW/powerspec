@@ -191,15 +191,19 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 - **THEN** Powerspec emits that skill's resolved document in the requested representation without searching native installations
 
 #### Scenario: Dispatch a native hook
-- **WHEN** an installed agent callback invokes resolve hook with an event and agent from a consumer working directory
+- **WHEN** an installed Codex or Claude callback invokes resolve hook with an event and agent from a consumer working directory
 - **THEN** Powerspec resolves the nearest owning consumer from that directory and emits applicable hook guidance without consuming a native payload
 
+#### Scenario: Dispatch an Antigravity hook
+- **WHEN** an installed Antigravity callback invokes resolve hook with the explicit payload-workspace option from the host's fixed hooks directory
+- **THEN** Powerspec resolves the nearest owning consumer of each payload workspace path and emits applicable hook guidance in Antigravity's envelope
+
 #### Scenario: Stdin stays open
-- **WHEN** hook resolution runs with an open stdin pipe whose writer sends no bytes and does not close it
+- **WHEN** hook resolution runs without the payload-workspace option and with an open stdin pipe whose writer sends no bytes and does not close it
 - **THEN** the command completes its resolution without waiting for input or end-of-file
 
 #### Scenario: Payload cannot redirect consumer discovery
-- **WHEN** a caller supplies stdin containing another repository's cwd, malformed JSON, or arbitrary text
+- **WHEN** a caller supplies stdin containing another repository's cwd, malformed JSON, or arbitrary text, and the payload-workspace option is not given
 - **THEN** the command ignores that input and resolves only from its process working directory
 
 #### Scenario: Direct command without a payload
@@ -475,7 +479,7 @@ Exactly one of --path or --ref and an explicit --agent SHALL be required; neithe
 
 ### Requirement: Hook resolution reads only its arguments
 
-`pspec resolve hook <event> --agent <agent>` SHALL take its logical event and agent from arguments, discover the nearest owning consumer from its working directory, and use optional --change as the only change selector. It SHALL NOT read, parse, poll or wait for stdin, even when a host supplies a payload. Results SHALL go to stdout in the agent's native additional-context envelope, with diagnostics on stderr and documented nonzero exits; no contribution SHALL produce no stdout.
+`pspec resolve hook <event> --agent <agent>` SHALL take its logical event and agent from arguments, discover the nearest owning consumer from its working directory, and use optional --change as the only change selector. Without --stdin-workspace it SHALL NOT read, parse, poll or wait for stdin, even with a host payload. Results SHALL go to stdout in the agent's native additional-context envelope, with diagnostics on stderr and documented nonzero exits; no contribution SHALL produce no stdout.
 
 #### Scenario: No contribution writes nothing
 - **WHEN** no trait contributes guidance for the event
@@ -484,6 +488,18 @@ Exactly one of --path or --ref and an explicit --agent SHALL be required; neithe
 #### Scenario: Change selector for hook inputs
 - **WHEN** hook resolution needs change-scoped inputs
 - **THEN** only an explicit --change argument selects that change
+
+### Requirement: Hook resolution stdin workspace option
+
+The explicit --stdin-workspace option SHALL be the only exception to hook resolution's stdin isolation. It SHALL permit only the bounded workspace read defined for the selected agent, and SHALL be rejected for agents that define none.
+
+#### Scenario: Default invocation never touches stdin
+- **WHEN** hook resolution runs for any agent without --stdin-workspace
+- **THEN** it does not read, parse, or poll stdin
+
+#### Scenario: Payload option is the only stdin exception
+- **WHEN** hook resolution runs with --stdin-workspace for an agent that supports it
+- **THEN** it reads stdin only to obtain the workspace and takes no event, variable, answer, or change from it
 
 ### Requirement: Doctor reports unverifiable delivery honestly
 
