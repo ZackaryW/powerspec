@@ -122,7 +122,9 @@ selection in `openspec/.pspec/config.toml`. Omit the profile to use global
 profiles only.
 
 `--agent` is the provisioning boundary. `pspec init --agent codex` installs the
-selected skills and generic hook dispatcher at their declared scopes. Bare
+selected skills and generic hook dispatcher at their declared scopes; `claude` and
+`antigravity` work the same way. Antigravity receives guidance at session start only
+(see [hook delivery](docs/hook-delivery.md#antigravity)). Bare
 `pspec init` creates the consumer and prepares sources without choosing an agent
 or installing agent assets. There is no separate Powerspec install command.
 

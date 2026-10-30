@@ -17,6 +17,10 @@ Initialization creates the Git-root OpenSpec/Powerspec consumer, acquires missin
 selected sources, and provisions selected skills and hooks for the supplied
 agent. There is no separate install command. Repeat `init --agent codex` to
 prepare another machine or reconcile that agent after changing profile selection.
+Hook dispatchers are installed for `codex`, `claude`, and `antigravity`; `kimi` and
+`pi` receive skills only and report hooks as unsupported. For Antigravity, user
+skills go to `~/.gemini/config/skills`, project skills to `<project>/.agents/skills`,
+and the dispatcher is a named `powerspec` entry in `~/.gemini/config/hooks.json`.
 
 `--profile` sets a new consumer's selection; later runs reuse config.toml.
 An omitted or empty profile selects global profiles after exclusions. Conflicting

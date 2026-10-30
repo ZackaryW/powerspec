@@ -6,11 +6,13 @@ The builtin profile supplies a compact routing reminder at startup and after com
 
 This context reduction applies to resolve-only selections in a fresh native setup. Existing independently installed skills remain discoverable, and previously read session text is not unloaded. Emitting guidance and resolving a procedure do not prove host receipt or agent adherence.
 
-`pspec init --agent codex` and `pspec init --agent claude` install one generic
-user-level hook asset through ZuAT. The asset contains commands only. It does not
-contain a consumer profile, trait body, or repository path. At invocation,
+`pspec init --agent codex`, `--agent claude`, and `--agent antigravity` install one
+generic user-level hook asset through ZuAT. The asset contains commands only. It does
+not contain a consumer profile, trait body, or repository path. At invocation,
 Powerspec uses the command process working directory to discover the
 nearest `openspec/.pspec/config.toml` within the current Git or worktree boundary.
+Antigravity runs hooks from the folder holding `hooks.json` instead, so its command
+reads the session workspace from the hook payload; see [Antigravity](#antigravity).
 
 The verified mappings are:
 
@@ -20,8 +22,12 @@ The verified mappings are:
 | `afterCompaction` | Codex | `SessionStart` | `compact` |
 | `sessionStart` | Claude | `SessionStart` | `startup|clear|fork` |
 | `afterCompaction` | Claude | `SessionStart` | `compact` |
+| `sessionStart` | Antigravity | `SessionStart` | none (once per new conversation) |
 
-Both hosts document that `SessionStart` can inject `hookSpecificOutput.additionalContext`
+Antigravity has no compaction event, so `afterCompaction` is reported unsupported
+for it and guidance is delivered at session start only.
+
+Codex and Claude document that `SessionStart` can inject `hookSpecificOutput.additionalContext`
 and fires again with `source = "compact"`. Their native `PostCompact` callbacks can
 run commands, but do not provide context delivery, so Powerspec does not claim or
 install a `PostCompact` mapping. Kimi and Pi remain unsupported for these two
@@ -67,8 +73,9 @@ stop, subagent start or stop, or session end. An ordinary Codex turn represented
 as `source = "resume"` therefore starts no Powerspec process and evaluates no
 trait condition.
 
-Every generated Powerspec command handler has a five-second native timeout and a
-short status message. The host deadline bounds the whole adapter, including
+Every generated Powerspec command handler has a five-second native timeout and,
+where the host's handler format has one, a short status message (Antigravity's
+does not). The host deadline bounds the whole adapter, including
 Python startup, catalog loading, filesystem access, probes, and serialization.
 Command probes receive a smaller internal timeout so the adapter can diagnose a
 failure and finish before the host deadline.
@@ -173,9 +180,13 @@ omits that optional trait, and still returns successfully resolved independent
 guidance. Dispatch does not publish contexts, install assets, prompt for skill
 variables, execute skills, or write consumer state.
 
-The command never reads, parses, polls, or waits for stdin. Any host-supplied
-payload is ignored, including its cwd. Callers that previously selected a
-repository through payload cwd must instead run the process from that repository.
+By default the command never reads, parses, polls, or waits for stdin. Any
+host-supplied payload is ignored, including its cwd. Callers that previously
+selected a repository through payload cwd must instead run the process from that
+repository. The only exception is `--stdin-workspace`, which only callbacks that
+declare a payload workspace accept (Antigravity); Codex and Claude reject it before
+touching stdin. It reads nothing but `workspacePaths`, never the event, variables,
+answers, or change.
 If guidance requests a user decision, the request is returned as additional
 context for the agent to present; the hook neither collects an answer nor writes
 variables. Configuration failures remain diagnostics, not invented defaults.
@@ -210,6 +221,50 @@ invocation process cwd and environment, requires an exit-zero JSON object, and h
 default subprocess timeout. Hook delivery lowers that timeout below its native
 five-second deadline. These capabilities are not a sandbox and their external
 effects are not rolled back.
+
+## Antigravity
+
+`pspec init --agent antigravity` registers one named entry in
+`~/.gemini/config/hooks.json`:
+
+```json
+{"powerspec": {"SessionStart": [{"type": "command",
+  "command": "pspec resolve hook sessionStart --agent antigravity --stdin-workspace",
+  "timeout": 5}]}}
+```
+
+Antigravity runs that command with its working directory set to
+`~/.gemini/config` and writes a JSON payload such as
+`{"workspacePaths": ["C:/work/app"], "conversationId": "..."}` to stdin. The
+command reads the payload for at most 0.5 seconds, stops as soon as one complete
+object arrives, and never waits for the pipe to close. A terminal stdin is not read;
+the command then uses its working directory, so the line above can be run by hand
+inside a consumer. Guidance is returned as
+`{"injectSteps": [{"systemMessage": {"systemMessage": "..."}}]}`; no guidance
+means no stdout.
+
+- One workspace path: resolved exactly like a single-project session, from the
+  nearest consumer above that path.
+- Several workspace paths, as when an opened workset puts one worktree per
+  repository in the session: Antigravity lists them alphabetically, so the hook
+  cannot tell which one you launched from. It resolves every path, counts each
+  consumer once, and returns one message that tells the agent to follow only the
+  section for the project it is actively implementing or updating changes in,
+  followed by a `### <project> (<path>)` section per consumer with guidance. A
+  failing consumer omits only its own section and is named on stderr; the command
+  fails only when every consumer it found fails.
+- An empty, malformed, or timed-out payload, or one with no existing workspace
+  directory, delivers nothing, warns on stderr, and exits zero. It never falls back
+  to the working directory, which is not the session's project.
+
+Observed with agy 1.4.10 on 2026-10-29: the hook ran from the folder holding
+`hooks.json` and the host closed stdin right after writing; a `systemMessage`
+persisted across `--continue` while `SessionStart` did not fire again; the Codex
+and Claude `hookSpecificOutput` envelope was not delivered; grouped `matcher`
+entries under `SessionStart` and commands with a quoted backslash path silently
+never ran; and guidance of 45,000 characters was delivered while 70,000 was dropped
+without an error. Keep combined multi-project guidance well under that size. A
+seven-repository workset of roughly 6,000-character consumers comes close.
 
 ## Installation and recovery
 
