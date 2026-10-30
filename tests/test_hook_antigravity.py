@@ -15,6 +15,7 @@ from tests.test_hook_input import project  # noqa: F401  (fixture)
 
 AGY = ["resolve", "hook", "sessionStart", "--agent", "antigravity", "--stdin-workspace"]
 INTRO = "This session includes several Powerspec projects."
+COMMAND = "pspec resolve hook sessionStart --agent antigravity"
 ASK = "Ask the user which mode to use."
 
 
@@ -131,41 +132,48 @@ def test_interactive_terminal_resolves_from_the_working_directory(project, monke
     assert injected(capsys.readouterr().out) == ASK
 
 
-def test_two_consumers_get_labeled_sections_and_a_selection_instruction(tmp_path, monkeypatch):
+def test_two_consumers_get_a_project_list_and_no_guidance(tmp_path, monkeypatch):
     api = consumer_at(tmp_path / "api-feature-x", "API rules.")
     web = consumer_at(tmp_path / "web-feature-x", "Web rules.")
     result = agy(monkeypatch, tmp_path, payload(api, web))
     assert result.exit_code == 0, result.output
     text = injected(result.stdout)
-    assert text.startswith(INTRO)
-    assert "actively implementing or updating changes in" in text.split("\n\n")[0]
-    api_at, web_at = text.index("### api-feature-x"), text.index("### web-feature-x")
-    assert api_at < text.index("API rules.") < web_at < text.index("Web rules.")
-    assert str(api) in text and str(web) in text
+    assert text.startswith(INTRO) and COMMAND in text
+    assert f"- api-feature-x ({api})" in text and f"- web-feature-x ({web})" in text
+    assert "API rules." not in text and "Web rules." not in text and "###" not in text
 
 
-def test_two_paths_in_one_consumer_are_counted_once(project, monkeypatch, tmp_path):
+def test_listed_command_returns_only_that_projects_guidance(tmp_path, monkeypatch):
+    consumer_at(tmp_path / "api", "API rules.")
+    web = consumer_at(tmp_path / "web", "Web rules.")
+    monkeypatch.chdir(web)
+    result = CliRunner().invoke(app, COMMAND.split()[1:])
+    assert result.exit_code == 0, result.output
+    assert injected(result.stdout) == "Web rules."
+
+
+def test_two_paths_in_one_consumer_deliver_its_guidance_unlabeled(project, monkeypatch, tmp_path):
     (project / "src").mkdir()
     text = injected(agy(monkeypatch, tmp_path, payload(project, project / "src")).stdout)
-    assert text.startswith(INTRO)
-    assert text.count(ASK) == 1
+    assert text == ASK
 
 
-def test_one_contributing_project_is_still_labeled(project, monkeypatch, tmp_path):
+def test_one_consumer_beside_a_plain_folder_delivers_its_guidance_unlabeled(project, monkeypatch, tmp_path):
     plain = tmp_path / "plain"
     plain.mkdir()
     text = injected(agy(monkeypatch, tmp_path, payload(project, plain)).stdout)
-    assert text.startswith(INTRO) and f"### {project.name}" in text
+    assert text == ASK
 
 
-def test_one_malformed_consumer_does_not_suppress_the_other(tmp_path, monkeypatch):
-    good = consumer_at(tmp_path / "good", "Good rules.")
+def test_one_malformed_consumer_is_left_out_of_the_list(tmp_path, monkeypatch):
+    good = [consumer_at(tmp_path / name, f"{name} rules.") for name in ("good", "fine")]
     bad = consumer_at(tmp_path / "bad", "Bad rules.")
     (bad / "openspec/.pspec/config.toml").write_text("profile=12\n", encoding="utf-8")
-    result = agy(monkeypatch, tmp_path, payload(bad, good))
+    result = agy(monkeypatch, tmp_path, payload(bad, *good))
     assert result.exit_code == 0
-    assert "Good rules." in injected(result.stdout) and "Bad rules." not in result.stdout
-    assert str(bad) in result.stderr
+    text = injected(result.stdout)
+    assert f"- good ({good[0]})" in text and f"- fine ({good[1]})" in text
+    assert f"- bad (" not in text and str(bad) in result.stderr
 
 
 def test_every_consumer_failing_exits_nonzero(tmp_path, monkeypatch):
@@ -184,12 +192,12 @@ def test_missing_listed_path_is_skipped(project, monkeypatch, tmp_path):
     assert missing.as_posix() in result.stderr.replace("\\", "/")
 
 
-def test_four_project_workset_stays_under_the_observed_delivery_limit(tmp_path, monkeypatch):
+def test_seven_project_workset_delivers_no_guidance_bodies(tmp_path, monkeypatch):
     body = "Rule. " * 1000  # About the 6,000-character sessionStart guidance of a real consumer.
-    roots = [consumer_at(tmp_path / f"repo-{index}", body) for index in range(4)]
+    roots = [consumer_at(tmp_path / f"repo-{index}", body) for index in range(7)]
     text = injected(agy(monkeypatch, tmp_path, payload(*roots)).stdout)
-    assert text.count("### repo-") == 4
-    assert len(text) < 45000
+    assert text.count("- repo-") == 7
+    assert "Rule." not in text and len(text) < 2000
 
 
 def test_real_antigravity_hook_exits_with_the_pipe_left_open(project, tmp_path):

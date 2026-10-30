@@ -15,10 +15,12 @@ from .. import workset_defaults
 
 # Leaves the one-second metadata budget and the five-second handler limit intact.
 PAYLOAD_TIMEOUT = 0.5
+PROJECT_COMMAND = "pspec resolve hook sessionStart --agent antigravity"
 MULTI_PROJECT_INTRO = (
-    "This session includes several Powerspec projects. Each section below applies only to "
-    "its project. Follow only the section for the project you are actively implementing "
-    "or updating changes in."
+    "This session includes several Powerspec projects. Guidance is delivered for one project "
+    "at a time: follow only guidance for the project you are actively implementing or "
+    f"updating changes in. To get a project's guidance, run `{PROJECT_COMMAND}` from that "
+    "project's folder."
 )
 
 
@@ -81,35 +83,46 @@ def _workset_default(listed: list[str]):
 
 def _several(root: Path, workspaces: list[Path], listed: list[str], event: str, agent: str,
              change: str | None) -> str | None:
-    """One labeled section per distinct consumer; a failing consumer omits only itself."""
-    default = _workset_default(listed)
-    marked = workset_defaults.normalize(default.path) if default else None
-    sections, seen, found, failed = [], set(), 0, 0
+    """One project's guidance: the only consumer found, else the workset default's, else none."""
+    consumers, found, failed = {}, 0, 0
     for workspace in workspaces:
         try:
             consumer = discover_consumer(workspace)
-            if consumer is None or consumer.config_path in seen:
-                continue
-            seen.add(consumer.config_path)
-            found += 1
-            body = _guidance(root, workspace, consumer, event, agent, change)
         except (ConfigurationError, OSError, ValueError) as error:
             found += 1
             failed += 1
             typer.echo(f"Error: {workspace}: {error}", err=True)
             continue
-        project = consumer.git_root
-        label = f"{project.name} ({project})"
-        if marked in {workset_defaults.normalize(workspace), workset_defaults.normalize(project)}:
-            label += " (default)"
-        sections.append((label, body))
+        if consumer is not None and consumer.config_path not in consumers:
+            found += 1
+            consumers[consumer.config_path] = (workspace, consumer)
     if found and failed == found:
         raise typer.Exit(1)
+    if found == 1 and consumers:
+        workspace, consumer = next(iter(consumers.values()))
+        return _guidance(root, workspace, consumer, event, agent, change)
+    if not consumers:
+        return None
+    default = _workset_default(listed)
+    marked = workset_defaults.normalize(default.path) if default else None
+    entries, sections = [], []
+    for workspace, consumer in consumers.values():
+        project = consumer.git_root
+        label = f"{project.name} ({project})"
+        if marked not in {workset_defaults.normalize(workspace), workset_defaults.normalize(project)}:
+            entries.append(f"- {label}")
+            continue
+        entries.append(f"- {label} (default)")
+        try:
+            sections.append((label, _guidance(root, workspace, consumer, event, agent, change)))
+        except (ConfigurationError, OSError, ValueError) as error:
+            typer.echo(f"Error: {workspace}: {error}", err=True)
     intro = MULTI_PROJECT_INTRO
     if default is not None:
-        intro += (" If you cannot determine which project applies, use the default project "
-                  f"{default.label} ({default.path}).")
-    return compose_sections(intro, sections) or None
+        intro += (f" The default project is {default.label} ({default.path}); its guidance, if any, "
+                  "follows. Use it when you cannot determine which project applies.")
+    head = f"{intro}\n\nProjects:\n" + "\n".join(entries)
+    return compose_sections(head, sections) or head
 
 
 def hook(
