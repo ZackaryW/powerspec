@@ -77,40 +77,6 @@ Provisioning for antigravity SHALL install one hook named `powerspec` in the use
 - **WHEN** the payload also carries `lastUserInput`, `modelName`, or another cwd-like field
 - **THEN** none of them influences event selection, variables, or consumer discovery
 
-### Requirement: Multi-project sessions delegate project choice to the agent
-When the payload lists more than one workspace path, Powerspec SHALL resolve each path's owning consumer, count each consumer once, and deliver one message holding a section per consumer with guidance, each headed by that project's directory name and path. The message SHALL first tell the agent to follow only the section for the project it is actively implementing or updating changes in.
-
-#### Scenario: Workset with two consumer repositories
-- **WHEN** the payload lists the worktrees `api-feature-x` and `web-feature-x`, each a consumer with guidance
-- **THEN** one message carries the selection instruction, then a section headed for `api-feature-x` and one for `web-feature-x`, each with only its own consumer's guidance
-
-#### Scenario: Two paths in one consumer
-- **WHEN** two listed paths resolve to the same consumer
-- **THEN** that consumer's guidance appears once
-
-#### Scenario: Only one listed project has guidance
-- **WHEN** several paths are listed and only one consumer contributes guidance
-- **THEN** its guidance is still delivered under its project heading with the selection instruction, so it is not applied to the other projects
-
-#### Scenario: Single workspace path
-- **WHEN** the payload lists exactly one workspace path
-- **THEN** the guidance is delivered without project headings or the selection instruction, identical to a single-project session
-
-#### Scenario: No listed project has guidance
-- **WHEN** no listed path has a consumer contributing guidance
-- **THEN** stdout is empty and the exit status is zero
-
-### Requirement: One failing project does not suppress the others
-In a multi-project session, a configuration or authored-resource error in one consumer SHALL omit only that consumer's section and be reported on stderr naming its path; other consumers' guidance SHALL still be delivered. If every consumer that was found fails, the command SHALL exit nonzero with no stdout.
-
-#### Scenario: One malformed consumer
-- **WHEN** one of two listed consumers has a malformed configuration
-- **THEN** stderr names that consumer, stdout carries the other consumer's section with the selection instruction, and the exit status is zero
-
-#### Scenario: Every consumer fails
-- **WHEN** every listed consumer has a malformed configuration
-- **THEN** stdout is empty and the exit status is nonzero
-
 ### Requirement: Payload read is bounded and never waits for end of input
 With `--stdin-workspace`, the command SHALL stop reading as soon as one complete JSON object has arrived or a 0.5 second budget has elapsed, whichever is first, and SHALL NOT wait for end-of-file. An interactive terminal stdin SHALL NOT be read; the command SHALL use its working directory instead.
 
@@ -140,3 +106,41 @@ If stdin is not an interactive terminal and its payload is empty, times out, is 
 #### Scenario: Working directory is not a fallback
 - **WHEN** the payload is unusable but the process runs inside a consumer
 - **THEN** no guidance is delivered from that consumer
+
+### Requirement: Multi-project sessions deliver one project's guidance
+When the payload's existing workspace paths resolve to two or more distinct consumers, Powerspec SHALL NOT combine their guidance. The message SHALL list each consumer once by name and path, tell the agent to follow only guidance for the project it is actively working in, and give the command that returns one project's guidance from that project's folder. Only a selected workset default's guidance SHALL be included.
+
+#### Scenario: Workset with two consumer repositories and no default
+- **WHEN** the payload lists the worktrees `api-feature-x` and `web-feature-x`, each a consumer with guidance, and no workset default matches
+- **THEN** one message lists both projects with their paths and the per-project command, and contains neither project's guidance
+
+#### Scenario: Agent fetches another project's guidance
+- **WHEN** the agent runs the listed command from `web-feature-x`
+- **THEN** it receives only `web-feature-x`'s guidance
+
+#### Scenario: Paths resolving to one consumer
+- **WHEN** several listed paths resolve to the same consumer, or only one listed path has a consumer
+- **THEN** that consumer's guidance is delivered without a project list or heading, identical to a single-project session
+
+#### Scenario: Single workspace path
+- **WHEN** the payload lists exactly one workspace path
+- **THEN** the guidance is delivered without project headings or the project list, identical to a single-project session
+
+#### Scenario: No listed path has a consumer
+- **WHEN** no listed path has a consumer
+- **THEN** stdout is empty and the exit status is zero
+
+#### Scenario: Large workset stays small
+- **WHEN** a seven-consumer workset with no default is opened, each consumer having about 6,000 characters of guidance
+- **THEN** the delivered message contains none of that guidance and stays far below the observed delivery limit
+
+### Requirement: Failing projects in multi-project sessions
+In a multi-project session, a consumer whose configuration cannot be discovered SHALL be reported on stderr naming its path and left out of the project list; the others SHALL still be listed. If every consumer that was found fails, the command SHALL exit nonzero with no stdout.
+
+#### Scenario: One malformed consumer
+- **WHEN** one of three listed consumers has a malformed configuration
+- **THEN** stderr names that consumer, stdout lists the other two, and the exit status is zero
+
+#### Scenario: Every consumer fails
+- **WHEN** every listed consumer has a malformed configuration
+- **THEN** stdout is empty and the exit status is nonzero
