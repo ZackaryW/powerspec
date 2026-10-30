@@ -11,6 +11,7 @@ from ..resources import builtin_catalog_root
 from ..sources import SaucepanSources
 from ..utils.sections import compose_sections
 from ..utils.stdin_payload import read_json_object
+from .. import workset_defaults
 
 # Leaves the one-second metadata budget and the five-second handler limit intact.
 PAYLOAD_TIMEOUT = 0.5
@@ -21,8 +22,8 @@ MULTI_PROJECT_INTRO = (
 )
 
 
-def _payload_workspaces() -> tuple[list[Path], int] | None:
-    """Existing workspace directories and the listed count, or ``None`` for a terminal."""
+def _payload_workspaces() -> tuple[list[Path], list[str]] | None:
+    """Existing workspace directories and every listed path, or ``None`` for a terminal."""
     stream = sys.stdin
     try:
         if stream is not None and stream.isatty():
@@ -33,7 +34,7 @@ def _payload_workspaces() -> tuple[list[Path], int] | None:
     paths = document.get("workspacePaths") if document is not None else None
     if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
         typer.echo("Warning: hook payload has no workspacePaths list; no guidance delivered", err=True)
-        return [], 0
+        return [], []
     existing = []
     for item in paths:
         if Path(item).is_dir():
@@ -43,7 +44,7 @@ def _payload_workspaces() -> tuple[list[Path], int] | None:
     if not existing:
         typer.echo("Warning: hook payload names no existing workspace directory; no guidance delivered",
                    err=True)
-    return existing, len(paths)
+    return existing, paths
 
 
 def _guidance(root: Path, cwd: Path, consumer, event: str, agent: str, change: str | None) -> str | None:
@@ -63,8 +64,26 @@ def _guidance(root: Path, cwd: Path, consumer, event: str, agent: str, change: s
     return guidance
 
 
-def _several(root: Path, workspaces: list[Path], event: str, agent: str, change: str | None) -> str | None:
+def _workset_default(listed: list[str]):
+    """The stored default whose member snapshot is exactly this session, read locally."""
+    path = workset_defaults.defaults_file()
+    try:
+        entries = workset_defaults.load(path)
+    except (workset_defaults.DefaultsError, OSError) as error:
+        typer.echo(f"Warning: {error}", err=True)
+        return None
+    _, entry, ambiguous = workset_defaults.match(entries, listed)
+    if ambiguous:
+        typer.echo(f"Warning: workset defaults are ambiguous for this session: {', '.join(ambiguous)}",
+                   err=True)
+    return entry
+
+
+def _several(root: Path, workspaces: list[Path], listed: list[str], event: str, agent: str,
+             change: str | None) -> str | None:
     """One labeled section per distinct consumer; a failing consumer omits only itself."""
+    default = _workset_default(listed)
+    marked = workset_defaults.normalize(default.path) if default else None
     sections, seen, found, failed = [], set(), 0, 0
     for workspace in workspaces:
         try:
@@ -80,10 +99,17 @@ def _several(root: Path, workspaces: list[Path], event: str, agent: str, change:
             typer.echo(f"Error: {workspace}: {error}", err=True)
             continue
         project = consumer.git_root
-        sections.append((f"{project.name} ({project})", body))
+        label = f"{project.name} ({project})"
+        if marked in {workset_defaults.normalize(workspace), workset_defaults.normalize(project)}:
+            label += " (default)"
+        sections.append((label, body))
     if found and failed == found:
         raise typer.Exit(1)
-    return compose_sections(MULTI_PROJECT_INTRO, sections) or None
+    intro = MULTI_PROJECT_INTRO
+    if default is not None:
+        intro += (" If you cannot determine which project applies, use the default project "
+                  f"{default.label} ({default.path}).")
+    return compose_sections(intro, sections) or None
 
 
 def hook(
@@ -109,11 +135,11 @@ def hook(
                 workspaces, listed = selected
                 if not workspaces:
                     return
-                if listed == 1:
+                if len(listed) == 1:
                     guidance = _guidance(root, workspaces[0], discover_consumer(workspaces[0]),
                                          event, agent, change)
                 else:
-                    guidance = _several(root, workspaces, event, agent, change)
+                    guidance = _several(root, workspaces, listed, event, agent, change)
         output = serialize(agent, event, guidance)
         if output is not None:
             typer.echo(output)
