@@ -2,6 +2,7 @@
 from .worksets import plan_launch, execute_repositories
 from .workset_stores import plan_stores, prepare_stores
 from .workset_transfer import plan_transfer, copy_change, finish_transfer
+from .workset_defaults import DefaultsError, carry_default
 
 
 def launch(adapter, source, branch, overrides, *, name=None, change=None, store=None, keep_source=False):
@@ -25,6 +26,11 @@ def launch(adapter, source, branch, overrides, *, name=None, change=None, store=
         adapter.publish(plan.output)
         result["workspace_ready"] = True
         result["opening_command"] = f"openspec workset open {plan.name} --tool code"
+        try:
+            result["default"] = carry_default(plan.source, plan.output)
+        except (DefaultsError, OSError) as error:
+            # The workset is already published; a defaults problem must not undo that.
+            result["default"] = {"action": "failed", "reason": str(error)}
         result["stage"] = "cleanup"
         finish_transfer(transfer, result["transfer"])
         result["stage"] = "complete"

@@ -7,6 +7,7 @@ from .utils.git_worktrees import (RepositoryInfo, inspect_repository, list_workt
     validate_branch, branch_exists, resolve_commit, add_worktree)
 from .utils.git_worktrees import git_bytes
 from .utils.tree_copy import assert_plain_path
+from .workset_defaults import DefaultsError, refresh_after_append
 from .workset_openspec import Member, Workset, validate_name
 
 
@@ -85,7 +86,14 @@ def add_source(adapter, name: str, path: Path) -> dict:
         if any(m.name == repository.root.name for m in existing.members):
             raise ValueError(f"Member label conflict: {repository.root.name}")
         action = adapter.append_member(existing, Member(repository.root.name, repository.root))
-        return {"name": name, "action": action, "path": repository.root}
+        result = {"name": name, "action": action, "path": repository.root}
+        try:
+            refreshed = refresh_after_append(existing, adapter.list_worksets()[name])
+        except (DefaultsError, OSError, KeyError, ValueError) as error:
+            refreshed = f"not refreshed: {error}"
+        if refreshed is not None:
+            result["default"] = refreshed
+        return result
     action = adapter.publish(Workset(name, (Member(repository.root.name, repository.root),)))
     return {"name": name, "action": action, "path": repository.root}
 
