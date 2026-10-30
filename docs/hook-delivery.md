@@ -245,20 +245,25 @@ means no stdout.
 
 - One workspace path: resolved exactly like a single-project session, from the
   nearest consumer above that path.
-- Several workspace paths, as when an opened workset puts one worktree per
-  repository in the session: Antigravity lists them alphabetically, so the hook
-  cannot tell which one you launched from. It resolves every path, counts each
-  consumer once, and returns one message that tells the agent to follow only the
-  section for the project it is actively implementing or updating changes in,
-  followed by a `### <project> (<path>)` section per consumer with guidance. A
-  failing consumer omits only its own section and is named on stderr; the command
-  fails only when every consumer it found fails.
+- Several workspace paths that resolve to one consumer (two folders of one
+  repository, or one consumer beside plain folders): that consumer's guidance,
+  delivered as in a single-project session.
+- Several consumers, as when an opened workset puts one worktree per repository in
+  the session: guidance is never combined. Antigravity lists the folders
+  alphabetically and fires once before any work starts, so the hook cannot tell
+  which project you will touch. It returns one short message listing each consumer
+  as `- <project> (<path>)` and telling the agent to follow only guidance for the
+  project it is actively implementing or updating changes in, fetched by running
+  `pspec resolve hook sessionStart --agent antigravity` from that project's folder.
+  A consumer whose configuration cannot be read is named on stderr and left out of
+  the list; the command fails only when every consumer it found fails.
 - If the session's folders are exactly the members of a workset with a stored
   default (`pspec workset default`, see [worksets](worksets.md#default-member)), the
-  instruction adds: if you cannot determine which project applies, use the default
-  project, and that project's section heading ends with `(default)`. The lookup reads
-  only `~/.powerspec/worksets.toml`, never OpenSpec; a partial match, two matching
-  worksets, or an unreadable file means no default (the last two warn on stderr).
+  message names that default, marks its list entry `(default)`, and carries only its
+  guidance under `### <project> (<path>)`. Other members' guidance is not resolved.
+  The lookup reads only `~/.powerspec/worksets.toml`, never OpenSpec; a partial
+  match, two matching worksets, or an unreadable file means no default (the last
+  two warn on stderr). If the default's guidance fails, the list is still delivered.
 - An empty, malformed, or timed-out payload, or one with no existing workspace
   directory, delivers nothing, warns on stderr, and exits zero. It never falls back
   to the working directory, which is not the session's project.
@@ -269,8 +274,8 @@ persisted across `--continue` while `SessionStart` did not fire again; the Codex
 and Claude `hookSpecificOutput` envelope was not delivered; grouped `matcher`
 entries under `SessionStart` and commands with a quoted backslash path silently
 never ran; and guidance of 45,000 characters was delivered while 70,000 was dropped
-without an error. Keep combined multi-project guidance well under that size. A
-seven-repository workset of roughly 6,000-character consumers comes close.
+without an error. Because a session receives at most one project's guidance, a
+multi-repository workset stays far below that size.
 
 ## Installation and recovery
 
