@@ -36,6 +36,18 @@ An existing identical destination is reusable. Any byte difference is a conflict
 
 Move is the default. Source cleanup happens only after the copied change resolves, all stores/pointers are ready, and the output workset is registered. `--keep-source` selects a copy instead. No Git index is changed, and Powerspec does not commit or archive the change. Tracked source removals remain unstaged deletions.
 
+## Default member
+
+```sh
+pspec workset default project api        # set
+pspec workset default project            # show: current, or stale with the reason
+pspec workset default project --clear    # remove
+```
+
+A workset can name one member as its default. In a multi-project agent session whose folders are exactly that workset's members, delivered guidance tells the agent to use the default project when it cannot determine which project a request or OpenSpec action belongs to (see [hook delivery](hook-delivery.md#antigravity)). The agent still chooses the project it is implementing or updating changes in first; the default is only the fallback.
+
+Setting validates the workset and label through OpenSpec but never changes OpenSpec's registry, which has no default field. Defaults are stored in `~/.powerspec/worksets.toml` with the label, its path, and the member paths at the time. `launch` gives the output workset the same default label, pointing at that member's new worktree; an output that already has a different default keeps it and the result says so. `add` refreshes the stored member paths after a verified append. If membership changes another way, for example through `openspec workset` directly, the stored paths no longer match: show reports the default as stale with the reason, hooks ignore it, and setting it again repairs it. Nothing is re-pointed automatically.
+
 ## Failure and recovery
 
 Use the same launch command to retry. Existing matching worktrees retain commits and local modifications. Publication conflicts never replace a saved member list. Failure can leave created branches/worktrees, store registrations, metadata/pointer edits, or copied files; the result reports its stage and completed effects. No automatic rollback deletes this work.

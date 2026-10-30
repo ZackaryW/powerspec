@@ -253,6 +253,12 @@ means no stdout.
   followed by a `### <project> (<path>)` section per consumer with guidance. A
   failing consumer omits only its own section and is named on stderr; the command
   fails only when every consumer it found fails.
+- If the session's folders are exactly the members of a workset with a stored
+  default (`pspec workset default`, see [worksets](worksets.md#default-member)), the
+  instruction adds: if you cannot determine which project applies, use the default
+  project, and that project's section heading ends with `(default)`. The lookup reads
+  only `~/.powerspec/worksets.toml`, never OpenSpec; a partial match, two matching
+  worksets, or an unreadable file means no default (the last two warn on stderr).
 - An empty, malformed, or timed-out payload, or one with no existing workspace
   directory, delivers nothing, warns on stderr, and exits zero. It never falls back
   to the working directory, which is not the session's project.
