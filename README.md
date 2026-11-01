@@ -147,13 +147,15 @@ pspec status
 pspec config show
 ```
 
-Remote sources are fetched through Powerspec's own managed
-[milkpan](https://github.com/ZackaryW/milkpan) in `~/.powerspec/milkpan`, a pinned
-release verified by SHA-256 that updates itself on the next run. Doctor reports
-milkpan compatibility and whether its managed link matches the pin separately;
-selected-source readiness remains uninspected. Consumers that used an earlier,
-Saucepan-based Powerspec run `pspec init` once. See
-[managed milkpan](docs/remote-sources.md#managed-milkpan).
+Remote sources are fetched through [milkpan](https://github.com/ZackaryW/milkpan)
+in the shared `~/.milkpan` bucket. Powerspec reuses a milkpan you already have
+there when its release line is supported, and otherwise bootstraps a pinned
+release verified by SHA-256 that updates on the next run. Doctor reports
+milkpan compatibility and the shared link's state separately; selected-source
+readiness remains uninspected. Consumers that used an earlier Powerspec (private
+milkpan bucket, or Saucepan) run `pspec init` once. To start completely over,
+`pspec doctor --force-reset` deletes the milkpan bucket, `~/.powerspec` and this
+project's selection state. See [managed milkpan](docs/remote-sources.md#managed-milkpan).
 
 ## How Powerspec works
 

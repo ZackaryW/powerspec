@@ -1,9 +1,10 @@
-"""Powerspec's managed milkpan: a pinned, verified release that manages itself.
+"""Powerspec's managed milkpan in the shared bucket (MILKPAN_HOME or ~/.milkpan).
 
-The first preparation downloads the pinned release asset, verifies its SHA-256
-and uses it once to acquire milkpan's own release in scope `powerspec-manager`
-and link it as `milkpan`. Later runs use the link. When Powerspec pins a newer
-release, the next preparation repoints the link, effective on the next run.
+A linked milkpan in a supported release line is used as is. Otherwise the first
+preparation downloads the pinned release asset, verifies its SHA-256 and uses
+it once to acquire milkpan's own release in scope `powerspec/manager` and link
+it as `milkpan`; later runs use the link, and a replaced link takes effect on
+the next run. Powerspec manages only a marked block of the shared policy file.
 """
 from __future__ import annotations
 

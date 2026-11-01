@@ -15,22 +15,41 @@ Other origins (GitLab, SSH URLs, other hosts) fail before milkpan is called, wit
 
 ## Managed milkpan
 
-Powerspec keeps its own milkpan home at `~/.powerspec/milkpan`, overridable with `POWERSPEC_MILKPAN_HOME`, and never touches another milkpan or Saucepan installation.
+Powerspec shares milkpan's own bucket: `MILKPAN_HOME` if set, otherwise `~/.milkpan`, the same place plain `milkpan` uses. A commit fetched by either is stored once. Powerspec never touches a Saucepan installation.
 
-- **First preparation:** an authorized source-materializing operation (init, init --force, upgrade, or sync preparing a missing source) downloads the pinned milkpan release asset for this platform. Powerspec verifies it against the SHA-256 pinned in `milkpan_binary.py` and extracts it outside the home. It then uses that binary once to acquire milkpan's own release in scope `powerspec-manager` and link it as `<home>/links/milkpan`.
+- **Reuse:** if `~/.milkpan/links/milkpan` is a milkpan that speaks protocol 1 in a release line Powerspec supports (currently 0.3), Powerspec uses it as is, even when it is newer than Powerspec's pin. It never downgrades your milkpan.
+- **First preparation:** when no usable link exists, an authorized source-materializing operation (init, init --force, upgrade, or sync preparing a missing source) downloads the pinned milkpan release asset for this platform. Powerspec verifies it against the SHA-256 pinned in `milkpan_binary.py` and extracts it outside the bucket. It then uses that binary once to acquire milkpan's own release in scope `powerspec/manager` and link it as `~/.milkpan/links/milkpan`.
 - **Later runs:** they use the link and need no network.
-- **Updates:** when a Powerspec release pins a newer milkpan, the next preparation or upgrade moves the link to the new release. Programs already running keep their version; the next run uses the new one.
+- **Updates:** when a Powerspec release supports only a newer release line than the linked milkpan, the next preparation or upgrade links the pinned release, through the old milkpan itself when it still runs. Programs already running keep their version; the next run uses the new one.
 - **Read-only operations:** status, doctor, sync of already selected sources, hooks and skill metadata lookup never download, link or update milkpan. They report it as unavailable when it is missing.
-- **Override:** `POWERSPEC_MILKPAN` selects a standalone executable. Powerspec checks its protocol (1) and release line (0.2) but never links, updates or adopts it.
-- **Doctor:** reports executable compatibility, whether the managed link is current or behind the pin (or standalone mode), and uninspected selected-source readiness separately.
+- **Override:** `POWERSPEC_MILKPAN` selects a standalone executable. Powerspec checks its protocol (1) and release line (0.3) but never links, updates or adopts it.
+- **Doctor:** reports executable compatibility, whether the shared link is in a supported release line (or standalone mode), and uninspected selected-source readiness separately.
 
 ### The policy file
 
-Powerspec owns `<home>/milkpan.toml` and regenerates it, so do not edit it. It allows:
-- the `powerspec-manager` scope to manage milkpan's own release;
-- each consumer's scope and candidate scope to acquire, reacquire, read and release `github:` and `local:` sources.
+The shared `~/.milkpan/milkpan.toml` belongs to you. Powerspec manages only the block between these marker lines and preserves everything else:
 
-Consumer leases carry a lease obligation that keeps selected content from expiring. Candidate leases refresh daily.
+```text
+# >>> powerspec (managed; edits inside this block are replaced) >>>
+...
+# <<< powerspec <<<
+```
+
+The block allows:
+- scope `powerspec/manager` to manage milkpan's own release;
+- each consumer's `powerspec/consumer-<hash>` scope and its `-candidates` scope to acquire, reacquire, read and release `github:` and `local:` sources;
+- scope `default` for every lease operation, but only when no rule of yours covers `default`. Any configured rule replaces milkpan's built-in default, so this keeps plain `milkpan` working.
+
+Consumer leases carry a lease obligation that keeps selected content from expiring. Candidate leases refresh daily. Powerspec's own files in the bucket live under `~/.milkpan/powerspec/`.
+
+### Starting over
+
+`pspec doctor --force-reset` lists what it will delete and, after confirmation (`--yes`, or an interactive yes), removes:
+- the whole milkpan bucket, **including content other tools stored there**;
+- all of `~/.powerspec`, including `config.toml` and `worksets.toml`;
+- the current project's `milkpan-state.json`.
+
+It reports anything it could not remove, for example files of a still-running milkpan on Windows, and exits nonzero in that case. Run `pspec init` afterwards to re-establish everything. Other projects' selections then report "run init". Reset refuses, and deletes nothing, when `MILKPAN_HOME` points at a directory that is not recognizably a milkpan bucket, a filesystem root or your home directory. It never touches a Saucepan store. Without `--force-reset`, doctor only inspects.
 
 ## Profile recipes and selections
 
@@ -48,7 +67,7 @@ reference = "main"
 
 Identical declarations can be shared across selected profiles. Different recipes for the same alias are a composition error. `builtin` remains reserved.
 
-Each canonical owning `openspec/.pspec/config.toml` has its own milkpan scope (`consumer-<hash>`). Preparing a recipe takes two steps:
+Each canonical owning `openspec/.pspec/config.toml` has its own milkpan scope (`powerspec/consumer-<hash>`). Preparing a recipe takes two steps:
 
 1. **Resolve:** the reference is resolved in the consumer's candidate scope, which caches the resolution for a day.
 2. **Select:** the resulting exact commit is leased in the consumer's scope.
@@ -134,7 +153,7 @@ Save the state file before rebinding a moved or copied consumer: its recorded ca
 
 Mutations serialize through `milkpan-state.lock`. If a process crashes, confirm its recorded PID is no longer running before removing that lock and retrying.
 
-**Switching from Saucepan.** Earlier Powerspec versions used Saucepan and `saucepan-state.json`. This version ignores both and leaves the old Saucepan store untouched. Run `pspec init` once per consumer to select its sources through milkpan; afterwards the old store and state file can be deleted. `POWERSPEC_SAUCEPAN` and `POWERSPEC_SAUCEPAN_CREDENTIAL_FILE` are no longer read; use `POWERSPEC_MILKPAN` for a standalone executable.
+**Switching from an earlier Powerspec.** Selections made in the earlier private bucket (`~/.powerspec/milkpan`) are not reused: run `pspec init` once, and delete that folder (or run `pspec doctor --force-reset`). **From Saucepan:** earlier Powerspec versions used Saucepan and `saucepan-state.json`. This version ignores both and leaves the old Saucepan store untouched. Run `pspec init` once per consumer to select its sources through milkpan; afterwards the old store and state file can be deleted. `POWERSPEC_SAUCEPAN` and `POWERSPEC_SAUCEPAN_CREDENTIAL_FILE` are no longer read; use `POWERSPEC_MILKPAN` for a standalone executable.
 
 With an explicit agent, forced initialization can repair a stale hook ownership receipt only when the uniquely identified native group already matches Powerspec's desired content. ZuAT rechecks equality during its receipt-only update, preserving native bytes and modification time. Edited or ambiguous hooks still fail; recovery operation identifiers are reported. Source-only initialization performs no hook work. Forced initialization with an agent also recoverably replaces completely inspected conflicting selected skills. Upgrade keeps its separate `--repair-hooks` option and its skill-only `--force` meaning.
 
