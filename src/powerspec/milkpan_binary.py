@@ -228,16 +228,24 @@ def _client(executable: Path, home: Path, release: Release) -> Milkpan:
     return Milkpan(executable, home, env=release.client_env())
 
 
-def manager_state(client: Milkpan, release: Release, target: str) -> str:
-    """`current`, `behind` (another release is linked) or `absent`."""
-    try:
-        leases = client.leases(scope=MANAGER_SCOPE)
-    except (MilkpanError, MilkpanUnavailable):
+def link_state(home: Path, release: Release = MILKPAN) -> str:
+    """`supported`, `unsupported` (the next preparation switches it) or `absent`, read-only."""
+    linked = link_executable(home)
+    if not linked.is_file():
         return 'absent'
-    _, digest = release.asset(target)
-    if any(lease['digest'] == digest for lease in leases):
-        return 'current'
-    return 'behind' if leases else 'absent'
+    try:
+        check_compatible(_client(linked, home, release).with_timeout(15))
+    except ConfigurationError:
+        return 'unsupported'
+    return 'supported'
+
+
+def _runnable(client: Milkpan) -> bool:
+    """Whether the executable answers the protocol at all, whatever its release line."""
+    try:
+        return 1 in client.protocol().get('supported', [])
+    except (MilkpanError, MilkpanUnavailable):
+        return False
 
 
 def inspect_milkpan(home: Path | None = None, *, release: Release = MILKPAN, timeout: float | None = None) -> Milkpan:
@@ -255,7 +263,9 @@ def inspect_milkpan(home: Path | None = None, *, release: Release = MILKPAN, tim
 
 
 def ensure_milkpan(home: Path | None = None, *, release: Release = MILKPAN) -> Milkpan:
-    """A usable client, bootstrapping or repointing the managed milkpan as needed."""
+    """A usable client. A linked milkpan in a supported release line is used as is,
+    whatever release it came from; the pinned release is linked only when the link
+    is missing or unsupported, effective on the next run."""
     home = home or default_home()
     override = standalone()
     if override is not None:
@@ -264,21 +274,19 @@ def ensure_milkpan(home: Path | None = None, *, release: Release = MILKPAN) -> M
         return client
     target = release.target()
     linked = link_executable(home)
-    current = None
-    if linked.is_file():
-        candidate = _client(linked, home, release)
+    existing = _client(linked, home, release) if linked.is_file() else None
+    if existing is not None:
         try:
-            check_compatible(candidate)
-            current = candidate
+            check_compatible(existing)
+            return existing
         except ConfigurationError:
-            current = None
-        if current is not None and manager_state(current, release, target) == 'current':
-            return current
+            pass
     with _locked(home):
         write_policy(home, _known_scopes(home))
-    if current is not None:
-        _self_link(current, release, target)
-        return current
+    if existing is not None and _runnable(existing):
+        # The linked milkpan still speaks the protocol: let it fetch and link the pin.
+        _self_link(existing, release, target)
+        return _client(linked, home, release)
     name, digest = release.asset(target)
     with tempfile.TemporaryDirectory(prefix='powerspec-milkpan-') as directory:
         staging = Path(directory).resolve()

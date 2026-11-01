@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .consumer import discover_consumer
-from .milkpan_binary import MILKPAN, SUPPORTED_LINES, default_home, link_executable, manager_state, standalone
-from .milkpan_client import Milkpan
+from .milkpan_binary import SUPPORTED_LINES, default_home, link_executable, link_state, standalone
 from .utils.inspection import ExecutableResult, inspect_executable, semantic_version
 
 
@@ -55,9 +54,8 @@ def _compatible(version: str) -> bool:
 
 
 def managed_state(home: Path) -> str:
-    """`current`, `behind` or `absent` for the managed link's release lease (read-only)."""
-    client = Milkpan(link_executable(home), home, timeout=15, env=MILKPAN.client_env())
-    return manager_state(client, MILKPAN, MILKPAN.target())
+    """`supported`, `unsupported` or `absent` for the shared milkpan link (read-only)."""
+    return link_state(home)
 
 
 def doctor_consumer(cwd: Path, *, milkpan_path: Path | None = None, milkpan_home: Path | None = None,
@@ -97,11 +95,11 @@ def doctor_consumer(cwd: Path, *, milkpan_path: Path | None = None, milkpan_home
     else:
         state = managed_state(home)
         installation = {
-            "current": DoctorCheck("milkpan-installation", "ok", f"managed link current ({MILKPAN.tag})"),
-            "behind": DoctorCheck("milkpan-installation", "warning",
-                f"managed link behind the pinned {MILKPAN.tag}; the next init or upgrade switches it"),
+            "supported": DoctorCheck("milkpan-installation", "ok", "shared milkpan link is in a supported release line"),
+            "unsupported": DoctorCheck("milkpan-installation", "warning",
+                "shared milkpan link is outside the supported release lines; the next init or upgrade switches it"),
         }.get(state, DoctorCheck("milkpan-installation", "failed",
-            "managed link has no release lease; rerun init"))
+            "shared milkpan link is missing; rerun init"))
     checks = (
         consumer_check,
         _check("git", git),

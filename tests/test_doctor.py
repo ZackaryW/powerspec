@@ -105,7 +105,7 @@ def test_doctor_labels_standalone_without_implying_source_readiness(tmp_path, mo
     assert not (tmp_path / 'standalone').exists()
 
 
-@pytest.mark.parametrize('state,status,code', [('current', 'ok', 0), ('behind', 'warning', 0), ('absent', 'failed', 1)])
+@pytest.mark.parametrize('state,status,code', [('supported', 'ok', 0), ('unsupported', 'warning', 0), ('absent', 'failed', 1)])
 def test_managed_link_state_is_reported_separately(tmp_path, monkeypatch, state, status, code):
     from typer.testing import CliRunner
     from powerspec.cli import app
@@ -117,5 +117,5 @@ def test_managed_link_state_is_reported_separately(tmp_path, monkeypatch, state,
     checks = {item['name']: item for item in json.loads(result.stdout)['checks']}
     assert checks['milkpan-installation']['status'] == status
     assert checks['milkpan-sources']['status'] == 'warning'
-    if state == 'behind':
+    if state == 'unsupported':
         assert 'next init or upgrade switches it' in checks['milkpan-installation']['detail']
