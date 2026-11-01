@@ -31,24 +31,23 @@ agent or provisioning assets. Rerun with `--agent` for agent setup. Unsupported
 agents are rejected before consumer writes.
 
 Ordinary init retains this consumer's selected source revisions. A new folder
-can reuse shared Saucepan retrievals younger than 24 hours; expired or missing
-material requires retrieval. To override retained selections or that cache window:
+reuses a source resolution younger than 24 hours, and never downloads content
+already stored for the resolved commit. To override retained selections or that
+resolution window:
 
 ```console
 pspec init --force
 pspec init --agent codex --force
 ```
 
-`--force` also authorizes verified migration of a supported unmanaged default
-Saucepan installation when needed. With `--agent`, it recoverably replaces
+With `--agent`, `--force` recoverably replaces
 selected skills that already exist as differing unowned or locally edited copies,
 and permits guarded repair of stale hook receipts whose native content already
-matches Powerspec. Provider backups and operation identifiers are retained; init
-prints `ZuAT skill operation:` for each replaced skill. It does not replace hooks,
-targets it could not completely inspect, resolve ambiguous ownership, or
-self-update a ready manager. Interrupted migration requires recovery of its
-recorded operation, not repeated forced attempts. See
-[recovery instructions](remote-sources.md#retention-and-recovery).
+matches Powerspec. ZuAT operation identifiers are retained; init prints
+`ZuAT skill operation:` for each replaced skill. It does not replace hooks,
+targets it could not completely inspect, or resolve ambiguous ownership. The
+managed milkpan follows Powerspec's pinned release on every preparation; see
+[managed milkpan](remote-sources.md#managed-milkpan).
 
 ## Existing skill copies
 
@@ -90,7 +89,7 @@ to run `pspec init --scope local` first when a selection is missing.
 ## Follow progress
 
 Init and upgrade report the active stage on stderr as work happens: consumer
-setup, Saucepan manager preparation, each source, each skill check, hooks and
+setup, milkpan preparation, each source, each skill check, hooks and
 saving selections. Source-only init reports its source work too. For example:
 
 ```text

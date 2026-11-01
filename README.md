@@ -128,11 +128,11 @@ selected skills and generic hook dispatcher at their declared scopes; `claude` a
 `pspec init` creates the consumer and prepares sources without choosing an agent
 or installing agent assets. There is no separate Powerspec install command.
 
-New folders reuse valid shared source retrievals for up to 24 hours; existing
-consumers keep their selected revisions. `pspec init --force` refreshes sources
-immediately and permits verified migration of an unmanaged default Saucepan
-installation. With `--agent`, it also permits guarded repair of matching hook
-receipts, preserving edited content and provider recovery records.
+New folders reuse a source resolution for up to 24 hours, and content already
+stored for a commit is never downloaded again; existing consumers keep their
+selected revisions. `pspec init --force` refreshes sources immediately. With
+`--agent`, it also permits guarded repair of matching hook receipts, preserving
+edited content.
 
 Init and upgrade show active stages and individual outcomes immediately on
 stderr, with elapsed waiting updates every five seconds during blocked work.
@@ -147,12 +147,13 @@ pspec status
 pspec config show
 ```
 
-Saucepan doctor checks report executable compatibility and managed installation
-state separately; selected-source readiness remains uninspected. First remote
-source setup uses the verified official Saucepan installer. Existing raw managers
-require explicit verified migration. Resolve incomplete provider operations before
-rerunning `pspec init`; `pspec upgrade` refreshes resources, not the shared manager.
-See [recovery instructions](docs/remote-sources.md#retention-and-recovery).
+Remote sources are fetched through Powerspec's own managed
+[milkpan](https://github.com/ZackaryW/milkpan) in `~/.powerspec/milkpan`, a pinned
+release verified by SHA-256 that updates itself on the next run. Doctor reports
+milkpan compatibility and whether its managed link matches the pin separately;
+selected-source readiness remains uninspected. Consumers that used an earlier,
+Saucepan-based Powerspec run `pspec init` once. See
+[managed milkpan](docs/remote-sources.md#managed-milkpan).
 
 ## How Powerspec works
 
@@ -171,7 +172,7 @@ Powerspec bootstrap skill. These are bundled from a pinned OpenSpec source when
 Powerspec is built and installed to the selected agent's user scope during
 `pspec init --agent <agent>`.
 
-Profiles can also declare Git sources. Saucepan owns their materialization;
+Profiles can also declare Git sources (GitHub repositories or local paths). Milkpan owns their materialization;
 ZuAT owns installation into native agent locations. `pspec init` acquires and pins
 missing selected sources; `pspec sync` reads existing selections without fetching. `pspec upgrade`
 refreshes selected sources and reconciles managed skill installations.
@@ -240,7 +241,7 @@ and does not protect against later index changes.
 → **[Resolution foundation](docs/foundation.md)**: profiles, variables, conditions, and bundle composition<br>
 → **[Skill resolution](docs/skill-resolution.md)**: dynamic skill inputs and selected content<br>
 → **[Runtime hooks](docs/hook-delivery.md)**: trait delivery through native callbacks<br>
-→ **[Remote sources](docs/remote-sources.md)**: Saucepan identities, acquisition, and upgrades<br>
+→ **[Remote sources](docs/remote-sources.md)**: milkpan selections, acquisition, and upgrades<br>
 → **[Temporary state](docs/temporary-state.md)**: shared and change-specific runtime choices<br>
 → **[Repository investigation](docs/repository-investigation.md)**: CodeGraph and Ripwire selection<br>
 → **[Worksets](docs/worksets.md)**: multi-repository worktrees, stores, and change transfer<br>
