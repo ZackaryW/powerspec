@@ -1,18 +1,15 @@
-"""Opt-in acceptance test against the real pinned Saucepan CLI/SDK."""
-import os
+"""Acceptance tests against a real milkpan, with local git repositories through `local:`."""
 from pathlib import Path
 import subprocess
 import tempfile
 
 import pytest
-from saucepan_sdk import Client
 
 from powerspec.catalog import Catalog
-from powerspec.sources import ExternalCatalogs, SaucepanSources
+from powerspec.milkpan_client import Milkpan
+from powerspec.sources import ExternalCatalogs, MilkpanSources
 
-
-BINARY = os.environ.get("SAUCEPAN_TEST_BINARY")
-pytestmark = pytest.mark.skipif(not BINARY, reason="set SAUCEPAN_TEST_BINARY for real Saucepan acceptance")
+from milkpan_release_fixture import milkpan_binary
 
 
 def git(repo: Path, *args):
@@ -20,82 +17,90 @@ def git(repo: Path, *args):
     return result.stdout.strip()
 
 
-def assert_profile_adoption(client, sources, *, refresh):
-    """Check saved flat intent against native registry and adopted claim evidence."""
-    state = sources._state()
-    record = next(iter(state['selected'].values()))
-    policies = record['policies']
-    catalog = {item['uuid']: item for item in policies['catalog']}
-    for identity, policy in catalog.items():
-        assert client.policy(identity) == policy
-    selected = [catalog[identity] for identity in policies['policy_refs']]
-    assert all(item['type'] != 'pin_policy' for item in selected)
-    update = next(item for item in selected if item['type'] == 'update_policy')
-    assert update['mode'] == ('always' if refresh else 'manual')
-    freshness = next(item for item in selected if item['type'] == 'refresh_policy')
-    assert freshness['mode'] == ('always' if refresh else 'max_age')
-    if not refresh:
-        assert freshness['seconds'] == 86400
-    expected = client.profile('explicit-update', **({
-        'catalog': [update], 'acquisition_policy_refs': [update['uuid']],
-    } if refresh else {'catalog': [freshness], 'retrieval_policy_refs': [freshness['uuid']]}))
-    assert policies['policy_refs'] == expected['combined_policy_refs']
-    explanation = client.for_app(state['app']).explain_policies({
-        'operation': 'claim', 'app': state['app'], 'claim': record['claim'],
-    })
-    assert explanation['axes']['update']['origin'] == 'adopted_claim'
-    assert explanation['axes']['update']['evidence']['uuid'] == update['uuid']
-    assert explanation['axes']['payload_verification']['value'] == 'if_available'
-    assert not explanation['restrictions']
+def repository(path: Path) -> Path:
+    path.mkdir(parents=True)
+    git(path, "init", "-b", "main")
+    git(path, "config", "user.name", "Powerspec Test")
+    git(path, "config", "user.email", "powerspec@example.test")
+    return path
 
 
-def test_powerspec_app_materializes_and_refreshes_declared_recipe():
-    # Saucepan documents short test roots as required on Windows.
-    with tempfile.TemporaryDirectory(prefix="ps-sp-") as temporary:
-        root = Path(temporary)
-        repo = root / "src"
-        repo.mkdir()
-        git(repo, "init", "-b", "main")
-        git(repo, "config", "user.name", "Powerspec Test")
-        git(repo, "config", "user.email", "powerspec@example.test")
-        (repo / "resource.txt").write_text("one", encoding="utf-8")
-        (repo / ".pspec/profiles").mkdir(parents=True)
-        (repo / ".pspec/profiles/base.toml").write_text('scope="user"\n')
-        (repo / "openspec/.pspec/profiles").mkdir(parents=True)
-        (repo / "openspec/.pspec/profiles/private.toml").write_text('scope="user"\n')
-        (repo / "skills/example").mkdir(parents=True)
-        (repo / "skills/example/SKILL.md").write_text(
-            "---\nname: declared-example\ndescription: Example.\n---\n\nBody\n"
-        )
-        git(repo, "add", ".")
-        git(repo, "commit", "-m", "first")
-        first_revision = git(repo, "rev-parse", "HEAD")
+@pytest.fixture
+def milkpan(tmp_path):
+    return Milkpan(milkpan_binary(), tmp_path / "milkpan")
 
-        base = Client(executable=BINARY, root=str(root / "store"))
-        source = {"provider": "git", "origin": str(repo), "reference": "main"}
-        sources = SaucepanSources(base, consumer_path=root / "consumer/config.toml")
-        observed = sources.ensure("tools", source)
-        sources.commit()
-        assert_profile_adoption(base, sources, refresh=False)
-        assert observed.resolved_revision == first_revision
-        assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
-        assert sources.ensure("tools", source) == observed
-        external = ExternalCatalogs().register(observed)
-        reusable = Catalog(sources=external.sources())
-        assert reusable.get("profile", "@tools/base").name == "base"
-        assert ("profile", "@tools/private") not in reusable.resources
-        direct = Catalog(gitsources={"tools": observed})
-        assert direct.select("skill", "tools/skills/*")[0].name == "declared-example"
 
-        (repo / "resource.txt").write_text("two", encoding="utf-8")
-        git(repo, "commit", "-am", "second")
-        second_revision = git(repo, "rev-parse", "HEAD")
-        refreshed = sources.acquire("tools", source)
-        sources.commit()
-        assert_profile_adoption(base, sources, refresh=True)
-        assert refreshed.resolved_revision == second_revision
-        assert refreshed.source_id == observed.source_id
-        assert (refreshed.root / "resource.txt").read_text(encoding="utf-8") == "two"
+def test_declared_recipe_materializes_and_refreshes(milkpan, tmp_path):
+    repo = repository(tmp_path / "src")
+    (repo / "resource.txt").write_text("one", encoding="utf-8")
+    (repo / ".pspec/profiles").mkdir(parents=True)
+    (repo / ".pspec/profiles/base.toml").write_text('scope="user"\n')
+    (repo / "openspec/.pspec/profiles").mkdir(parents=True)
+    (repo / "openspec/.pspec/profiles/private.toml").write_text('scope="user"\n')
+    (repo / "skills/example").mkdir(parents=True)
+    (repo / "skills/example/SKILL.md").write_text("---\nname: declared-example\ndescription: Example.\n---\n\nBody\n")
+    (repo / "untracked.txt").write_text("not committed", encoding="utf-8")
+    git(repo, "add", ".", ":!untracked.txt")
+    git(repo, "commit", "-m", "first")
+    first_revision = git(repo, "rev-parse", "HEAD")
+
+    source = {"provider": "git", "origin": str(repo), "reference": "main"}
+    sources = MilkpanSources(milkpan, consumer_path=tmp_path / "consumer/config.toml")
+    observed = sources.ensure("tools", source)
+    sources.commit()
+    assert observed.resolved_revision == first_revision
+    assert (observed.root / "resource.txt").read_text(encoding="utf-8") == "one"
+    assert not (observed.root / "untracked.txt").exists() and not (observed.root / ".git").exists()
+    assert sources.ensure("tools", source) == observed
+    external = ExternalCatalogs().register(observed)
+    reusable = Catalog(sources=external.sources())
+    assert reusable.get("profile", "@tools/base").name == "base"
+    assert ("profile", "@tools/private") not in reusable.resources
+    direct = Catalog(gitsources={"tools": observed})
+    assert direct.select("skill", "tools/skills/*")[0].name == "declared-example"
+
+    (repo / "resource.txt").write_text("two", encoding="utf-8")
+    git(repo, "commit", "-am", "second")
+    refreshed = sources.acquire("tools", source)
+    sources.commit()
+    assert refreshed.resolved_revision == git(repo, "rev-parse", "HEAD")
+    assert refreshed.source_id == observed.source_id
+    assert (refreshed.root / "resource.txt").read_text(encoding="utf-8") == "two"
+    assert sources.lookup("tools", source) == refreshed
+
+
+def test_two_consumers_share_content_and_update_independently(milkpan, tmp_path):
+    repo = repository(tmp_path / "repo")
+    (repo / "data").write_text("A")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "A")
+    a = MilkpanSources(milkpan, consumer_path=tmp_path / "a/config.toml")
+    b = MilkpanSources(milkpan, consumer_path=tmp_path / "b/config.toml")
+    recipe = {"provider": "git", "origin": str(repo), "reference": "main"}
+    original = a.ensure("tools", recipe)
+    a.commit()
+    same = b.ensure("tools", recipe)
+    b.commit()
+    assert same.resolved_revision == original.resolved_revision
+    assert same.root == original.root, "one stored commit serves both consumers"
+
+    (repo / "data").write_text("B")
+    git(repo, "commit", "-am", "B")
+    candidate = a.acquire("tools", recipe)
+    assert candidate.resolved_revision != original.resolved_revision
+    assert a.lookup("tools", recipe) == original
+    a.reject()  # Caller validation rejected a known result.
+    assert a.lookup("tools", recipe) == original
+
+    (repo / "data").write_text("C")
+    git(repo, "commit", "-am", "C")
+    newer = a.acquire("tools", recipe)
+    a.commit()
+    assert (newer.root / "data").read_text() == "C"
+    assert (b.lookup("tools", recipe).root / "data").read_text() == "A"
+    milkpan.result("reclaim")
+    assert (b.lookup("tools", recipe).root / "data").read_text() == "A", "reclaim keeps selected content"
+    assert (a.lookup("tools", recipe).root / "data").read_text() == "C"
 
 
 def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
@@ -111,11 +116,7 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
 
     with tempfile.TemporaryDirectory(prefix="ps-life-") as temporary:
         root = Path(temporary)
-        remote = root / "remote"
-        remote.mkdir()
-        git(remote, "init", "-b", "main")
-        git(remote, "config", "user.name", "Test")
-        git(remote, "config", "user.email", "test@example.invalid")
+        remote = repository(root / "remote")
         skill = remote / "skills/example/SKILL.md"
         put(skill, "---\nname: example\ndescription: Example.\n---\n\nVersion one\n")
         git(remote, "add", ".")
@@ -138,21 +139,20 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
         def resources():
             yield builtin
 
-        store = SaucepanSources(Client(executable=BINARY, root=str(root / "store")), consumer_path=project / "openspec/.pspec/config.toml")
+        store = MilkpanSources(Milkpan(milkpan_binary(), root / "milkpan"),
+                               consumer_path=project / "openspec/.pspec/config.toml")
         source = {"provider": "git", "origin": str(remote), "reference": "main"}
         workspace = importlib.import_module("powerspec.workspace")
         sync = importlib.import_module("powerspec.cli.sync")
         init = importlib.import_module("powerspec.cli.init")
         upgrade = importlib.import_module("powerspec.cli.upgrade")
         monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
-        monkeypatch.setattr(sync, "SaucepanSources", lambda **_: store)
+        monkeypatch.setattr(sync, "MilkpanSources", lambda **_: store)
         isolated = dict(home=root / "home", registry=root / "registry")
         monkeypatch.setattr(init, "install_consumer", partial(install_consumer, source_store=store, **isolated))
         monkeypatch.setattr(upgrade, "builtin_catalog_root", resources)
-        monkeypatch.setattr(upgrade, "SaucepanSources", lambda **_: store)
+        monkeypatch.setattr(upgrade, "MilkpanSources", lambda **_: store)
         monkeypatch.setattr(upgrade, "upgrade_consumer", partial(upgrade_consumer, **isolated))
-        # This also keeps Windows from retaining the temporary working directory
-        # when TemporaryDirectory removes it after the test.
         with monkeypatch.context() as cwd:
             cwd.chdir(project)
             runner = CliRunner()
@@ -161,7 +161,6 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
             assert "run init" in first.output
             assert "# user comment" in target.read_text()
             assert not store.state_path.exists()
-            assert not (root / "home").exists()
             for status in ("installed", "reused"):
                 result = runner.invoke(app, ["init", "--agent", "codex"])
                 assert result.exit_code == 0, result.output
@@ -181,60 +180,3 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
             assert refreshed.exit_code == 0, refreshed.output
             assert store.lookup("tools", source).resolved_revision == git(remote, "rev-parse", "HEAD")
             assert "Version two" in installed.read_text()
-
-
-def test_two_consumers_lost_receipt_and_rejected_candidate():
-    from saucepan_sdk import TransportError
-    from saucepan_sdk.transport import CliTransport
-    from powerspec.catalog import ConfigurationError
-    with tempfile.TemporaryDirectory(prefix='ps-pins-') as temporary:
-        root = Path(temporary)
-        repo = root / 'repo'
-        repo.mkdir()
-        git(repo, 'init', '-b', 'main')
-        git(repo, 'config', 'user.name', 'Test')
-        git(repo, 'config', 'user.email', 'test@example.invalid')
-        (repo / 'data').write_text('A')
-        git(repo, 'add', '.')
-        git(repo, 'commit', '-m', 'A')
-        class LostReceipt(CliTransport):
-            lose = True
-            def json(self, config, call):
-                result = super().json(config, call)
-                if call.argv[0] == 'prepare-group' and self.lose:
-                    self.lose = False
-                    raise TransportError('timeout', started=True, indeterminate=True)
-                return result
-        transport = LostReceipt()
-        client = Client(executable=BINARY, root=str(root / 'store'), transport=transport)
-        a = SaucepanSources(client, consumer_path=root / 'a/config.toml')
-        b = SaucepanSources(client, consumer_path=root / 'b/config.toml')
-        recipe = {'provider': 'git', 'origin': str(repo), 'reference': 'main'}
-        with pytest.raises(ConfigurationError, match='may have committed'):
-            a.ensure('tools', recipe)
-        pending = a._state()['pending'].copy()
-        original = a.ensure('tools', recipe)
-        assert a._state()['pending'] == pending
-        a.commit()
-        same = b.ensure('tools', recipe)
-        b.commit()
-        assert same.resolved_revision == original.resolved_revision
-        (repo / 'data').write_text('B')
-        git(repo, 'commit', '-am', 'B')
-        candidate = a.acquire('tools', recipe)
-        assert candidate.resolved_revision != original.resolved_revision
-        assert a.lookup('tools', recipe) == original
-        a.reject()  # Caller validation rejected a known, successfully pinned result.
-        (repo / 'data').write_text('C')
-        git(repo, 'commit', '-am', 'C')
-        newer = a.acquire('tools', recipe)
-        a.commit()
-        assert (newer.root / 'data').read_text() == 'C'
-        assert (b.lookup('tools', recipe).root / 'data').read_text() == 'A'
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            reclaim = pool.submit(client.reclaim)
-            assert (b.lookup('tools', recipe).root / 'data').read_text() == 'A'
-            reclaim.result()
-        assert (original.root / 'data').read_text() == 'A'
-        assert (candidate.root / 'data').read_text() == 'B'

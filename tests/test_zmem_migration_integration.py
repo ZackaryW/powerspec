@@ -1,19 +1,19 @@
-"""Recipe migration through real Saucepan retention and ZuAT ownership."""
+"""Recipe migration through real milkpan retention and ZuAT ownership."""
 from contextlib import contextmanager
 import json
 from pathlib import Path
 import tempfile
 
 import pytest
-from saucepan_sdk import Client
 
 from powerspec.catalog import MetadataUnavailable
 from powerspec.installation import install_consumer
-from powerspec.sources import SaucepanSources
-from test_sources_integration import BINARY, git
+from powerspec.milkpan_client import Milkpan
+from powerspec.sources import MilkpanSources
+from milkpan_release_fixture import milkpan_binary
+from test_sources_integration import git
 
 
-@pytest.mark.skipif(not BINARY, reason='set SAUCEPAN_TEST_BINARY')
 def test_new_origin_preserves_retention_matching_skills_and_native_edits(monkeypatch):
     import powerspec.workspace as workspace
 
@@ -49,8 +49,8 @@ def test_new_origin_preserves_retention_matching_skills_and_native_edits(monkeyp
         def resources():
             yield builtin
         monkeypatch.setattr(workspace, 'builtin_catalog_root', resources)
-        client = Client(executable=BINARY, root=str(root / 'store'))
-        store = SaucepanSources(client, consumer_path=config)
+        client = Milkpan(milkpan_binary(), root / 'milkpan')
+        store = MilkpanSources(client, consumer_path=config)
         home = root / 'home'
         options = dict(agent='codex', home=home, registry=root / 'registry', source_store=store)
         old_recipe, new_recipe = [dict(provider='git', origin=str(origin), reference='main') for origin in origins]
