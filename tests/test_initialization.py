@@ -237,7 +237,7 @@ def test_current_ignore_rule_is_not_repeated_after_later_unrelated_rules(tmp_pat
     import powerspec.initialization as m
     project, catalog = setup_repo(tmp_path)
     ignore = project / "openspec/.pspec/.gitignore"
-    original = '/current.toml\n/saucepan-state.json\n/saucepan-state.lock\n'
+    original = '/current.toml\n/milkpan-state.json\n/milkpan-state.lock\n'
     ignore.write_text(original)
     monkeypatch.setattr(m, "bootstrap_openspec", bootstrap)
     m.initialize(m.plan_initialization(project))

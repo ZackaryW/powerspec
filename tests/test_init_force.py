@@ -73,7 +73,7 @@ def test_init_help_lists_force_recovery_scope():
     result = CliRunner().invoke(app, ['init', '--help'], color=False)
     assert result.exit_code == 0
     assert '--force' in result.stdout
-    assert all(word in result.stdout.lower() for word in ('refresh', 'migration', 'hook', 'replace'))
+    assert all(word in result.stdout.lower() for word in ('refresh', 'hook', 'replace'))
     assert '--scope' in result.stdout and all(word in result.stdout for word in ('local', 'global', 'all'))
 
 

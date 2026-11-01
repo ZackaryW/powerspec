@@ -171,7 +171,7 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
             assert manage_binary is False
 
         def lookup(self, identity, recipe):
-            raise ConfigurationError(f"Saucepan source {identity!r} is unavailable")
+            raise ConfigurationError(f"milkpan source {identity!r} is unavailable")
 
     @contextmanager
     def resources():
