@@ -180,3 +180,17 @@ def test_fresh_sync_init_and_upgrade_lifecycle(monkeypatch):
             assert refreshed.exit_code == 0, refreshed.output
             assert store.lookup("tools", source).resolved_revision == git(remote, "rev-parse", "HEAD")
             assert "Version two" in installed.read_text()
+
+
+def test_plain_milkpan_default_scope_still_works_beside_powerspec(milkpan, tmp_path):
+    repo = repository(tmp_path / "repo")
+    (repo / "data").write_text("A")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "A")
+    sources = MilkpanSources(milkpan, consumer_path=tmp_path / "consumer/config.toml")
+    binding = sources.ensure("tools", {"provider": "git", "origin": str(repo), "reference": "main"})
+    sources.commit()
+    spec = "local:" + str(repo.resolve()).replace("\\", "/")
+    plain = milkpan.acquire(f"{spec}@{binding.resolved_revision}", scope="default")
+    assert not plain["fetched"], "plain milkpan reuses Powerspec's stored content"
+    assert binding.source_id == spec

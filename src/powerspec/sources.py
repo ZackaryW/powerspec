@@ -81,7 +81,9 @@ class MilkpanSources:
         client_home = getattr(client, 'home', None)
         self.home = Path(home) if home else (Path(client_home) if client_home else default_home())
         self.consumer_path = Path(consumer_path or Path.home() / '.powerspec/config.toml').resolve()
-        self.scope = 'consumer-' + hashlib.sha256(os.path.normcase(str(self.consumer_path)).encode()).hexdigest()
+        identity = hashlib.sha256(os.path.normcase(str(self.consumer_path)).encode()).hexdigest()
+        self.scope = f'powerspec/consumer-{identity}'
+        self._earlier_scope = f'consumer-{identity}'
         self.state_path = self.consumer_path.parent / 'milkpan-state.json'
         self._candidates = {}
 
@@ -116,6 +118,9 @@ class MilkpanSources:
             return {'consumer': str(self.consumer_path), 'scope': self.scope, 'selected': {}}
         try:
             state = json.loads(self.state_path.read_text(encoding='utf-8'))
+            if state['consumer'] == str(self.consumer_path) and state['scope'] == self._earlier_scope:
+                # A selection from an earlier Powerspec's private bucket: nothing to reuse here.
+                return {'consumer': str(self.consumer_path), 'scope': self.scope, 'selected': {}}
             if state['consumer'] != str(self.consumer_path) or state['scope'] != self.scope:
                 raise ConfigurationError('consumer moved: start fresh local state by removing milkpan-state.json and rerunning init')
             if not isinstance(state['selected'], dict):

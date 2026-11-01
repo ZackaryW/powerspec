@@ -129,3 +129,18 @@ def test_exhausted_lookup_deadlines_never_call_milkpan(fake, tmp_path):
     sources.commit()
     with pytest.raises(MetadataUnavailable, match='deadline'):
         sources.lookup('tools', RECIPE, deadline=time.monotonic() - 1)
+
+
+def test_scopes_are_namespaced_and_earlier_selections_need_init(fake, tmp_path):
+    import json
+    sources = store(fake, tmp_path)
+    assert sources.scope.startswith('powerspec/consumer-')
+    earlier = {'consumer': str(sources.consumer_path), 'scope': sources.scope.removeprefix('powerspec/'),
+               'selected': {'x': {'lease': 'old'}}}
+    sources.state_path.parent.mkdir(parents=True, exist_ok=True)
+    sources.state_path.write_text(json.dumps(earlier), encoding='utf-8')
+    with pytest.raises(MetadataUnavailable, match='run init'):
+        sources.lookup('tools', RECIPE)
+    sources.ensure('tools', RECIPE)
+    sources.commit()
+    assert json.loads(sources.state_path.read_text(encoding='utf-8'))['scope'] == sources.scope

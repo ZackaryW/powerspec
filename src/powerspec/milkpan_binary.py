@@ -24,7 +24,7 @@ from .catalog import ConfigurationError, MetadataUnavailable
 from .milkpan_client import Milkpan, MilkpanError, MilkpanUnavailable
 from .utils.marked_block import replace_marked_block, split_marked_block
 
-MANAGER_SCOPE = 'powerspec-manager'
+MANAGER_SCOPE = 'powerspec/manager'
 SUPPORTED_LINES = {(0, 3)}
 DOWNLOAD_LIMIT = 64 * 1024 * 1024
 LEASE_ACTIONS = ['acquire', 'reacquire', 'read', 'release']
