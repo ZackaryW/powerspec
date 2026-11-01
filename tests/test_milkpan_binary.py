@@ -138,3 +138,48 @@ def test_the_bucket_is_shared_with_plain_milkpan(tmp_path, monkeypatch):
     assert default_home() == tmp_path / '.milkpan'
     monkeypatch.setenv('MILKPAN_HOME', str(tmp_path / 'elsewhere'))
     assert default_home() == tmp_path / 'elsewhere'
+
+
+USER_RULES = '''# my own rules
+[[rule]]
+scope = "ci"
+effect = "allow"
+actions = ["acquire"]
+resources = ["github:octo/*"]
+'''
+
+
+def test_the_policy_block_preserves_user_rules_byte_for_byte(tmp_path):
+    home = tmp_path / 'home'
+    home.mkdir()
+    (home / 'milkpan.toml').write_text(USER_RULES, encoding='utf-8')
+    ensure_consumer_policy(home, 'powerspec/consumer-abc')
+    first = (home / 'milkpan.toml').read_text(encoding='utf-8')
+    assert first.startswith(USER_RULES)
+    assert 'scope = "powerspec/consumer-abc"' in first and 'scope = "default"' in first
+    ensure_consumer_policy(home, 'powerspec/consumer-def')
+    second = (home / 'milkpan.toml').read_text(encoding='utf-8')
+    assert second.startswith(USER_RULES) and second.count('# >>> powerspec') == 1
+    assert 'consumer-abc' in second and 'consumer-def' in second
+    ensure_consumer_policy(home, 'powerspec/consumer-def')
+    assert (home / 'milkpan.toml').read_text(encoding='utf-8') == second, 'repeated writes are idempotent'
+
+
+def test_user_default_rules_suppress_the_block_default(tmp_path):
+    home = tmp_path / 'home'
+    home.mkdir()
+    (home / 'milkpan.toml').write_text(USER_RULES.replace('"ci"', '"default"'), encoding='utf-8')
+    ensure_consumer_policy(home, 'powerspec/consumer-abc')
+    block = (home / 'milkpan.toml').read_text(encoding='utf-8').split('# >>> powerspec')[1]
+    assert 'scope = "default"' not in block
+
+
+@pytest.mark.parametrize('broken', ['# >>> powerspec (managed; edits inside this block are replaced) >>>\n',
+                                    '# <<< powerspec <<<\n# >>> powerspec (managed; edits inside this block are replaced) >>>\n'])
+def test_malformed_markers_are_rejected(tmp_path, broken):
+    home = tmp_path / 'home'
+    home.mkdir()
+    (home / 'milkpan.toml').write_text(USER_RULES + broken, encoding='utf-8')
+    with pytest.raises(ConfigurationError, match='malformed managed block'):
+        ensure_consumer_policy(home, 'powerspec/consumer-abc')
+    assert (home / 'milkpan.toml').read_text(encoding='utf-8') == USER_RULES + broken
