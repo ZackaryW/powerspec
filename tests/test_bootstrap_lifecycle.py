@@ -44,7 +44,7 @@ def environment(tmp_path, monkeypatch):
     import powerspec.initialization as initialization
     module = importlib.import_module("powerspec.cli.init")
     monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
-    monkeypatch.setattr(workspace, "SaucepanSources", lambda **_: Sources())
+    monkeypatch.setattr(workspace, "MilkpanSources", lambda **_: Sources())
     monkeypatch.setattr(initialization, "bootstrap_openspec", bootstrap)
     monkeypatch.setattr(module, "install_consumer", partial(
         install_consumer, home=tmp_path / "home", registry=tmp_path / "registry", source_store=Sources()

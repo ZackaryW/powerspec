@@ -23,16 +23,16 @@ def test_force_refreshes_sources_with_optional_agent(environment, tmp_path, agen
     assert (tmp_path / 'home/.codex/hooks.json').exists() is bool(agent)
 
 
-def test_force_authorizes_default_manager_only_at_init_boundary(environment, monkeypatch):
+def test_force_prepares_the_managed_milkpan_at_init(environment, monkeypatch):
     import powerspec.workspace as workspace
-    factory = workspace.SaucepanSources
+    factory = workspace.MilkpanSources
     seen = []
     def source_store(**options):
         seen.append(options)
         return factory(**options)
-    monkeypatch.setattr(workspace, 'SaucepanSources', source_store)
+    monkeypatch.setattr(workspace, 'MilkpanSources', source_store)
     assert CliRunner().invoke(app, ['init', '--force']).exit_code == 0
-    assert seen == [dict(manage_binary=True, migrate_unmanaged=True)]
+    assert seen == [dict(manage_binary=True)]
 
 
 def test_force_replaces_differing_skills_recoverably(environment, tmp_path):

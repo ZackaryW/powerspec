@@ -121,9 +121,9 @@ def test_install_reports_partial_skill_failure_without_removing_successes(tmp_pa
 
 
 def recording_sources(tmp_path, remote, events):
-    from powerspec.sources import SaucepanSources
+    from powerspec.sources import MilkpanSources
 
-    class Sources(SaucepanSources):
+    class Sources(MilkpanSources):
         def for_consumer(self, path):
             return self
 
@@ -174,13 +174,13 @@ def test_failed_first_init_leaves_upgrade_a_selection(tmp_path, monkeypatch):
     """Regression: a skill conflict in first init made upgrade report no selection."""
     import powerspec.workspace as workspace
     from powerspec.consumer import discover_consumer
-    from powerspec.sources import SaucepanSources
+    from powerspec.sources import MilkpanSources
     from powerspec.upgrading import upgrade_consumer
 
     project, builtin, remote = setup(tmp_path)
     put(tmp_path / "home/.codex/skills/example/SKILL.md", "---\nname: example\n---\nUser content\n")
 
-    class Sources(SaucepanSources):
+    class Sources(MilkpanSources):
         # Stage candidates exactly as preparation does, without a manager.
         def for_consumer(self, path):
             return self

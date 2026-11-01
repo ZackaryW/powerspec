@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from powerspec.catalog import MetadataUnavailable
 from powerspec.cli import app
 from powerspec.resources import builtin_catalog_root
-from powerspec.sources import SaucepanSources, SourceBinding
+from powerspec.sources import MilkpanSources, SourceBinding
 from test_skill_cli import put
 
 
@@ -45,7 +45,7 @@ def test_sync_hook_native_selection_pending_and_rerun(tmp_path, monkeypatch):
     monkeypatch.setenv('USERPROFILE', str(tmp_path / 'home'))
     monkeypatch.setenv('CODEX_HOME', str(tmp_path / 'home/.codex'))
     monkeypatch.chdir(project)
-    monkeypatch.setattr(SaucepanSources, 'lookup', lambda *a, **k: SourceBinding(
+    monkeypatch.setattr(MilkpanSources, 'lookup', lambda *a, **k: SourceBinding(
         'remote', 'https://example.test/tools', 'main', 'a' * 40, 's', 'a', remote))
     def unavailable(*args, **kwargs):
         raise MetadataUnavailable('remote unavailable')
@@ -57,7 +57,7 @@ def test_sync_hook_native_selection_pending_and_rerun(tmp_path, monkeypatch):
     before = target.read_bytes()
     assert runner.invoke(app, ['sync']).exit_code == 0
     assert target.read_bytes() == before
-    monkeypatch.setattr(SaucepanSources, 'lookup', unavailable)
+    monkeypatch.setattr(MilkpanSources, 'lookup', unavailable)
     hook = runner.invoke(app, ['resolve', 'hook', 'afterCompaction', '--agent', 'codex'])
     assert hook.exit_code == 0, hook.output
     body = json.loads(hook.stdout)['hookSpecificOutput']['additionalContext']

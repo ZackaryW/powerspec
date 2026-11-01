@@ -6,7 +6,7 @@ import typer
 from ..catalog import ConfigurationError
 from ..consumer import discover_consumer
 from ..resources import builtin_catalog_root
-from ..sources import SaucepanSources
+from ..sources import MilkpanSources
 from ..upgrading import upgrade_consumer
 from ..progress import lifecycle_progress, stage
 
@@ -45,7 +45,7 @@ def upgrade(
                         local_sources=sources,
                         consumer=consumer,
                         agent=agent,
-                        source_store=SaucepanSources(consumer_path=consumer.config_path),
+                        source_store=MilkpanSources(consumer_path=consumer.config_path),
                         force=force,
                         repair_hooks=repair_hooks,
                     )

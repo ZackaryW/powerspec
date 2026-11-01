@@ -41,7 +41,7 @@ else:
     def catalog():
         yield Path.cwd()
     module.builtin_catalog_root = catalog
-    module.SaucepanSources = lambda **k: object()
+    module.MilkpanSources = lambda **k: object()
     module.upgrade_consumer = blocked
 sys.argv = ['pspec', command, '--agent', 'codex']
 main()

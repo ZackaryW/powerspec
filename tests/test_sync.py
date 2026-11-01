@@ -140,7 +140,7 @@ def test_sync_reuses_existing_remote_materialization_without_acquisition(tmp_pat
         yield catalog
 
     monkeypatch.setattr(importlib.import_module("powerspec.workspace"), "builtin_catalog_root", resources)
-    monkeypatch.setattr(module, "SaucepanSources", Sources)
+    monkeypatch.setattr(module, "MilkpanSources", Sources)
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 0, result.output
@@ -179,7 +179,7 @@ def test_sync_missing_required_remote_preserves_yaml(tmp_path, monkeypatch):
 
     import powerspec.workspace as workspace
     monkeypatch.setattr(workspace, "builtin_catalog_root", resources)
-    monkeypatch.setattr(module, "SaucepanSources", Sources)
+    monkeypatch.setattr(module, "MilkpanSources", Sources)
     monkeypatch.chdir(project)
     result = invoke(["sync"])
     assert result.exit_code == 1 and "unavailable" in result.stderr

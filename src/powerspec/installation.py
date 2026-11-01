@@ -16,7 +16,7 @@ from .provisioning import (
     provision_skills,
 )
 from .workspace import open_workspace
-from .sources import SaucepanSources
+from .sources import MilkpanSources
 from .progress import stage
 
 
@@ -42,7 +42,6 @@ def install_consumer(
     repair_hooks: bool = False,
     refresh_sources: bool = False,
     lookup_sources: bool = False,
-    migrate_unmanaged: bool = False,
     replace_skills: bool = False,
     confirm_replacement=None,
 ) -> InstallationResult:
@@ -60,11 +59,10 @@ def install_consumer(
         cwd,
         agent=agent,
         source_mode="lookup" if lookup_sources else "refresh" if refresh_sources else "ensure",
-        migrate_unmanaged=migrate_unmanaged,
         source_store=source_store,
     ) as workspace:
         plans = plan_skills(workspace.bundle)
-        if isinstance(workspace.source_store, SaucepanSources):
+        if isinstance(workspace.source_store, MilkpanSources):
             # Recovery commands need a published selection, so a first one must
             # not depend on agent provisioning succeeding.
             workspace.source_store.commit_new()
@@ -78,7 +76,7 @@ def install_consumer(
         with stage(f'Reconciling {agent} hooks') as task:
             hooks = provision_hooks(agent, home=home, registry=registry, repair_hooks=repair_hooks)
             task.result(hooks.status, '; '.join(hooks.diagnostics))
-        if isinstance(workspace.source_store, SaucepanSources):
+        if isinstance(workspace.source_store, MilkpanSources):
             if provisioning.ok and hooks.ok:
                 with stage('Saving source selections'):
                     workspace.source_store.commit()

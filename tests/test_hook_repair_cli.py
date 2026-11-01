@@ -20,7 +20,7 @@ def test_upgrade_hook_authorization_output_and_exit(tmp_path, monkeypatch, optio
     consumer = SimpleNamespace(config_path=tmp_path / "openspec/.pspec/config.toml")
     monkeypatch.setattr(cli, "discover_consumer", lambda *a, **kw: consumer)
     monkeypatch.setattr(cli, "builtin_catalog_root", lambda: nullcontext(tmp_path))
-    monkeypatch.setattr(cli, "SaucepanSources", lambda **kw: object())
+    monkeypatch.setattr(cli, "MilkpanSources", lambda **kw: object())
     seen = []
     def upgrade(**kwargs):
         seen.append((kwargs["force"], kwargs["repair_hooks"]))

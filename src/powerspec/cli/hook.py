@@ -8,7 +8,7 @@ from ..catalog import Catalog, ConfigurationError
 from ..consumer import discover_consumer
 from ..hooks import callback_for, dispatch, serialize
 from ..resources import builtin_catalog_root
-from ..sources import SaucepanSources
+from ..sources import MilkpanSources
 from ..utils.sections import compose_sections
 from ..utils.stdin_payload import read_json_object
 from .. import workset_defaults
@@ -55,7 +55,7 @@ def _guidance(root: Path, cwd: Path, consumer, event: str, agent: str, change: s
     catalog = Catalog(
         builtin=root,
         sources=sources,
-        git_resolver=SaucepanSources(manage_binary=False,
+        git_resolver=MilkpanSources(manage_binary=False,
             consumer_path=consumer.config_path if consumer else None).lookup,
     )
     diagnostics = []

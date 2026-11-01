@@ -17,7 +17,7 @@ from .provisioning import (
     provision_hooks,
     provision_skills,
 )
-from .sources import SaucepanSources, SourceBinding
+from .sources import MilkpanSources, SourceBinding
 from .progress import stage
 
 
@@ -94,7 +94,7 @@ def upgrade_consumer(
     finalize=_verify_removed,
 ) -> UpgradeResult:
     """Refresh every selected Git source and commit removals at the final boundary."""
-    store = source_store or SaucepanSources()
+    store = source_store or MilkpanSources()
     if callable(getattr(store, "for_consumer", None)):
         store = store.for_consumer(consumer.config_path)
     source_roots = dict(local_sources or {})

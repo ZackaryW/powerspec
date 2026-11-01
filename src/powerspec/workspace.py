@@ -11,7 +11,7 @@ from .catalog import Catalog, ConfigurationError
 from .consumer import Consumer, discover_consumer
 from .profiles import Bundle, compose
 from .resources import builtin_catalog_root
-from .sources import SaucepanSources
+from .sources import MilkpanSources
 from .progress import stage
 
 
@@ -36,19 +36,17 @@ def open_workspace(
     source_store=None,
     resolve_skills: bool = True,
     resolve_remote_skills: bool = True,
-    migrate_unmanaged: bool = False,
 ):
     """Yield a fully composed workspace and close packaged-resource handles.
 
     ``lookup`` is read-only with respect to remote materializations. ``ensure``
-    may create the Powerspec Saucepan application and acquire missing recipes.
-    ``refresh`` explicitly updates selections. Migration consent is independent.
+    may prepare Powerspec's managed milkpan and acquire missing recipes.
+    ``refresh`` explicitly updates selections.
     """
     consumer = discover_consumer(Path(cwd), runtime=runtime)
     if consumer is None:
         raise ConfigurationError("no owning openspec/.pspec/config.toml within this Git repository")
-    store = source_store or SaucepanSources(manage_binary=source_mode != "lookup",
-                                           migrate_unmanaged=migrate_unmanaged)
+    store = source_store or MilkpanSources(manage_binary=source_mode != "lookup")
     if callable(getattr(store, 'for_consumer', None)):
         store = store.for_consumer(consumer.config_path)
     if source_mode == "lookup":

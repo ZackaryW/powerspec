@@ -402,7 +402,7 @@ def test_hook_cli_emits_only_structured_guidance_without_input(tmp_path, monkeyp
             raise AssertionError("local hook fixture performed remote lookup")
 
     monkeypatch.setattr(cli, "builtin_catalog_root", resources)
-    monkeypatch.setattr(cli, "SaucepanSources", Sources)
+    monkeypatch.setattr(cli, "MilkpanSources", Sources)
     monkeypatch.chdir(project)
     result = CliRunner().invoke(
         app, ["resolve", "hook", "sessionStart", "--agent", "codex"],

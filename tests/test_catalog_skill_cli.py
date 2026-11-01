@@ -187,9 +187,9 @@ def test_selected_response_does_not_resolve_siblings_or_inactive_branches(tmp_pa
     def forbidden(*a, **k):
         pytest.fail('read-only resolution crossed a lifecycle boundary')
     import zuat.pub
-    from powerspec.sources import SaucepanSources
+    from powerspec.sources import MilkpanSources
     for method in ('ensure','acquire'):
-        monkeypatch.setattr(SaucepanSources, method, forbidden)
+        monkeypatch.setattr(MilkpanSources, method, forbidden)
     for method in ('locate_skill','install','uninstall'):
         monkeypatch.setattr(zuat.pub, method, forbidden)
     monkeypatch.chdir(project)

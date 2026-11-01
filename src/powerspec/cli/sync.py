@@ -6,7 +6,7 @@ import typer
 from ..catalog import ConfigurationError
 from ..conditions import Invocation, context_contributions
 from ..syncing import publish
-from ..sources import SaucepanSources
+from ..sources import MilkpanSources
 from ..workspace import open_workspace
 
 
@@ -19,7 +19,7 @@ def sync() -> None:
             agent="powerspec-sync",
             source_mode="lookup",
             runtime=False,
-            source_store=SaucepanSources(manage_binary=False),
+            source_store=MilkpanSources(manage_binary=False),
         ) as workspace:
             contributions = context_contributions(
                 workspace.bundle, workspace.consumer, Invocation(cwd)

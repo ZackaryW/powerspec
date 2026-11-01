@@ -45,7 +45,7 @@ def assert_guidance(output):
 
 def test_mixed_dynamic_unknown_hook_json_and_separate_diagnostic(project, monkeypatch):
     from powerspec.catalog import MetadataUnavailable
-    from powerspec.sources import SaucepanSources
+    from powerspec.sources import MilkpanSources
     config = project / 'openspec/.pspec'
     skill = config / 'skills/dynamic'
     skill.mkdir(parents=True)
@@ -60,8 +60,8 @@ def test_mixed_dynamic_unknown_hook_json_and_separate_diagnostic(project, monkey
     def unavailable(self, *args, **kwargs):
         calls.append(kwargs)
         raise MetadataUnavailable('service unavailable')
-    monkeypatch.setattr(SaucepanSources, 'lookup', unavailable)
-    monkeypatch.setattr(SaucepanSources, 'acquire', lambda *a, **k: pytest.fail('acquire'))
+    monkeypatch.setattr(MilkpanSources, 'lookup', unavailable)
+    monkeypatch.setattr(MilkpanSources, 'acquire', lambda *a, **k: pytest.fail('acquire'))
     monkeypatch.chdir(project)
     result = CliRunner().invoke(app, ['resolve', 'hook', 'sessionStart', '--agent', 'codex'])
     assert result.exit_code == 0, result.output

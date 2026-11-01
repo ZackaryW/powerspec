@@ -70,8 +70,8 @@ def init(
                 root = result.root
             established = True
             if agent is None:
-                with open_workspace(root, agent="powerspec-init", source_mode="refresh" if force else "ensure",
-                                    migrate_unmanaged=force) as workspace:
+                with open_workspace(root, agent="powerspec-init",
+                                    source_mode="refresh" if force else "ensure") as workspace:
                     if callable(getattr(workspace.source_store, 'commit', None)):
                         with stage('Saving source selections'):
                             workspace.source_store.commit()
@@ -81,7 +81,6 @@ def init(
                     sourcing = scope is not Scope.global_
                     try:
                         installed = install_consumer(root, agent=agent, refresh_sources=force and sourcing,
-                                                     migrate_unmanaged=force and sourcing,
                                                      lookup_sources=not sourcing,
                                                      repair_hooks=force, replace_skills=force,
                                                      confirm_replacement=None if force else _confirm_replacement)
