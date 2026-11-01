@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -28,17 +29,22 @@ class MilkpanError(Exception):
 class Milkpan:
     """One subprocess per call: `<exe> --home <home> --format json --protocol 1 ...`."""
 
-    def __init__(self, executable: Path | str, home: Path | str, *, timeout: float | None = 600):
+    def __init__(self, executable: Path | str, home: Path | str, *, timeout: float | None = 600,
+                 env: dict[str, str] | None = None):
         self.executable, self.home, self.timeout = str(executable), str(home), timeout
+        self.env = env or {}
 
     def with_timeout(self, timeout: float | None) -> Milkpan:
-        return Milkpan(self.executable, self.home, timeout=timeout)
+        return Milkpan(self.executable, self.home, timeout=timeout, env=self.env)
+
+    def _environment(self):
+        return {**os.environ, **self.env} if self.env else None
 
     def _run(self, *arguments: str) -> tuple[int, Any]:
         argv = [self.executable, '--home', self.home, '--format', 'json', '--protocol', str(PROTOCOL), *arguments]
         try:
             process = subprocess.run(argv, capture_output=True, text=True, encoding='utf-8', errors='replace',
-                                     timeout=self.timeout, shell=False,
+                                     timeout=self.timeout, shell=False, env=self._environment(),
                                      creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except subprocess.TimeoutExpired as error:
             raise MilkpanUnavailable(f'milkpan timed out after {self.timeout}s: {" ".join(arguments)}') from error
@@ -67,7 +73,7 @@ class Milkpan:
         try:
             process = subprocess.run([self.executable, '--version'], capture_output=True, text=True,
                                      encoding='utf-8', errors='replace', timeout=self.timeout, shell=False,
-                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                                     env=self._environment(), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except (OSError, subprocess.TimeoutExpired) as error:
             raise MilkpanUnavailable(f'cannot run milkpan {self.executable}: {error}') from error
         parts = process.stdout.split()
