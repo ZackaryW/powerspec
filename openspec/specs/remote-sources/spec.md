@@ -6,8 +6,7 @@ Declare remote recipes in profiles, materialize them through Powerspec's managed
 
 ## Requirements
 
-### Requirement: Remote acquisition uses profile recipes and one Saucepan application
-
+### Requirement: Remote acquisition uses profile recipes and milkpan commit leases
 Profiles SHALL declare each friendly Git source alias with an exact provider, origin and reference recipe, merged across the profile graph: identical declarations are accepted, conflicting ones rejected, and builtin reserved. Every selected recipe SHALL be materialized through Powerspec's managed milkpan as a lease on its resolved commit in the owning consumer's scope; aliases SHALL NOT become scopes. Consumers SHALL update independently while sharing stored content for the same commit.
 
 #### Scenario: Fresh init needs a remote recipe
