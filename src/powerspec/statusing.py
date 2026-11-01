@@ -31,7 +31,7 @@ class StatusResult:
 
 
 def inspect_status(cwd: Path, *, source_store=None) -> StatusResult:
-    """Inspect selected resources and current Saucepan availability only."""
+    """Inspect selected resources and current milkpan availability only."""
     with open_workspace(
         cwd,
         agent="powerspec-status",

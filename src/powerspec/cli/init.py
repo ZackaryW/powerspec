@@ -41,7 +41,7 @@ def _confirm_replacement(conflicts) -> bool:
 def init(
     profile: Annotated[str | None, typer.Option(help="Profile for a new consumer; existing configuration is preserved.")] = None,
     agent: Annotated[str | None, typer.Option(help="Provision selected skills and hooks for this agent.")] = None,
-    force: Annotated[bool, typer.Option('--force', help='Refresh sources, authorize verified Saucepan migration, and with --agent recoverably replace conflicting selected skills and repair matching hook receipts.')] = False,
+    force: Annotated[bool, typer.Option('--force', help='Refresh sources, and with --agent recoverably replace conflicting selected skills and repair matching hook receipts.')] = False,
     scope: Annotated[Scope, typer.Option('--scope', help='local: consumer and sources only; global: agent skills and hooks from existing selections; all: both.')] = Scope.all,
 ) -> None:
     """Bootstrap a Git-root consumer, sources, and optional agent assets."""

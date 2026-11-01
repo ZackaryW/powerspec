@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from time import monotonic
 
 from .consumer import discover_consumer
-from .saucepan_tool import _compatible, saucepan_executable_path
-from . import saucepan_tool
+from .milkpan_binary import MILKPAN, SUPPORTED_LINES, default_home, link_executable, manager_state, standalone
+from .milkpan_client import Milkpan
 from .utils.inspection import ExecutableResult, inspect_executable, semantic_version
 
 
@@ -47,7 +46,22 @@ def _check(name: str, result: ExecutableResult, *, minimum=None, compatible=None
     return DoctorCheck(name, "ok", result.version or result.executable or "available")
 
 
-def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str | None = None) -> DoctorResult:
+def _compatible(version: str) -> bool:
+    try:
+        major, minor, *_ = version.split(".")
+        return (int(major), int(minor)) in SUPPORTED_LINES
+    except ValueError:
+        return False
+
+
+def managed_state(home: Path) -> str:
+    """`current`, `behind` or `absent` for the managed link's release lease (read-only)."""
+    client = Milkpan(link_executable(home), home, timeout=15, env=MILKPAN.client_env())
+    return manager_state(client, MILKPAN, MILKPAN.target())
+
+
+def doctor_consumer(cwd: Path, *, milkpan_path: Path | None = None, milkpan_home: Path | None = None,
+                    agent: str | None = None) -> DoctorResult:
     """Return named prerequisite observations without changing the environment."""
     if agent is not None:
         from .hooks import callback_for
@@ -67,45 +81,34 @@ def doctor_consumer(cwd: Path, *, saucepan_path: Path | None = None, agent: str 
         root = consumer.git_root if consumer is not None else cwd
     git = inspect_executable(["git", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
     openspec = inspect_executable(["openspec", "--version"], cwd=root, timeout=15, parse_version=semantic_version)
-    target = saucepan_path or saucepan_executable_path()
-    deadline = monotonic() + 15
-    saucepan = inspect_executable(
-        [str(target), "--version"],
-        cwd=root,
-        timeout=15,
-        parse_version=semantic_version,
-    )
-    saucepan_check = _check("saucepan", saucepan, compatible=_compatible)
-    if saucepan_check.status == 'ok':
-        saucepan_check = DoctorCheck('saucepan', 'ok',
-            f'executable compatible ({saucepan.version})')
-    if saucepan_tool.standalone(target):
-        installation = DoctorCheck('saucepan-installation', 'warning',
-            'explicit standalone executable; managed ownership not required or inspected')
-    elif not saucepan.ok:
-        installation = DoctorCheck('saucepan-installation', 'failed',
-            'absent or uninspectable managed installation; use official setup/recovery')
-    elif (saucepan_tool._version(saucepan.version or '') or (0,)) < (0, 11, 0):
-        try:
-            detail = saucepan_tool.migration_guidance(target)
-        except OSError:
-            detail = 'unmanaged old manager; explicit verified migration required'
-        installation = DoctorCheck('saucepan-installation', 'failed', detail)
+    home = milkpan_home or default_home()
+    override = milkpan_path or standalone()
+    target = override or link_executable(home)
+    milkpan = inspect_executable([str(target), "--version"], cwd=root, timeout=15, parse_version=semantic_version)
+    milkpan_check = _check("milkpan", milkpan, compatible=_compatible)
+    if milkpan_check.status == "ok":
+        milkpan_check = DoctorCheck("milkpan", "ok", f"executable compatible ({milkpan.version})")
+    if override is not None:
+        installation = DoctorCheck("milkpan-installation", "warning",
+            "explicit standalone executable; managed link not required or inspected")
+    elif not milkpan.ok:
+        installation = DoctorCheck("milkpan-installation", "warning",
+            "managed milkpan not prepared; init or upgrade prepares it")
     else:
-        try:
-            status = saucepan_tool.inspect_managed_status(target, deadline=deadline)
-            saucepan_tool.require_ready(target, status, saucepan.version)
-        except (OSError, ValueError) as error:
-            installation = DoctorCheck('saucepan-installation', 'failed', str(error))
-        else:
-            installation = DoctorCheck('saucepan-installation', 'ok', f'managed state ready; root={status.root}')
+        state = managed_state(home)
+        installation = {
+            "current": DoctorCheck("milkpan-installation", "ok", f"managed link current ({MILKPAN.tag})"),
+            "behind": DoctorCheck("milkpan-installation", "warning",
+                f"managed link behind the pinned {MILKPAN.tag}; the next init or upgrade switches it"),
+        }.get(state, DoctorCheck("milkpan-installation", "failed",
+            "managed link has no release lease; rerun init"))
     checks = (
         consumer_check,
         _check("git", git),
         _check("openspec", openspec, minimum=(1, 14, 3)),
-        saucepan_check,
+        milkpan_check,
         installation,
-        DoctorCheck('saucepan-sources', 'warning', 'selected-source readiness not checked'),
+        DoctorCheck('milkpan-sources', 'warning', 'selected-source readiness not checked'),
     )
     if agent is None:
         return DoctorResult((*checks, DoctorCheck('guidance', 'warning',

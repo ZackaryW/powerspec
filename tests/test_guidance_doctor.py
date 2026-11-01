@@ -44,14 +44,14 @@ def delivery(tmp_path, monkeypatch):
     codex.mkdir(parents=True)
     (codex / 'hooks.json').write_text(json.dumps(native_document('codex')))
     monkeypatch.setenv('CODEX_HOME', str(codex))
-    monkeypatch.setenv('POWERSPEC_SAUCEPAN', str(home / 'standalone'))
+    monkeypatch.setenv('POWERSPEC_MILKPAN', str(home / 'standalone'))
     calls = []
     def inspect(argv, **kwargs):
         calls.append(argv)
         if argv[0] == 'pspec':
             envelope = {'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': rendered}}
             return ExecutableResult('ok', 'pspec', 0, json.dumps(envelope), 'Warning: source metadata unavailable')
-        version = '1.14.3' if argv[0] == 'openspec' else '0.10.0'
+        version = '1.14.3' if argv[0] == 'openspec' else '0.2.0'
         return ExecutableResult('ok', argv[0], 0, version, '', version)
     monkeypatch.setattr('powerspec.doctoring.inspect_executable', inspect)
     monkeypatch.chdir(project)
