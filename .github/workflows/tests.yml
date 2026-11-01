@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked
+      - name: Fetch the pinned milkpan (verified against its pinned SHA-256)
+        run: echo "MILKPAN_TEST_BINARY=$(uv run python scripts/fetch_milkpan.py "$RUNNER_TEMP/milkpan")" >> "$GITHUB_ENV"
+      - run: git config --global user.name ci && git config --global user.email ci@example.invalid
+      - run: uv run python -m pytest -q
