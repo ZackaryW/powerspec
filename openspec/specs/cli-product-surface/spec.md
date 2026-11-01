@@ -67,38 +67,6 @@ Provide a coherent Powerspec command lifecycle for establishing, inspecting, syn
 - **WHEN** a step fails after the consumer was established
 - **THEN** init keeps the completed setup and reports incomplete bootstrap for retry
 
-### Requirement: First-use source preparation preserves existing stores
-
-Source preparation SHALL delegate missing-store initialization and managed launcher publication to Saucepan's official setup contract, never publishing a raw manager at the default launcher path or moving installer leftovers. An unmanaged occupant SHALL need explicit Saucepan migration (external or init --force) or a standalone override; ordinary init and upgrade SHALL NOT supply migration consent. It SHALL NOT replace credentials, delete store data, bypass guards or substitute test keys.
-
-#### Scenario: Fresh native store
-- **WHEN** a store is absent and Saucepan permits initialization
-- **THEN** Saucepan setup completes the managed installation before PowerSpec registers its resource-consumer application and continues acquisition
-
-#### Scenario: Existing store cannot be initialized
-- **WHEN** Saucepan rejects initialization because existing data or credential problems prevent it
-- **THEN** PowerSpec reports failure without registering or acquiring sources or replacing store contents
-
-#### Scenario: Failed binary-only setup
-- **WHEN** the former installer left only recognized installer files under the default root
-- **THEN** rerunning init preserves those files in place and reports the provider-supported manual preservation or separate-root prerequisite without moving them
-
-#### Scenario: Canonical GitHub source identity
-- **WHEN** Saucepan returns the same HTTPS GitHub repository with canonical lowercase owner/repository spelling and the normal .git suffix
-- **THEN** source preparation accepts that identity while preserving host, transport, query, and reference distinctions; other hosts retain case-sensitive repository paths
-
-#### Scenario: Credential or store failure stays an error
-- **WHEN** the credential service fails or the store is damaged
-- **THEN** source preparation reports an error and claims no success
-
-#### Scenario: Uncertain provider setup
-- **WHEN** provider setup fails or its outcome is uncertain
-- **THEN** the user is directed to inspect and resume the original provider operation where applicable, then rerun init with the same source options
-
-#### Scenario: Upgrade does not replace missing initialization
-- **WHEN** a consumer's sources were never initialized
-- **THEN** upgrade does not silently perform that missing initialization
-
 ### Requirement: No separate install command
 The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an install command. Help and bundled bootstrap guidance SHALL direct users to init --agent for provisioning.
 
@@ -140,7 +108,7 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 
 #### Scenario: Fresh machine
 - **WHEN** selected sources have never been materialized
-- **THEN** sync prepares Saucepan, acquires those sources, and publishes after complete validation
+- **THEN** sync prepares milkpan, acquires those sources, and publishes after complete validation
 
 #### Scenario: Preserve current remote revision
 - **WHEN** upstream has newer content than the current materialization
@@ -148,7 +116,7 @@ The public CLI SHALL expose agent bootstrap through init and SHALL NOT expose an
 
 ### Requirement: Upgrade refreshes before committing removals
 
-`pspec upgrade --agent <agent>` SHALL refresh selected Saucepan sources, compose the refreshed bundle, reconcile skills and hooks, and remove obsolete managed installations only after every required refresh and reconciliation step succeeds. It SHALL reuse a compatible Saucepan installation without self-updating the shared manager, reporting provider update guidance before refresh when incompatible. `sync` SHALL keep preserving the currently materialized revisions.
+`pspec upgrade --agent <agent>` SHALL refresh selected milkpan sources, compose the refreshed bundle, reconcile skills and hooks, and remove obsolete managed installations only after every required refresh and reconciliation step succeeds. It SHALL bring Powerspec's managed milkpan to the pinned release before refreshing, effective on the next run, and SHALL NOT update a standalone override. `sync` SHALL keep preserving the currently materialized revisions.
 
 #### Scenario: Successful upgrade
 - **WHEN** all selected sources refresh and the resulting installation succeeds
@@ -262,26 +230,6 @@ Human-facing lifecycle commands SHALL emit concise successful outcomes to stdout
 - **WHEN** a command cannot complete its promised effect
 - **THEN** it exits nonzero and identifies the failed operation without a contradictory completion message
 
-### Requirement: Doctor distinguishes executable checks from source readiness
-
-Doctor SHALL label its successful Saucepan observation as an executable compatibility check, without implying initialized materializations. For the default managed route it SHALL separately inspect setup status when supported, distinguishing ready, unmanaged, absent, pending and conflict, since version alone SHALL NOT establish managed ownership. An explicit override SHALL be labelled standalone and inspected without adoption or update. Results SHALL state this limitation without mutation.
-
-#### Scenario: Compatible binary but no selected source
-- **WHEN** doctor observes a compatible Saucepan executable
-- **THEN** its detail identifies executable compatibility, reports managed installation status separately when applicable, and states that selected-source readiness was not checked
-
-#### Scenario: Compatible raw binary at the default path
-- **WHEN** a version-compatible raw manager occupies the default managed launcher path
-- **THEN** doctor distinguishes executable compatibility from missing managed ownership and reports explicit migration guidance without modifying the file
-
-#### Scenario: Explicit standalone override
-- **WHEN** the user selects an external manager through POWERSPEC_SAUCEPAN
-- **THEN** doctor labels that selection standalone without requiring managed ownership or changing the binary
-
-#### Scenario: Recovery guidance separates setup from init
-- **WHEN** doctor reports an incomplete provider setup
-- **THEN** its instructions distinguish explicit provider setup recovery from later source initialization with init before upgrade
-
 ### Requirement: Doctor reports evidence for guidance delivery stages
 
 `pspec doctor --agent codex|claude` SHALL add read-only diagnostics distinguishing effective zmem profile selection, current persistent rule publication, matching startup/compaction registrations, observable disabled settings, resolver generation for both events, and host receipt/adherence. Resolver generation SHALL use the installed hook command with finite timeouts and validate its envelope, keeping source warnings visible. Doctor SHALL NOT install, enable, trust, repair or acquire resources.
@@ -308,10 +256,10 @@ Doctor SHALL label its successful Saucepan observation as an executable compatib
 
 ### Requirement: Lifecycle commands expose active work while waiting
 
-Init, including source-only init, and upgrade SHALL emit progress on stderr before potentially blocking work and report item outcomes as they occur, naming consumer setup, manager preparation, source identity and stage, skill identity and count, hooks, and selection publication or removal/recovery when reached. Source progress SHALL distinguish reuse of a validated selection, cache-eligible preparation and explicit refresh, never claiming a cache hit or download without provider evidence.
+Init, including source-only init, and upgrade SHALL emit progress on stderr before potentially blocking work and report item outcomes as they occur, naming consumer setup, milkpan preparation, source identity and stage, skill identity and count, hooks, and selection publication or removal/recovery when reached. Source progress SHALL distinguish reuse of a validated selection, cache-eligible preparation and explicit refresh, reporting a download only when milkpan says content was fetched.
 
 #### Scenario: Native source operation takes time
-- **WHEN** init waits on Saucepan to prepare a selected source
+- **WHEN** init waits on milkpan to prepare a selected source
 - **THEN** stderr identifies that source before the wait and continues reporting the active stage and elapsed waiting without requiring native output
 
 #### Scenario: Earlier item fails
@@ -331,8 +279,8 @@ Init, including source-only init, and upgrade SHALL emit progress on stderr befo
 - **THEN** stderr reports retained selection reuse without suggesting materialization or a network refresh occurred
 
 #### Scenario: A new consumer prepares a source
-- **WHEN** init requests preparation using the 24-hour cache policy and the provider exposes no hit or transfer telemetry
-- **THEN** progress describes preparation with cache reuse allowed, without claiming either a hit or a download
+- **WHEN** init prepares a selection and milkpan reports that the content was already stored
+- **THEN** progress reports reuse of stored content rather than a download
 
 #### Scenario: Force requests refresh
 - **WHEN** init --force starts a source operation
@@ -524,3 +472,43 @@ The innermost active stage SHALL report elapsed waiting every five seconds while
 #### Scenario: Results keep their stdout contract
 - **WHEN** a lifecycle command succeeds with progress enabled
 - **THEN** its stdout results and exit status are unchanged by progress output
+
+### Requirement: First-use preparation bootstraps Powerspec's own milkpan
+
+Source preparation SHALL bootstrap Powerspec's managed milkpan from the pinned, verified release in Powerspec's own milkpan home, never adopting, migrating or modifying another milkpan or Saucepan installation or store. It SHALL NOT replace credentials, delete store data, bypass guards or substitute test keys.
+
+#### Scenario: Fresh machine
+- **WHEN** no Powerspec milkpan home exists
+- **THEN** preparation bootstraps and links the pinned milkpan before acquiring the selected sources
+
+#### Scenario: Old Saucepan store present
+- **WHEN** a Saucepan store and `saucepan-state.json` from an earlier Powerspec exist
+- **THEN** preparation leaves them untouched and creates fresh milkpan selections
+
+#### Scenario: Canonical GitHub source identity
+- **WHEN** a recipe names an HTTPS GitHub repository with different owner/repository letter case or a `.git` suffix
+- **THEN** it maps to the same canonical milkpan GitHub spec, while other parts of the reference stay distinct
+
+#### Scenario: Credential or store failure stays an error
+- **WHEN** milkpan reports a failure for the bucket or for GitHub credentials
+- **THEN** source preparation reports an error and claims no success
+
+#### Scenario: Upgrade does not replace missing initialization
+- **WHEN** a consumer's sources were never initialized
+- **THEN** upgrade does not silently perform that missing initialization
+
+### Requirement: Doctor distinguishes milkpan compatibility from source readiness
+
+Doctor SHALL label its successful milkpan observation as an executable compatibility check (protocol and version), without implying initialized selections. For the managed route it SHALL separately report whether the `milkpan` link exists and whether its lease matches the pinned release; an explicit override SHALL be labelled standalone. Results SHALL state these limitations without mutation.
+
+#### Scenario: Compatible binary but no selected source
+- **WHEN** doctor observes a compatible milkpan executable
+- **THEN** its detail identifies executable compatibility, reports the managed link state separately when applicable, and states that selected-source readiness was not checked
+
+#### Scenario: Managed link behind the pin
+- **WHEN** the linked milkpan's lease does not match the pinned release
+- **THEN** doctor reports that the next preparation or upgrade will switch it, without modifying anything
+
+#### Scenario: Explicit standalone override
+- **WHEN** the user selects an external milkpan through POWERSPEC_MILKPAN
+- **THEN** doctor labels that selection standalone without checking managed state or changing the binary

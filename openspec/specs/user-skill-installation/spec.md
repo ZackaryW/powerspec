@@ -111,7 +111,7 @@ Maintainer preparation SHALL vendor selected committed OpenSpec skill directorie
 - **THEN** the build succeeds and uv run pytest keeps its reviewed default behavior
 
 #### Scenario: Install bundled OpenSpec skills without upstream access
-- **WHEN** pspec init provisions selected OpenSpec skills from an installed Powerspec distribution with no upstream repository or saucepan cache available
+- **WHEN** pspec init provisions selected OpenSpec skills from an installed Powerspec distribution with no upstream repository or milkpan bucket available
 - **THEN** ZuAT receives complete local package resources without attempting an OpenSpec download or generation
 
 #### Scenario: Missing bundled resource
@@ -152,7 +152,7 @@ Initialization SHALL establish a Git ignore rule for the consumer's current.toml
 
 ### Requirement: Bundled OpenSpec skills provision from the installed package
 
-ZuAT SHALL provision bundled OpenSpec resources from the installed Powerspec package at their declaring profile's scope, defaulting to user scope, without requiring a .pspec catalog, developer cache paths, or a registered remote source. Missing packaged resources or known incompatible versions SHALL be reported rather than fetched, generated or partially installed. Saucepan SHALL remain the acquisition mechanism only for user-added remote sources.
+ZuAT SHALL provision bundled OpenSpec resources from the installed Powerspec package at their declaring profile's scope, defaulting to user scope, without requiring a .pspec catalog, developer cache paths, or a registered remote source. Missing packaged resources or known incompatible versions SHALL be reported rather than fetched, generated or partially installed. Milkpan SHALL remain the acquisition mechanism only for user-added remote sources.
 
 #### Scenario: Incompatible bundled version
 - **WHEN** a packaged OpenSpec resource is known to be incompatible

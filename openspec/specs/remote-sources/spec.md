@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Declare remote recipes in profiles, materialize them through one Powerspec Saucepan application, and connect their validated resources and provenance to existing selection and provisioning.
+Declare remote recipes in profiles, materialize them through Powerspec's managed milkpan as per-consumer commit leases, and connect their validated resources and provenance to existing selection and provisioning.
 
 ## Requirements
 
 ### Requirement: Remote acquisition uses profile recipes and one Saucepan application
 
-Profiles SHALL declare each friendly Git source alias with an exact provider, origin and reference recipe, merged across the profile graph: identical declarations are accepted, conflicting ones rejected, and builtin reserved. Every selected recipe SHALL be materialized through one registered Saucepan application named powerspec, identified by its UUID; aliases SHALL NOT become applications. Claims SHALL use owning-consumer scopes, so consumers update independently yet share cached content.
+Profiles SHALL declare each friendly Git source alias with an exact provider, origin and reference recipe, merged across the profile graph: identical declarations are accepted, conflicting ones rejected, and builtin reserved. Every selected recipe SHALL be materialized through Powerspec's managed milkpan as a lease on its resolved commit in the owning consumer's scope; aliases SHALL NOT become scopes. Consumers SHALL update independently while sharing stored content for the same commit.
 
 #### Scenario: Fresh init needs a remote recipe
-- **WHEN** init selects a declared recipe and no store or application exists
-- **THEN** Powerspec initializes the absent store, registers its application and materializes and retains the scoped recipe with provenance
+- **WHEN** init selects a declared recipe and no milkpan home or selection exists
+- **THEN** Powerspec prepares milkpan, resolves the recipe's reference, leases that exact commit in the consumer's scope and retains the selection with provenance
 
 #### Scenario: Repeated init finds a materialization
 - **WHEN** ordinary init without --force selects a recipe already materialized for this consumer
@@ -20,7 +20,7 @@ Profiles SHALL declare each friendly Git source alias with an exact provider, or
 
 #### Scenario: Conflicting aliases
 - **WHEN** two effective profiles declare different recipes for one alias
-- **THEN** composition fails before Saucepan or installation work begins
+- **THEN** composition fails before milkpan or installation work begins
 
 #### Scenario: Read an installed remote skill
 - **WHEN** ordinary skill resolution reads an already installed skill originally obtained remotely
@@ -55,7 +55,7 @@ Powerspec SHALL discover .pspec resources for reusable catalog registration and 
 A qualified remote skill reference SHALL resolve through its registered source catalog by the name declared in SKILL.md, and pass through composition and ZuAT provisioning with its source, revision and location provenance, installed under that declared name without a source prefix. Same-name resources in unselected sources SHALL NOT conflict, while different selected resources targeting one agent/name/scope/project destination SHALL be diagnosed. Registration alone SHALL NOT install a skill.
 
 #### Scenario: Remote skill selected
-- **WHEN** a profile selects @team-tools/pspec-tdd from a validated saucepan-managed source
+- **WHEN** a profile selects @team-tools/pspec-tdd from a validated milkpan-managed source
 - **THEN** selection retains provenance and provisioning receives the complete resource with installed name pspec-tdd
 
 #### Scenario: Source merely registered
@@ -76,7 +76,7 @@ Profile skills SHALL support `<alias>/<path-pattern>` strings for Git-path selec
 
 #### Scenario: Alias has no declaration
 - **WHEN** a source-relative reference names an alias absent from the effective profile declarations
-- **THEN** resolution reports the missing declaration without guessing a URL or treating the alias as a Saucepan app
+- **THEN** resolution reports the missing declaration without guessing a URL or treating the alias as a milkpan scope
 
 #### Scenario: Direct selection
 - **WHEN** a reference selects one contained source-relative directory with a valid `SKILL.md`
@@ -96,7 +96,7 @@ Profile skills SHALL support `<alias>/<path-pattern>` strings for Git-path selec
 
 ### Requirement: Sync reuses materialized sources and preserves installations
 
-Sync SHALL resolve declared recipes only from existing materializations in the `powerspec` Saucepan application, without refreshing or fetching. It SHALL NOT install or remove skills, even when a source is unavailable or its registration was removed. Required resources missing from an existing materialization SHALL produce diagnostics without repair. These guarantees SHALL NOT prevent normal config.yaml reconciliation of obsolete managed context contributions.
+Sync SHALL resolve declared recipes only from the consumer's existing milkpan selections, without refreshing or fetching. It SHALL NOT install or remove skills, even when a source is unavailable or its selection was removed. Required resources missing from an existing materialization SHALL produce diagnostics without repair. These guarantees SHALL NOT prevent normal config.yaml reconciliation of obsolete managed context contributions.
 
 #### Scenario: Sync while source is unavailable
 - **WHEN** a selected recipe has no readable current materialization during sync
@@ -104,7 +104,7 @@ Sync SHALL resolve declared recipes only from existing materializations in the `
 
 ### Requirement: Upgrade removes obsolete skills only on complete success
 
-An explicit upgrade SHALL refresh selected profile recipes through the `powerspec` Saucepan application, validate replacement selections, and provision selected complete resources through ZuAT. Missing skills SHALL be confirmed only by a successfully refreshed, valid recipe; failed acquisition, an unavailable application, an unmatched recipe and invalid replacements SHALL NOT establish absence.
+An explicit upgrade SHALL refresh selected profile recipes through milkpan (resolving each reference again), validate replacement selections, and provision selected complete resources through ZuAT. Missing skills SHALL be confirmed only by a successfully refreshed, valid recipe; failed acquisition, unavailable milkpan, an unmatched recipe and invalid replacements SHALL NOT establish absence.
 
 #### Scenario: Successful upgrade removes a disappeared skill
 - **WHEN** a valid refreshed source no longer contains a previously selected managed skill and the entire requested upgrade succeeds
@@ -129,26 +129,6 @@ An explicit upgrade SHALL refresh selected profile recipes through the `powerspe
 #### Scenario: Recursive selector is explicit
 - **WHEN** a registered source contains valid skills at immediate and nested depths
 - **THEN** skills/* selects only immediate skill roots and an explicitly recursive ** selector can select nested roots within the same canonical source boundary
-
-### Requirement: Profile defaults are expanded by the manager
-
-Authorized preparation SHALL obtain Saucepan's `explicit-update` expansion and register its immutable flat catalog. Missing-selection preparation SHALL override retrieval refresh with max_age 86400 seconds; upgrade and init --force SHALL use always-refresh and acquisition-update; pin retention, consumer scope and optional protection SHALL stay independent. Pending intent SHALL keep the expanded catalog and UUIDs for retry, and read-only lookup SHALL NOT expand or register profiles.
-
-#### Scenario: Preparation response is lost after selecting policies
-- **WHEN** an uncertain preparation is retried
-- **THEN** the original expanded catalog and UUID references are reused without expanding the named recipe again
-
-#### Scenario: Explicit upgrade updates copied results
-- **WHEN** an existing selected recipe is explicitly upgraded
-- **THEN** the manager-expanded profile uses the explicitly supplied acquisition-update policy before revision-checked claim adoption and preparation
-
-#### Scenario: Initialization selects bounded freshness
-- **WHEN** ordinary init prepares a missing consumer selection
-- **THEN** its expanded policies use cached retrieval with a 86400-second maximum age and retain manual copied-result updates and consumer-scoped pins
-
-#### Scenario: Forced initialization selects explicit refresh
-- **WHEN** init --force prepares a selected recipe
-- **THEN** the expanded policies force retrieval and copied-result updates even when the existing consumer selection and shared cache are current
 
 ### Requirement: Selected bindings retain exact output provenance
 
@@ -292,3 +272,25 @@ A validated candidate for a recipe with no prior selection in the consumer SHALL
 #### Scenario: Declined replacement keeps the first selection
 - **WHEN** the user declines to replace conflicting skills during a consumer's first init
 - **THEN** the consumer's validated first source selection stays published
+
+### Requirement: Source freshness uses lease settings
+Preparing a missing selection SHALL resolve the recipe's reference at most once per day per consumer, reusing a resolution within that day without network access. Upgrade and init --force SHALL resolve again regardless of age. Selected commit leases SHALL NOT expire while selected. A selection SHALL be published only after the caller's success boundary, and a replaced selection's lease SHALL be released only after the new one is published.
+
+#### Scenario: Second consumer within a day
+- **WHEN** another consumer prepares a recipe whose commit is already stored
+- **THEN** no content is downloaded and that consumer gets its own commit lease
+
+#### Scenario: Upgrade fails after resolving
+- **WHEN** upgrade resolves a new commit but a later step fails
+- **THEN** the consumer keeps its previous selection and content, and the candidate lease is released
+
+### Requirement: Only GitHub and local origins are supported
+Recipes with `https://github.com/<owner>/<repo>` origins (optionally ending in `.git`) SHALL map to milkpan GitHub specs, and recipes with absolute local paths or `file://` URLs SHALL map to milkpan local specs. Any other origin SHALL fail with a configuration error naming the supported forms, before milkpan is invoked.
+
+#### Scenario: GitLab origin
+- **WHEN** a recipe's origin is `https://gitlab.com/team/tools`
+- **THEN** preparation fails naming the supported GitHub and local forms
+
+#### Scenario: Local test repository
+- **WHEN** a recipe's origin is a `file://` URL of a local repository
+- **THEN** it is prepared through milkpan's local provider at the recipe's reference
