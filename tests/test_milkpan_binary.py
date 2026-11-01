@@ -7,7 +7,8 @@ import zipfile
 import pytest
 
 from powerspec.catalog import ConfigurationError, MetadataUnavailable
-from powerspec.milkpan_binary import (MILKPAN, MANAGER_SCOPE, TARGETS, Release, download, ensure_consumer_policy,
+from powerspec.milkpan_binary import (MILKPAN, MANAGER_SCOPE, TARGETS, Release, default_home, download,
+                                      ensure_consumer_policy,
                                       ensure_milkpan, extract, inspect_milkpan, link_executable, manager_state)
 
 from milkpan_release_fixture import release_server
@@ -106,3 +107,11 @@ def test_consumer_rules_exist_before_first_use(tmp_path):
     ensure_consumer_policy(home, 'consumer-def')
     policy = (home / 'milkpan.toml').read_text(encoding='utf-8')
     assert 'consumer-abc' in policy and 'consumer-def' in policy
+
+
+def test_the_bucket_is_shared_with_plain_milkpan(tmp_path, monkeypatch):
+    monkeypatch.delenv('MILKPAN_HOME', raising=False)
+    monkeypatch.setattr('pathlib.Path.home', classmethod(lambda cls: tmp_path))
+    assert default_home() == tmp_path / '.milkpan'
+    monkeypatch.setenv('MILKPAN_HOME', str(tmp_path / 'elsewhere'))
+    assert default_home() == tmp_path / 'elsewhere'

@@ -18,7 +18,7 @@ def setup(tmp_path):
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     monkeypatch.delenv('POWERSPEC_MILKPAN', raising=False)
-    monkeypatch.setenv('POWERSPEC_MILKPAN_HOME', str(tmp_path / 'milkpan'))
+    monkeypatch.setenv('MILKPAN_HOME', str(tmp_path / 'milkpan'))
     monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: pytest.fail('doctor network'))
 
 
@@ -66,7 +66,7 @@ def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch, openspec_ver
     project = setup(tmp_path)
 
     def inspect(argv, **kwargs):
-        version = openspec_version if argv[0] == "openspec" else "0.2.0"
+        version = openspec_version if argv[0] == "openspec" else "0.3.0"
         return ExecutableResult("ok", argv[0], 0, version, "", version)
 
     monkeypatch.setattr(doctoring, "inspect_executable", inspect)
@@ -75,7 +75,7 @@ def test_doctor_rejects_old_openspec_version(tmp_path, monkeypatch, openspec_ver
     assert check.status == "failed" and "older than 1.14.3" in check.detail
 
 
-@pytest.mark.parametrize("version,status", [("0.2.0", "ok"), ("0.1.0", "failed"), ("1.0.0", "failed")])
+@pytest.mark.parametrize("version,status", [("0.3.0", "ok"), ("0.3.7", "ok"), ("0.2.0", "failed"), ("1.0.0", "failed")])
 def test_milkpan_compatibility_is_its_release_line(tmp_path, monkeypatch, version, status):
     import powerspec.doctoring as doctoring
 
@@ -88,7 +88,7 @@ def test_milkpan_compatibility_is_its_release_line(tmp_path, monkeypatch, versio
 def test_doctor_labels_standalone_without_implying_source_readiness(tmp_path, monkeypatch, json_output):
     from typer.testing import CliRunner
     from powerspec.cli import app
-    monkeypatch.setattr('powerspec.doctoring.inspect_executable', tools('0.2.0'))
+    monkeypatch.setattr('powerspec.doctoring.inspect_executable', tools('0.3.0'))
     monkeypatch.setenv('POWERSPEC_MILKPAN', str(tmp_path / 'standalone'))
     monkeypatch.chdir(setup(tmp_path))
     result = CliRunner().invoke(app, ['doctor', *(['--json'] if json_output else [])])
@@ -109,7 +109,7 @@ def test_doctor_labels_standalone_without_implying_source_readiness(tmp_path, mo
 def test_managed_link_state_is_reported_separately(tmp_path, monkeypatch, state, status, code):
     from typer.testing import CliRunner
     from powerspec.cli import app
-    monkeypatch.setattr('powerspec.doctoring.inspect_executable', tools('0.2.0'))
+    monkeypatch.setattr('powerspec.doctoring.inspect_executable', tools('0.3.0'))
     monkeypatch.setattr('powerspec.doctoring.managed_state', lambda home: state)
     monkeypatch.chdir(setup(tmp_path))
     result = CliRunner().invoke(app, ['doctor', '--json'])

@@ -23,7 +23,7 @@ from .catalog import ConfigurationError, MetadataUnavailable
 from .milkpan_client import Milkpan, MilkpanError, MilkpanUnavailable
 
 MANAGER_SCOPE = 'powerspec-manager'
-SUPPORTED_LINES = {(0, 2)}
+SUPPORTED_LINES = {(0, 3)}
 DOWNLOAD_LIMIT = 64 * 1024 * 1024
 LEASE_ACTIONS = ['acquire', 'reacquire', 'read', 'release']
 
@@ -69,11 +69,11 @@ class Release:
         return {**self.env, **({'MILKPAN_GITHUB_API': self.github_api} if self.github_api else {})}
 
 
-MILKPAN = Release(tag='v0.2.0', digests={
-    'milkpan-v0.2.0-aarch64-apple-darwin.tar.gz': 'c4f20bf9f0425e2852abb4effbca23ba26570ad6572303a26db22a3c9fdaba6c',
-    'milkpan-v0.2.0-x86_64-apple-darwin.tar.gz': '0f0d1a925b112d3afabc32a42a1c6818a3151248228f80be6b059f2427c025f7',
-    'milkpan-v0.2.0-x86_64-pc-windows-msvc.zip': 'b6f10ea5a77ab50b181606876e1a188ac47113383cafc3708b190c09066c6fdc',
-    'milkpan-v0.2.0-x86_64-unknown-linux-gnu.tar.gz': '039ad9b610c4eec50aa0694db37659db12d4e1196434b776de3e33a6aee9bc4f',
+MILKPAN = Release(tag='v0.3.0', digests={
+    'milkpan-v0.3.0-aarch64-apple-darwin.tar.gz': '84bd0fc291c8cb9e4cfc1161a9151f063302a197168e458f6f8b7fe92ea9764e',
+    'milkpan-v0.3.0-x86_64-apple-darwin.tar.gz': '46a9b6e8f0c2938c7346de09c2699587ebe63b26a4787e2b3f241037d55198f4',
+    'milkpan-v0.3.0-x86_64-pc-windows-msvc.zip': '2da4d5135877bb8af56f378287d272f3d6f725049ab7385f6b94bd3e9856891b',
+    'milkpan-v0.3.0-x86_64-unknown-linux-gnu.tar.gz': '4b75946f65fcb1797bd8b09b522566b5afa6caa68061a9b323135ff916d8817e',
 })
 
 
@@ -82,8 +82,9 @@ def executable_name() -> str:
 
 
 def default_home() -> Path:
-    override = os.environ.get('POWERSPEC_MILKPAN_HOME')
-    return Path(override) if override else Path.home() / '.powerspec' / 'milkpan'
+    """The shared bucket, resolved exactly as milkpan does: MILKPAN_HOME, then ~/.milkpan."""
+    override = os.environ.get('MILKPAN_HOME')
+    return Path(override) if override else Path.home() / '.milkpan'
 
 
 def link_executable(home: Path) -> Path:
