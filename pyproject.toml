@@ -12,7 +12,7 @@ dependencies = [
     "ruamel-yaml>=0.18,<0.19",
     "tomlkit>=0.13,<1",
     "typer>=0.27.2",
-    "zuat @ git+https://github.com/ZackaryW/zuat@1c2fb36dce8e82b5f211ff8a4e00a71376e2cb52",
+    "zuat @ git+https://github.com/ZackaryW/zuat@24fee170029ff82d2dd5bb532db9246913c116cc",
     "zuu @ git+https://github.com/ZackaryW/zuu@731be142933d05fe06697c17c1083c4ea2fb5f12",
 ]
 
